@@ -8,12 +8,12 @@ import { HelpCircle } from 'lucide-react';
 
 const faqs = [
   {
-    question: 'Siapa saja yang bisa mengisi data di Survey Lulusan?',
-    answer: 'Survey Lulusan dapat diakses oleh mahasiswa dan alumni Program Studi Administrasi Bisnis Terapan (ABT) Politeknik Negeri Semarang. Sistem akan mencocokkan data Anda dengan database master sebelum mengizinkan pengisian form.',
+    question: 'Siapa saja yang bisa mengisi data di Arsip Mahasiswa Prodi ABT?',
+    answer: 'Arsip Mahasiswa Prodi ABT dapat diakses oleh mahasiswa dan alumni Program Studi Administrasi Bisnis Terapan (ABT) Politeknik Negeri Semarang. Sistem akan mencocokkan data Anda dengan database master sebelum mengizinkan pengisian form.',
   },
   {
-    question: 'Apa saja data yang bisa diisi di Survey Lulusan?',
-    answer: 'Survey Lulusan mencakup profil mahasiswa, riwayat karir (khusus alumni), dan prestasi non-akademik seperti partisipasi kegiatan, karya ilmiah, HAKI, pengalaman magang, wirausaha, dan program pengembangan diri.',
+    question: 'Apa saja data yang dicatat di Arsip Mahasiswa Prodi ABT?',
+    answer: 'Arsip Mahasiswa Prodi ABT mencakup profil mahasiswa, riwayat karir (khusus alumni), dan prestasi non-akademik seperti partisipasi kegiatan, karya ilmiah, HAKI, pengalaman magang, wirausaha, dan program pengembangan diri.',
   },
   {
     question: 'Apakah data saya aman?',
@@ -54,7 +54,7 @@ export function FAQSection() {
               Pertanyaan Umum
             </h2>
             <p className="text-lg text-muted-foreground">
-              Temukan jawaban untuk pertanyaan yang sering diajukan tentang Survey Lulusan.
+              Temukan jawaban untuk pertanyaan yang sering diajukan tentang Arsip Mahasiswa Prodi ABT.
             </p>
           </div>
 

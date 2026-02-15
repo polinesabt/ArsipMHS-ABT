@@ -1,4 +1,4 @@
-import { GraduationCap, Mail, Phone, MapPin, ExternalLink } from 'lucide-react';
+﻿import { Mail, Phone, MapPin, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export function Footer() {
@@ -9,16 +9,20 @@ export function Footer() {
           {/* Brand */}
           <div className="lg:col-span-2">
             <div className="flex items-center gap-3 mb-5">
-              <div className="w-12 h-12 rounded-xl bg-sidebar-primary flex items-center justify-center">
-                <GraduationCap className="w-6 h-6 text-sidebar-primary-foreground" />
+              <div className="w-12 h-12 flex items-center justify-center rounded-xl">
+                <img
+                  src="/logo-polines.png"
+                  alt="Logo Politeknik Negeri Semarang"
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div>
-                <span className="font-bold text-xl text-sidebar-foreground block">Survey Lulusan</span>
+                <span className="font-bold text-xl text-sidebar-foreground block">Arsip Mahasiswa Prodi ABT</span>
                 <span className="text-xs text-sidebar-foreground/60">Politeknik Negeri Semarang</span>
               </div>
             </div>
             <p className="text-sidebar-foreground/70 text-sm max-w-md mb-6 leading-relaxed">
-              Sistem Informasi Lulusan — Arsip digital resmi Program Studi 
+              Sistem Informasi Lulusan â€” Arsip digital resmi Program Studi 
               Administrasi Bisnis Terapan (ABT). Menghubungkan kampus dengan lulusan 
               untuk membangun jejaring profesional yang lebih kuat.
             </p>
@@ -53,9 +57,6 @@ export function Footer() {
               </Link>
               <Link to="/validasi" className="text-sm text-sidebar-foreground/70 hover:text-sidebar-primary transition-colors">
                 Input Data Alumni
-              </Link>
-              <Link to="/kepuasan-pengguna" className="text-sm text-sidebar-foreground/70 hover:text-sidebar-primary transition-colors">
-                Evaluasi Lulusan
               </Link>
               <Link to="/admin" className="text-sm text-sidebar-foreground/70 hover:text-sidebar-primary transition-colors">
                 Dashboard Admin
@@ -95,11 +96,11 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-sidebar-border mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-sidebar-foreground/50">
-            © {new Date().getFullYear()} Survey Lulusan — Politeknik Negeri Semarang. Hak cipta dilindungi.
+        <div className="border-t border-sidebar-border mt-12 pt-8 flex flex-col md:flex-row md:flex-wrap md:justify-between md:items-start gap-4">
+          <p className="text-sm text-sidebar-foreground/50 max-w-full break-words">
+            Â© {new Date().getFullYear()} Arsip Mahasiswa Prodi ABT â€” Politeknik Negeri Semarang. Hak cipta dilindungi.
           </p>
-          <p className="text-sm text-sidebar-foreground/50">
+          <p className="text-sm text-sidebar-foreground/50 max-w-full break-words md:text-right">
             Program Studi Administrasi Bisnis Terapan (ABT)
           </p>
         </div>
@@ -107,3 +108,5 @@ export function Footer() {
     </footer>
   );
 }
+
+

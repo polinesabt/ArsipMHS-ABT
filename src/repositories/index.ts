@@ -8,3 +8,5 @@ export * from './alumni.repository';
 
 // New student-centric repository
 export * from './student.repository';
+export * from './evaluation.repository';
+export * from './notification.repository';

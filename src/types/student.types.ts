@@ -3,7 +3,7 @@
  * Core type definitions for the student-centric data model
  * 
  * ARCHITECTURE NOTE:
- * SIPAL is a comprehensive academic information system for ABT students.
+ * ARSIP MAHASISWA ABT is a comprehensive academic information system for ABT students.
  * StudentProfile is the central data hub - all modules attach to it.
  * 
  * Ready for Prisma schema mapping in production:

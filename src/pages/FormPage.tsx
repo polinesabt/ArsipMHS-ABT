@@ -9,7 +9,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useAlumni } from '@/contexts/AlumniContext';
-import { AlumniData, bidangIndustriList } from '@/lib/data';
+import {
+  createTracerStudyViaAPI,
+  getTracerStudyFromAPI,
+  updateTracerStudyViaAPI,
+  type CreateTracerStudyPayload,
+} from '@/repositories/api-student.repository';
+import { bidangIndustriList } from '@/lib/data';
 import { toast } from '@/hooks/use-toast';
 import { StepProgress } from '@/components/shared';
 import { 
@@ -38,7 +44,7 @@ const formSteps = [
 
 export default function FormPage() {
   const navigate = useNavigate();
-  const { selectedAlumni, addAlumniData } = useAlumni();
+  const { selectedAlumni, refreshData } = useAlumni();
   
   const [currentStep, setCurrentStep] = useState(1);
   const [status, setStatus] = useState<Status | null>(null);
@@ -121,7 +127,7 @@ export default function FormPage() {
     setCurrentStep(prev => Math.max(prev - 1, 1));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!email || !noHp) {
       toast({ title: 'Email dan No. HP wajib diisi', variant: 'destructive' });
       return;
@@ -138,64 +144,99 @@ export default function FormPage() {
       return;
     }
 
-    const newData: AlumniData = {
-      id: `f${Date.now()}`,
-      alumniMasterId: selectedAlumni.id,
-      status: status!,
-      tahunPengisian: new Date().getFullYear(),
+    const statusMap: Record<Status, string> = {
+      bekerja: 'working',
+      mencari: 'job_seeking',
+      wirausaha: 'entrepreneur',
+      studi: 'further_study',
+    };
+
+    const payload: CreateTracerStudyPayload = {
+      student_id: selectedAlumni.id,
+      career_status: statusMap[status!],
       email,
-      noHp,
-      mediaSosial: mediaSosial || undefined,
+      no_hp: noHp,
+      media_sosial: mediaSosial || undefined,
       linkedin: linkedin || undefined,
-      bersediaDihubungi,
-      saranKomentar: saranKomentar || undefined,
-      createdAt: new Date(),
+      tahun_pengisian: new Date().getFullYear(),
+      bersedia_dihubungi: bersediaDihubungi,
+      saran_komentar: saranKomentar || undefined,
     };
 
     if (status === 'bekerja') {
-      newData.namaPerusahaan = namaPerusahaan;
-      newData.lokasiPerusahaan = lokasiPerusahaan;
-      newData.bidangIndustri = bidangIndustri;
-      newData.jabatan = jabatan;
-      newData.tahunMulaiKerja = parseInt(tahunMulaiKerja);
-      newData.masihAktifKerja = masihAktifKerja;
-      newData.tahunSelesaiKerja = !masihAktifKerja && tahunSelesaiKerja ? parseInt(tahunSelesaiKerja) : undefined;
-      newData.kontakProfesional = kontakProfesional || undefined;
+      payload.employment_data = {
+        nama_perusahaan: namaPerusahaan,
+        lokasi_perusahaan: lokasiPerusahaan,
+        bidang_industri: bidangIndustri,
+        jabatan,
+        tahun_mulai_kerja: parseInt(tahunMulaiKerja),
+        tahun_selesai_kerja: !masihAktifKerja && tahunSelesaiKerja ? parseInt(tahunSelesaiKerja) : undefined,
+        masih_aktif_kerja: masihAktifKerja,
+        kontak_profesional: kontakProfesional || undefined,
+      };
     }
 
     if (status === 'mencari') {
-      newData.lokasiTujuan = lokasiTujuan;
-      newData.bidangDiincar = bidangDiincar;
-      newData.lamaMencari = parseInt(lamaMencari);
+      payload.job_seeking_data = {
+        lokasi_tujuan: lokasiTujuan,
+        bidang_diincar: bidangDiincar,
+        lama_mencari: parseInt(lamaMencari),
+      };
     }
 
     if (status === 'wirausaha') {
-      newData.namaUsaha = namaUsaha;
-      newData.jenisUsaha = jenisUsaha;
-      newData.lokasiUsaha = lokasiUsaha;
-      newData.tahunMulaiUsaha = parseInt(tahunMulaiUsaha);
-      newData.punyaKaryawan = punyaKaryawan;
-      newData.jumlahKaryawan = punyaKaryawan ? parseInt(jumlahKaryawan) : undefined;
-      newData.usahaAktif = usahaAktif;
-      newData.sosialMediaUsaha = sosialMediaUsaha.filter(s => s.trim());
+      payload.entrepreneurship_data = {
+        nama_usaha: namaUsaha,
+        jenis_usaha: jenisUsaha,
+        lokasi_usaha: lokasiUsaha,
+        tahun_mulai_usaha: parseInt(tahunMulaiUsaha),
+        punya_karyawan: punyaKaryawan,
+        jumlah_karyawan: punyaKaryawan ? parseInt(jumlahKaryawan) : undefined,
+        usaha_aktif: usahaAktif,
+        sosial_media_usaha: sosialMediaUsaha.filter(s => s.trim()),
+      };
     }
 
     if (status === 'studi') {
-      newData.namaKampus = namaKampus;
-      newData.programStudi = programStudi;
-      newData.jenjang = jenjang as 'S1' | 'S2' | 'S3';
-      newData.lokasiKampus = lokasiKampus;
-      newData.tahunMulaiStudi = parseInt(tahunMulaiStudi);
-      newData.masihAktifStudi = masihAktifStudi;
-      newData.tahunSelesaiStudi = !masihAktifStudi && tahunSelesaiStudi ? parseInt(tahunSelesaiStudi) : undefined;
+      payload.further_study_data = {
+        nama_kampus: namaKampus,
+        program_studi: programStudi,
+        jenjang: jenjang as 'S1' | 'S2' | 'S3',
+        lokasi_kampus: lokasiKampus,
+        tahun_mulai_studi: parseInt(tahunMulaiStudi),
+        tahun_selesai_studi: !masihAktifStudi && tahunSelesaiStudi ? parseInt(tahunSelesaiStudi) : undefined,
+        masih_aktif_studi: masihAktifStudi,
+      };
     }
 
-    addAlumniData(newData);
-    toast({
-      title: 'Data berhasil disimpan!',
-      description: 'Terima kasih telah mengisi form survey lulusan.',
-    });
-    navigate('/dashboard');
+    try {
+      const existing = await getTracerStudyFromAPI(selectedAlumni.id);
+      if (existing.success && existing.data && existing.data.length > 0) {
+        const tracerId = existing.data[0].id;
+        const updateRes = await updateTracerStudyViaAPI(tracerId, payload);
+        if (!updateRes.success) {
+          throw new Error(updateRes.error || 'Gagal memperbarui data tracer');
+        }
+      } else {
+        const createRes = await createTracerStudyViaAPI(payload);
+        if (!createRes.success) {
+          throw new Error(createRes.error || 'Gagal menyimpan data tracer');
+        }
+      }
+
+      await refreshData();
+      toast({
+        title: 'Data berhasil disimpan!',
+        description: 'Terima kasih telah mengisi form Arsip Mahasiswa Prodi ABT.',
+      });
+      navigate('/dashboard');
+    } catch (error) {
+      toast({
+        title: 'Gagal menyimpan data',
+        description: error instanceof Error ? error.message : 'Terjadi kesalahan saat menyimpan data.',
+        variant: 'destructive',
+      });
+    }
   };
 
   // Step 1: Status Selection

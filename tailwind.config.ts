@@ -74,6 +74,28 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        chart: {
+          academic: "hsl(var(--chart-academic))",
+          "academic-light": "hsl(var(--chart-academic-light))",
+          "academic-dark": "hsl(var(--chart-academic-dark))",
+          nonacademic: "hsl(var(--chart-nonacademic))",
+          "nonacademic-light": "hsl(var(--chart-nonacademic-light))",
+          "nonacademic-dark": "hsl(var(--chart-nonacademic-dark))",
+          success: "hsl(var(--chart-success))",
+          warning: "hsl(var(--chart-warning))",
+          neutral: "hsl(var(--chart-neutral))",
+        },
+        level: {
+          local: "hsl(var(--level-local))",
+          national: "hsl(var(--level-national))",
+          international: "hsl(var(--level-international))",
+        },
+        satisfaction: {
+          "very-good": "hsl(var(--satisfaction-very-good))",
+          good: "hsl(var(--satisfaction-good))",
+          fair: "hsl(var(--satisfaction-fair))",
+          poor: "hsl(var(--satisfaction-poor))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

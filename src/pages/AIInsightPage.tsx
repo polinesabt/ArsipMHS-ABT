@@ -1,12 +1,10 @@
 import { useState } from 'react';
-import { Navbar } from '@/components/layout/Navbar';
-import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { useAlumni } from '@/contexts/AlumniContext';
 import { StatCard } from '@/components/shared';
-import { 
-  Sparkles, TrendingUp, Users, MapPin, Building2, Briefcase, Rocket, 
-  ArrowLeft, Loader2, Copy, Check, FileText, Download, BookOpen
+import {
+  Sparkles, TrendingUp, Users, Briefcase, Rocket,
+  ArrowLeft, Loader2, Copy, Check, FileText
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
@@ -61,7 +59,7 @@ export default function AIInsightPage() {
       const topJurusan = Object.entries(jurusanBekerja).sort((a, b) => b[1] - a[1])[0];
 
       const generatedInsights = [
-        `## Tingkat Keterserapan Kerja\n\nDari total ${total} alumni yang mengisi survey lulusan, sebanyak **${bekerjaPercent}%** saat ini berstatus bekerja. Angka ini menunjukkan tingkat employability yang ${bekerjaPercent >= 70 ? 'sangat baik dan sejalan dengan target program studi' : bekerjaPercent >= 50 ? 'cukup baik namun masih perlu ditingkatkan' : 'perlu perhatian khusus dari pihak program studi'}.`,
+        `## Tingkat Keterserapan Kerja\n\nDari total ${total} alumni yang telah tercatat di Arsip Mahasiswa Prodi ABT, sebanyak **${bekerjaPercent}%** saat ini berstatus bekerja. Angka ini menunjukkan tingkat employability yang ${bekerjaPercent >= 70 ? 'sangat baik dan sejalan dengan target program studi' : bekerjaPercent >= 50 ? 'cukup baik namun masih perlu ditingkatkan' : 'perlu perhatian khusus dari pihak program studi'}.`,
         
         `## Tren Kewirausahaan\n\nSebanyak **${wirausahaPercent}%** alumni memilih jalur wirausaha. ${wirausahaPercent >= 20 ? 'Ini menunjukkan jiwa entrepreneurship yang tinggi di kalangan alumni ABT Polines, selaras dengan kurikulum yang menekankan kewirausahaan.' : 'Kampus dapat mempertimbangkan penguatan program inkubasi bisnis dan mentoring kewirausahaan untuk meningkatkan minat berwirausaha di kalangan mahasiswa.'}`,
         
@@ -75,7 +73,7 @@ export default function AIInsightPage() {
         
         mencari.length > 0 ? `## Alumni Mencari Kerja\n\nSaat ini terdapat **${mencari.length} alumni** yang sedang aktif mencari pekerjaan. Program studi dapat membantu melalui program job fair, career counseling, atau menghubungkan dengan mitra industri.` : '',
         
-        `## Rekomendasi Strategis\n\nBerdasarkan analisis data, disarankan untuk:\n1. Memperkuat kerjasama dengan industri ${topIndustry?.[0] || 'unggulan'}\n2. Mengembangkan program magang yang lebih intensif\n3. Menyelenggarakan alumni networking secara berkala\n4. Meningkatkan pelatihan soft skill dan sertifikasi kompetensi`,
+        `## Rekomendasi Strategis\n\nBerdasarkan analisis data Arsip Mahasiswa Prodi ABT, disarankan untuk:\n1. Memperkuat kerjasama dengan industri ${topIndustry?.[0] || 'unggulan'}\n2. Mengembangkan program magang yang lebih intensif\n3. Menyelenggarakan alumni networking secara berkala\n4. Meningkatkan pelatihan soft skill dan sertifikasi kompetensi`,
       ].filter(Boolean);
 
       setInsights(generatedInsights);
@@ -108,29 +106,28 @@ export default function AIInsightPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
-      <main className="pt-24 pb-20">
+      <main className="pb-12 sm:pb-16">
         <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-5xl mx-auto">
             {/* Header */}
             <div className="mb-8 animate-fade-up">
               <Link to="/admin" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
                 <ArrowLeft className="w-4 h-4" />
                 Kembali ke Dashboard
               </Link>
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-info flex items-center justify-center shadow-glow">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-primary to-info flex items-center justify-center shadow-glow">
                   <Sparkles className="w-8 h-8 text-primary-foreground" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-foreground">AI Insight</h1>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-foreground">AI Insight</h1>
                   <p className="text-muted-foreground">Analisis cerdas data alumni menggunakan AI.</p>
                 </div>
               </div>
             </div>
 
             {/* Stats Overview */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 animate-fade-up" style={{ animationDelay: '0.1s' }}>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 animate-fade-up">
               <StatCard title="Data Dianalisis" value={stats.total} icon={Users} color="primary" animate={false} />
               <StatCard title="Bekerja" value={stats.bekerja} icon={Briefcase} color="primary" animate={false} />
               <StatCard title="Wirausaha" value={stats.wirausaha} icon={Rocket} color="success" animate={false} />
@@ -139,7 +136,7 @@ export default function AIInsightPage() {
 
             {/* Generate Button */}
             {insights.length === 0 && (
-              <div className="glass-card rounded-2xl p-10 text-center mb-8 animate-fade-up" style={{ animationDelay: '0.2s' }}>
+              <div className="glass-card rounded-2xl p-6 sm:p-10 text-center mb-8 animate-fade-up">
                 <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/20 to-info/20 flex items-center justify-center mx-auto mb-6">
                   <Sparkles className="w-10 h-10 text-primary" />
                 </div>
@@ -167,9 +164,9 @@ export default function AIInsightPage() {
             {/* Insights */}
             {insights.length > 0 && (
               <div className="space-y-4 animate-fade-up">
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
                   <h2 className="text-xl font-semibold text-foreground">Hasil Analisis AI</h2>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap gap-2">
                     <Button variant="outline" size="sm" onClick={handleCopyAll}>
                       <Copy className="w-4 h-4 mr-2" />
                       Salin Semua
@@ -185,7 +182,6 @@ export default function AIInsightPage() {
                   <div
                     key={index}
                     className="glass-card rounded-xl p-6 animate-fade-up group relative"
-                    style={{ animationDelay: `${index * 0.1}s` }}
                   >
                     <Button
                       variant="ghost"
@@ -228,8 +224,8 @@ export default function AIInsightPage() {
                     <div>
                       <p className="font-medium text-foreground mb-1">Catatan Penggunaan</p>
                       <p className="text-sm text-muted-foreground">
-                        Insight ini dihasilkan berdasarkan data yang tersedia saat ini. 
-                        Untuk hasil yang lebih akurat, pastikan lebih banyak alumni telah mengisi form survey lulusan.
+                        Insight ini dihasilkan berdasarkan data yang tersedia saat ini di Arsip Mahasiswa Prodi ABT. 
+                        Untuk hasil yang lebih akurat, pastikan lebih banyak alumni telah melengkapi data pada sistem arsip.
                         Konten dapat langsung disalin dan digunakan untuk keperluan pelaporan akreditasi.
                       </p>
                     </div>
@@ -240,7 +236,6 @@ export default function AIInsightPage() {
           </div>
         </div>
       </main>
-      <Footer />
     </div>
   );
 }

@@ -3,6 +3,11 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { useAlumni } from '@/contexts/AlumniContext';
+import {
+  deleteTracerStudyViaAPI,
+  updateTracerStudyViaAPI,
+  type CreateTracerStudyPayload,
+} from '@/repositories/api-student.repository';
 import { 
   Briefcase, Rocket, GraduationCap, Search, ChevronLeft, 
   MapPin, Calendar, Building2, User, Plus, Pencil, Trash2, Clock,
@@ -151,7 +156,7 @@ interface EditFormData {
 
 export default function CareerHistoryPage() {
   const navigate = useNavigate();
-  const { selectedAlumni, getAlumniDataByMasterId, deleteAlumniData, updateAlumniData } = useAlumni();
+  const { selectedAlumni, getAlumniDataByMasterId, refreshData } = useAlumni();
   const { toast } = useToast();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   
@@ -315,15 +320,26 @@ export default function CareerHistoryPage() {
   const handleDeleteConfirm = async () => {
     if (selectedItemId) {
       setIsDeleting(true);
-      // Simulate async operation
-      await new Promise(resolve => setTimeout(resolve, 500));
-      deleteAlumniData(selectedItemId);
-      toast({
-        title: "Riwayat karir dihapus",
-        description: "Data riwayat karir berhasil dihapus dari sistem.",
-      });
-      setExpandedId(null);
-      setIsDeleting(false);
+      try {
+        const response = await deleteTracerStudyViaAPI(selectedItemId);
+        if (!response.success) {
+          throw new Error(response.error || 'Gagal menghapus riwayat karir');
+        }
+        await refreshData();
+        toast({
+          title: "Riwayat karir dihapus",
+          description: "Data riwayat karir berhasil dihapus dari sistem.",
+        });
+        setExpandedId(null);
+      } catch (error) {
+        toast({
+          title: "Gagal menghapus",
+          description: error instanceof Error ? error.message : 'Terjadi kesalahan saat menghapus data.',
+          variant: "destructive",
+        });
+      } finally {
+        setIsDeleting(false);
+      }
     }
     setDeleteDialogOpen(false);
     setSelectedItemId(null);
@@ -398,40 +414,80 @@ export default function CareerHistoryPage() {
 
     if (selectedItemId && editFormData) {
       setIsSaving(true);
-      // Simulate async operation
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Map form data back to alumni data structure based on status
-      const updates: Record<string, any> = {
-        status: editFormData.status,
-        tahunPengisian: editFormData.year,
-        isActive: editFormData.isActive,
-      };
+      try {
+        const statusMap: Record<string, string> = {
+          bekerja: 'working',
+          wirausaha: 'entrepreneur',
+          studi: 'further_study',
+          mencari: 'job_seeking',
+        };
 
-      if (editFormData.status === 'bekerja') {
-        updates.namaPerusahaan = editFormData.title.trim();
-        updates.jabatan = editFormData.subtitle.trim();
-        updates.lokasiPerusahaan = editFormData.location.trim();
-        updates.bidangIndustri = editFormData.industry.trim();
-      } else if (editFormData.status === 'wirausaha') {
-        updates.namaUsaha = editFormData.title.trim();
-        updates.jenisUsaha = editFormData.subtitle.trim();
-        updates.lokasiUsaha = editFormData.location.trim();
-      } else if (editFormData.status === 'studi') {
-        updates.namaKampus = editFormData.title.trim();
-        updates.programStudi = editFormData.subtitle.trim();
-        updates.lokasiKampus = editFormData.location.trim();
-      } else if (editFormData.status === 'mencari') {
-        updates.bidangDiincar = editFormData.subtitle.trim();
-        updates.lokasiTujuan = editFormData.location.trim();
+        const existing = alumniHistory.find((d) => d.id === selectedItemId);
+
+        const payload: Partial<CreateTracerStudyPayload> = {
+          career_status: statusMap[editFormData.status],
+          tahun_pengisian: editFormData.year,
+        };
+
+        if (editFormData.status === 'bekerja') {
+          payload.employment_data = {
+            nama_perusahaan: editFormData.title.trim(),
+            jabatan: editFormData.subtitle.trim(),
+            lokasi_perusahaan: editFormData.location.trim(),
+            bidang_industri: editFormData.industry.trim(),
+            tahun_mulai_kerja: existing?.tahunMulaiKerja,
+            tahun_selesai_kerja: existing?.tahunSelesaiKerja,
+            masih_aktif_kerja: editFormData.isActive,
+            kontak_profesional: existing?.kontakProfesional,
+          };
+        } else if (editFormData.status === 'wirausaha') {
+          payload.entrepreneurship_data = {
+            nama_usaha: editFormData.title.trim(),
+            jenis_usaha: editFormData.subtitle.trim(),
+            lokasi_usaha: editFormData.location.trim(),
+            tahun_mulai_usaha: existing?.tahunMulaiUsaha,
+            usaha_aktif: editFormData.isActive,
+            punya_karyawan: existing?.punyaKaryawan,
+            jumlah_karyawan: existing?.jumlahKaryawan,
+            sosial_media_usaha: existing?.sosialMediaUsaha,
+          };
+        } else if (editFormData.status === 'studi') {
+          payload.further_study_data = {
+            nama_kampus: editFormData.title.trim(),
+            program_studi: editFormData.subtitle.trim(),
+            lokasi_kampus: editFormData.location.trim(),
+            tahun_mulai_studi: existing?.tahunMulaiStudi,
+            tahun_selesai_studi: existing?.tahunSelesaiStudi,
+            masih_aktif_studi: editFormData.isActive,
+            jenjang: existing?.jenjang,
+          };
+        } else if (editFormData.status === 'mencari') {
+          payload.job_seeking_data = {
+            bidang_diincar: editFormData.subtitle.trim(),
+            lokasi_tujuan: editFormData.location.trim(),
+            lama_mencari: existing?.lamaMencari,
+          };
+        }
+
+        const response = await updateTracerStudyViaAPI(selectedItemId, payload);
+        if (!response.success) {
+          throw new Error(response.error || 'Gagal memperbarui riwayat karir');
+        }
+
+        await refreshData();
+        toast({
+          title: "Riwayat karir diperbarui",
+          description: "Perubahan akan langsung terlihat di Dashboard.",
+        });
+      } catch (error) {
+        toast({
+          title: "Gagal memperbarui",
+          description: error instanceof Error ? error.message : 'Terjadi kesalahan saat menyimpan perubahan.',
+          variant: "destructive",
+        });
+      } finally {
+        setIsSaving(false);
       }
-
-      updateAlumniData(selectedItemId, updates);
-      toast({
-        title: "Riwayat karir diperbarui",
-        description: "Perubahan akan langsung terlihat di Dashboard.",
-      });
-      setIsSaving(false);
     }
     closeEditDialog();
   };

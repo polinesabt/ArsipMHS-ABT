@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
@@ -30,15 +30,12 @@ import {
   ACHIEVEMENT_CATEGORIES,
 } from '@/types/achievement.types';
 import {
-  createAchievement,
-  getAchievementsByMasterId,
-  getAchievementStats,
-  deleteAchievement,
-  updateAchievement,
-  getFeaturedAchievementsCount,
-  getHighestAchievementLevel,
-  toggleFeaturedAchievement,
-} from '@/services/achievement.service';
+  createAchievementViaAPI,
+  deleteAchievementViaAPI,
+  getAchievementsFromAPI,
+  updateAchievementViaAPI,
+} from '@/repositories/api-student.repository';
+import { mapApiAchievementToUi, mapUiAchievementToApiPayload } from '@/lib/achievement-api-mapper';
 import {
   Select,
   SelectContent,
@@ -47,12 +44,31 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+const VALID_CATEGORY_FILTERS = new Set<CategoryFilter>([
+  'all',
+  'unggulan',
+  'lomba',
+  'seminar',
+  'publikasi',
+  'haki',
+  'magang',
+  'portofolio',
+  'wirausaha',
+  'pengembangan',
+  'organisasi',
+]);
+
+function isValidCategoryFilter(value: string | null): value is CategoryFilter {
+  return !!value && VALID_CATEGORY_FILTERS.has(value as CategoryFilter);
+}
+
 export default function PrestasiPage() {
+  const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { selectedAlumni } = useAlumni();
   const { toast } = useToast();
   
-  const [activeCategory, setActiveCategory] = useState<CategoryFilter>('all');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
@@ -62,22 +78,90 @@ export default function PrestasiPage() {
   });
   const [unggulanCount, setUnggulanCount] = useState(0);
   const [highestLevel, setHighestLevel] = useState<string | null>(null);
+  const categoryParam = searchParams.get('category');
+  const activeCategory: CategoryFilter = isValidCategoryFilter(categoryParam) ? categoryParam : 'all';
+
+  const getCategorySearchParams = (category: CategoryFilter) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (category === 'all') {
+      nextParams.delete('category');
+    } else {
+      nextParams.set('category', category);
+    }
+    return nextParams;
+  };
+
+  const buildCategoryHref = (category: CategoryFilter) => {
+    const nextParams = getCategorySearchParams(category);
+    const query = nextParams.toString();
+    return query ? `${location.pathname}?${query}` : location.pathname;
+  };
+
+  const handleCategoryChange = (category: CategoryFilter) => {
+    setSearchParams(getCategorySearchParams(category));
+    setExpandedId(null);
+  };
+
+  const computeStats = (items: Achievement[]) => ({
+    lomba: items.filter(a => a.category === 'lomba').length,
+    seminar: items.filter(a => a.category === 'seminar').length,
+    publikasi: items.filter(a => a.category === 'publikasi').length,
+    haki: items.filter(a => a.category === 'haki').length,
+    magang: items.filter(a => a.category === 'magang').length,
+    portofolio: items.filter(a => a.category === 'portofolio').length,
+    wirausaha: items.filter(a => a.category === 'wirausaha').length,
+    pengembangan: items.filter(a => a.category === 'pengembangan').length,
+    organisasi: items.filter(a => a.category === 'organisasi').length,
+  });
+
+  const computeHighestLevel = (items: Achievement[]): string | null => {
+    const levelHierarchy: Record<string, number> = {
+      internasional: 4,
+      nasional: 3,
+      regional: 2,
+      lokal: 1,
+    };
+    let highestLevel: string | null = null;
+    let highestScore = 0;
+    items.forEach((achievement) => {
+      if (achievement.category === 'lomba') {
+        const tingkat = (achievement as any).tingkat;
+        const score = levelHierarchy[tingkat] || 0;
+        if (score > highestScore) {
+          highestScore = score;
+          highestLevel = tingkat;
+        }
+      }
+    });
+    return highestLevel;
+  };
+
+  const refreshData = async () => {
+    if (!selectedAlumni) return;
+    const response = await getAchievementsFromAPI(selectedAlumni.id);
+    if (!response.success || !response.data) {
+      setAchievements([]);
+      setStats({
+        lomba: 0, seminar: 0, publikasi: 0, haki: 0, magang: 0, portofolio: 0, wirausaha: 0, pengembangan: 0, organisasi: 0
+      });
+      setUnggulanCount(0);
+      setHighestLevel(null);
+      return;
+    }
+    const mapped = response.data.map(mapApiAchievementToUi);
+    setAchievements(mapped);
+    setStats(computeStats(mapped));
+    setUnggulanCount(mapped.filter(a => a.isUnggulan).length);
+    setHighestLevel(computeHighestLevel(mapped));
+  };
 
   useEffect(() => {
     if (!selectedAlumni) {
       navigate('/validasi');
       return;
     }
-    refreshData();
+    void refreshData();
   }, [selectedAlumni, navigate]);
-
-  const refreshData = () => {
-    if (!selectedAlumni) return;
-    setAchievements(getAchievementsByMasterId(selectedAlumni.id));
-    setStats(getAchievementStats(selectedAlumni.id));
-    setUnggulanCount(getFeaturedAchievementsCount(selectedAlumni.id));
-    setHighestLevel(getHighestAchievementLevel(selectedAlumni.id));
-  };
 
   const handleItemClick = (achievement: Achievement) => {
     setExpandedId(prev => prev === achievement.id ? null : achievement.id);
@@ -90,16 +174,21 @@ export default function PrestasiPage() {
 
   const handleDelete = (achievement: Achievement) => {
     if (window.confirm('Apakah Anda yakin ingin menghapus prestasi ini?')) {
-      deleteAchievement(achievement.id);
-      refreshData();
-      setExpandedId(null);
-      toast({ title: 'Prestasi berhasil dihapus' });
+      deleteAchievementViaAPI(achievement.id).then((response) => {
+        if (!response.success) {
+          toast({ title: 'Gagal menghapus prestasi', description: response.error || 'Terjadi kesalahan', variant: 'destructive' });
+          return;
+        }
+        void refreshData();
+        setExpandedId(null);
+        toast({ title: 'Prestasi berhasil dihapus' });
+      });
     }
   };
 
   const handleToggleFeatured = (achievement: Achievement) => {
-    toggleFeaturedAchievement(achievement.id);
-    refreshData();
+    setAchievements(prev => prev.map(a => a.id === achievement.id ? { ...a, isUnggulan: !a.isUnggulan } : a));
+    setUnggulanCount(prev => achievement.isUnggulan ? Math.max(prev - 1, 0) : prev + 1);
     toast({ 
       title: achievement.isUnggulan ? 'Dihapus dari unggulan' : 'Ditandai sebagai unggulan' 
     });
@@ -166,10 +255,8 @@ export default function PrestasiPage() {
                 activeCategory={activeCategory}
                 stats={stats}
                 unggulanCount={unggulanCount}
-                onCategoryChange={(cat) => {
-                  setActiveCategory(cat);
-                  setExpandedId(null);
-                }}
+                onCategoryChange={handleCategoryChange}
+                buildCategoryHref={buildCategoryHref}
               />
 
               {/* Main Content Area */}
@@ -273,7 +360,7 @@ function AchievementForm({
 
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validation for Organisasi category
@@ -323,12 +410,27 @@ function AchievementForm({
       return;
     }
     
-    if (editData) {
-      updateAchievement(editData.id, { ...formData, category: selectedCategory });
-    } else {
-      createAchievement({ ...formData, masterId, category: selectedCategory });
+    const payload = mapUiAchievementToApiPayload(masterId, selectedCategory, formData);
+    try {
+      if (editData) {
+        const response = await updateAchievementViaAPI(editData.id, payload);
+        if (!response.success) {
+          throw new Error(response.error || 'Gagal memperbarui prestasi');
+        }
+      } else {
+        const response = await createAchievementViaAPI(payload);
+        if (!response.success) {
+          throw new Error(response.error || 'Gagal menambahkan prestasi');
+        }
+      }
+      onSuccess();
+    } catch (error) {
+      toast({
+        title: 'Gagal menyimpan',
+        description: error instanceof Error ? error.message : 'Terjadi kesalahan saat menyimpan.',
+        variant: 'destructive',
+      });
     }
-    onSuccess();
   };
 
   const updateField = (key: string, value: any) => {

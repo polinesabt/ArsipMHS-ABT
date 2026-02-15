@@ -30,10 +30,9 @@ import {
   Achievement,
   AchievementCategory,
 } from '@/types/achievement.types';
-import {
-  createAchievement,
-  updateAchievement,
-} from '@/services/achievement.service';
+import { createAchievementViaAPI, updateAchievementViaAPI } from '@/repositories/api-student.repository';
+import { mapUiAchievementToApiPayload } from '@/lib/achievement-api-mapper';
+import { createAchievement, updateAchievement } from '@/services/achievement.service';
 import { useToast } from '@/hooks/use-toast';
 
 interface AchievementFormModalProps {
@@ -42,6 +41,7 @@ interface AchievementFormModalProps {
   editData?: Achievement | null;
   onClose: () => void;
   onSuccess: () => void;
+  useApi?: boolean;
   /**
    * Rendering mode:
    * - "fixed": full-viewport overlay (default; used on PrestasiPage)
@@ -69,12 +69,13 @@ export function AchievementFormModal({
   onClose,
   onSuccess,
   layout = 'fixed',
+  useApi = false,
 }: AchievementFormModalProps) {
   const [selectedCategory, setSelectedCategory] = useState<AchievementCategory>(editData?.category || category);
   const [formData, setFormData] = useState<Record<string, any>>(editData || {});
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validation for Organisasi category
@@ -121,10 +122,35 @@ export function AchievementFormModal({
       return;
     }
     
-    if (editData) {
-      updateAchievement(editData.id, { ...formData, category: selectedCategory });
+    if (useApi) {
+      const payload = mapUiAchievementToApiPayload(masterId, selectedCategory, formData);
+      if (editData) {
+        const response = await updateAchievementViaAPI(editData.id, payload);
+        if (!response.success) {
+          toast({
+            title: 'Gagal menyimpan',
+            description: response.error || 'Terjadi kesalahan saat menyimpan.',
+            variant: 'destructive',
+          });
+          return;
+        }
+      } else {
+        const response = await createAchievementViaAPI(payload);
+        if (!response.success) {
+          toast({
+            title: 'Gagal menyimpan',
+            description: response.error || 'Terjadi kesalahan saat menyimpan.',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
     } else {
-      createAchievement({ ...formData, masterId, category: selectedCategory });
+      if (editData) {
+        updateAchievement(editData.id, { ...formData, category: selectedCategory });
+      } else {
+        createAchievement({ ...formData, masterId, category: selectedCategory });
+      }
     }
     onSuccess();
   };

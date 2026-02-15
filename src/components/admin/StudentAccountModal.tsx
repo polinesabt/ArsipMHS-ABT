@@ -53,8 +53,12 @@ export function StudentAccountModal({ open, onOpenChange, onSubmit, existingNims
     // NIM validation
     if (!formData.nim.trim()) {
       newErrors.nim = 'NIM wajib diisi';
-    } else if (!/^\d{8}$/.test(formData.nim)) {
-      newErrors.nim = 'NIM harus 8 digit angka';
+    } else if (!/^[0-9.]+$/.test(formData.nim)) {
+      newErrors.nim = 'NIM hanya boleh berisi angka dan titik';
+    } else if (formData.nim.length < 4) {
+      newErrors.nim = 'NIM minimal 4 karakter';
+    } else if (formData.nim.length > 20) {
+      newErrors.nim = 'NIM maksimal 20 karakter';
     } else if (existingNims.includes(formData.nim)) {
       newErrors.nim = 'NIM sudah terdaftar';
     }
@@ -140,11 +144,14 @@ export function StudentAccountModal({ open, onOpenChange, onSubmit, existingNims
     });
     setErrors({});
     setSubmitResult(null);
+    setIsSubmitting(false);
   };
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
       resetForm();
+    } else {
+      setIsSubmitting(false);
     }
     onOpenChange(open);
   };
@@ -170,9 +177,13 @@ export function StudentAccountModal({ open, onOpenChange, onSubmit, existingNims
             <Label htmlFor="nim">NIM (Username) *</Label>
             <Input
               id="nim"
-              placeholder="Contoh: 20210001"
+              placeholder="Contoh: 4.51.23.0.17"
               value={formData.nim}
-              onChange={(e) => setFormData({ ...formData, nim: e.target.value.replace(/\D/g, '').slice(0, 8) })}
+              onChange={(e) => {
+                const raw = e.target.value;
+                const value = raw.replace(/[^0-9.]/g, '').slice(0, 20);
+                setFormData({ ...formData, nim: value });
+              }}
               className={errors.nim ? 'border-destructive' : ''}
             />
             {errors.nim && <p className="text-xs text-destructive">{errors.nim}</p>}
@@ -335,6 +346,7 @@ export function StudentAccountModal({ open, onOpenChange, onSubmit, existingNims
               onClick={() => handleOpenChange(false)}
               className="flex-1"
               disabled={isSubmitting}
+              type="button"
             >
               Batal
             </Button>
@@ -342,6 +354,7 @@ export function StudentAccountModal({ open, onOpenChange, onSubmit, existingNims
               onClick={handleSubmit}
               className="flex-1"
               disabled={isSubmitting}
+              type="button"
             >
               {isSubmitting ? 'Menyimpan...' : 'Simpan Akun'}
             </Button>

@@ -14,7 +14,7 @@ export const adminAccounts: AdminProfile[] = [
   {
     id: 'admin-001',
     username: 'admin',
-    nama: 'Administrator SIPAL',
+    nama: 'Administrator ARSIP MAHASISWA ABT',
     passwordHash: hashPassword('admin123'),
     role: 'admin',
     createdAt: new Date('2024-01-01'),

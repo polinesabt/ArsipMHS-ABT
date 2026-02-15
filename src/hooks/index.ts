@@ -5,6 +5,3 @@
 
 export { useIsMobile } from './use-mobile';
 export { useToast, toast } from './use-toast';
-export { useAlumniForm } from './useAlumniForm';
-export { useAdminDashboard } from './useAdminDashboard';
-export { useInsights } from './useInsights';

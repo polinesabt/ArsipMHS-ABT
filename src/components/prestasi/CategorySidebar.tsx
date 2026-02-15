@@ -2,6 +2,7 @@ import {
   Trophy, BookOpen, Shield, Briefcase, Rocket, Star, Mic2,
   FolderOpen, Sprout, Users2, Award
 } from 'lucide-react';
+import type { MouseEvent } from 'react';
 import { cn } from '@/lib/utils';
 import { AchievementCategory } from '@/types/achievement.types';
 
@@ -13,6 +14,7 @@ interface CategorySidebarProps {
   stats: Record<AchievementCategory, number>;
   unggulanCount: number;
   onCategoryChange: (category: CategoryFilter) => void;
+  buildCategoryHref: (category: CategoryFilter) => string;
 }
 
 // Category configuration with proper icons (strict order per spec)
@@ -117,7 +119,17 @@ const categories: CategoryFilter[] = [
   'organisasi'
 ];
 
-export function CategorySidebar({ activeCategory, stats, unggulanCount, onCategoryChange }: CategorySidebarProps) {
+function isModifiedEvent(event: MouseEvent<HTMLAnchorElement>) {
+  return event.button !== 0 || event.metaKey || event.altKey || event.ctrlKey || event.shiftKey;
+}
+
+export function CategorySidebar({
+  activeCategory,
+  stats,
+  unggulanCount,
+  onCategoryChange,
+  buildCategoryHref,
+}: CategorySidebarProps) {
   const totalCount = Object.values(stats).reduce((a, b) => a + b, 0);
 
   const getCount = (key: CategoryFilter): number => {
@@ -147,9 +159,14 @@ export function CategorySidebar({ activeCategory, stats, unggulanCount, onCatego
               const count = getCount(key);
 
               return (
-                <button
+                <a
                   key={key}
-                  onClick={() => onCategoryChange(key)}
+                  href={buildCategoryHref(key)}
+                  onClick={(event) => {
+                    if (isModifiedEvent(event)) return;
+                    event.preventDefault();
+                    onCategoryChange(key);
+                  }}
                   className={cn(
                     'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left group',
                     isActive 
@@ -189,7 +206,7 @@ export function CategorySidebar({ activeCategory, stats, unggulanCount, onCatego
                   )}>
                     {count}
                   </span>
-                </button>
+                </a>
               );
             })}
           </nav>
@@ -206,9 +223,14 @@ export function CategorySidebar({ activeCategory, stats, unggulanCount, onCatego
             const count = getCount(key);
 
             return (
-              <button
+              <a
                 key={key}
-                onClick={() => onCategoryChange(key)}
+                href={buildCategoryHref(key)}
+                onClick={(event) => {
+                  if (isModifiedEvent(event)) return;
+                  event.preventDefault();
+                  onCategoryChange(key);
+                }}
                 className={cn(
                   'flex items-center gap-2 px-3.5 py-2.5 rounded-full transition-all duration-200 whitespace-nowrap',
                   isActive 
@@ -231,7 +253,7 @@ export function CategorySidebar({ activeCategory, stats, unggulanCount, onCatego
                 )}>
                   {count}
                 </span>
-              </button>
+              </a>
             );
           })}
         </div>

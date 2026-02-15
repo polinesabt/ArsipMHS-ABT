@@ -2,9 +2,17 @@ import { useNavigate } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { useAlumni } from '@/contexts/AlumniContext';
-import { Award, LogOut } from 'lucide-react';
+import { Award, Bell, LogOut } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { 
   StudentIdentityHeader, 
   SummaryCard, 
@@ -12,30 +20,81 @@ import {
   AlumniStatusCard,
   CareerHistoryCard,
 } from '@/components/dashboard';
-import { 
-  getAchievementsByMasterId, 
-  getAchievementStats,
-} from '@/services/achievement.service';
+import { getAchievementsFromAPI } from '@/repositories/api-student.repository';
+import { mapApiAchievementToUi } from '@/lib/achievement-api-mapper';
 import { Achievement, AchievementCategory } from '@/types/achievement.types';
 import { hasCareerAccess, canEditAchievements } from '@/lib/role-utils';
 import type { StudentStatus } from '@/types/student.types';
+import type { StudentNotification } from '@/types/evaluation.types';
+import {
+  getStudentNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from '@/repositories/notification.repository';
 
 export default function UserDashboard() {
   const navigate = useNavigate();
   const { selectedAlumni, loggedInStudent, logout, getAlumniDataByMasterId } = useAlumni();
   const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [notifications, setNotifications] = useState<StudentNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [stats, setStats] = useState<Record<AchievementCategory, number>>({
     lomba: 0, seminar: 0, publikasi: 0, haki: 0, magang: 0, portofolio: 0, wirausaha: 0, pengembangan: 0, organisasi: 0
+  });
+
+  const computeStats = (items: Achievement[]) => ({
+    lomba: items.filter(a => a.category === 'lomba').length,
+    seminar: items.filter(a => a.category === 'seminar').length,
+    publikasi: items.filter(a => a.category === 'publikasi').length,
+    haki: items.filter(a => a.category === 'haki').length,
+    magang: items.filter(a => a.category === 'magang').length,
+    portofolio: items.filter(a => a.category === 'portofolio').length,
+    wirausaha: items.filter(a => a.category === 'wirausaha').length,
+    pengembangan: items.filter(a => a.category === 'pengembangan').length,
+    organisasi: items.filter(a => a.category === 'organisasi').length,
   });
 
   useEffect(() => {
     if (!loggedInStudent && !selectedAlumni) {
       navigate('/validasi');
-    } else if (selectedAlumni) {
-      setAchievements(getAchievementsByMasterId(selectedAlumni.id));
-      setStats(getAchievementStats(selectedAlumni.id));
+      return;
     }
+
+    if (!selectedAlumni) return;
+
+    getAchievementsFromAPI(selectedAlumni.id).then((response) => {
+      if (!response.success || !response.data) {
+        setAchievements([]);
+        setStats({
+          lomba: 0, seminar: 0, publikasi: 0, haki: 0, magang: 0, portofolio: 0, wirausaha: 0, pengembangan: 0, organisasi: 0
+        });
+        return;
+      }
+      const mapped = response.data.map(mapApiAchievementToUi);
+      setAchievements(mapped);
+      setStats(computeStats(mapped));
+    });
   }, [loggedInStudent, selectedAlumni, navigate]);
+
+  const loadNotifications = async () => {
+    const response = await getStudentNotifications();
+    if (!response.success || !response.data) {
+      return;
+    }
+    setNotifications(response.data.items);
+    setUnreadCount(response.data.unread);
+  };
+
+  useEffect(() => {
+    if (!loggedInStudent) return;
+
+    void loadNotifications();
+    const interval = window.setInterval(() => {
+      void loadNotifications();
+    }, 30000);
+
+    return () => window.clearInterval(interval);
+  }, [loggedInStudent]);
 
   if (!loggedInStudent && !selectedAlumni) return null;
 
@@ -75,6 +134,19 @@ export default function UserDashboard() {
     navigate('/validasi');
   };
 
+  const handleOpenNotification = async (notification: StudentNotification) => {
+    if (!notification.is_read) {
+      await markNotificationRead(notification.id);
+      await loadNotifications();
+    }
+    navigate(notification.link_path);
+  };
+
+  const handleMarkAllRead = async () => {
+    await markAllNotificationsRead();
+    await loadNotifications();
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -91,10 +163,60 @@ export default function UserDashboard() {
                   Ringkasan akademik dan perjalanan karirmu
                 </p>
               </div>
-              <Button variant="outline" onClick={handleLogout} className="gap-2 self-start sm:self-auto">
-                <LogOut className="w-4 h-4" />
-                Keluar
-              </Button>
+              <div className="flex items-center gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon" className="relative">
+                      <Bell className="w-4 h-4" />
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] leading-5">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-80">
+                    <div className="px-2 py-1.5 flex items-center justify-between gap-2">
+                      <DropdownMenuLabel className="p-0">Notifikasi Evaluasi</DropdownMenuLabel>
+                      <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
+                        Tandai semua
+                      </Button>
+                    </div>
+                    <DropdownMenuSeparator />
+                    {notifications.length === 0 ? (
+                      <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                        Tidak ada notifikasi.
+                      </div>
+                    ) : (
+                      notifications.slice(0, 8).map((notification) => (
+                        <DropdownMenuItem
+                          key={notification.id}
+                          className="cursor-pointer"
+                          onSelect={(event) => {
+                            event.preventDefault();
+                            void handleOpenNotification(notification);
+                          }}
+                        >
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-sm font-medium">{notification.title}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {notification.message}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {notification.is_read ? 'Sudah dibaca' : 'Belum dibaca'}
+                            </span>
+                          </div>
+                        </DropdownMenuItem>
+                      ))
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <Button variant="outline" onClick={handleLogout} className="gap-2 self-start sm:self-auto">
+                  <LogOut className="w-4 h-4" />
+                  Keluar
+                </Button>
+              </div>
             </div>
 
             {/* Student Identity Header with Role Badge */}

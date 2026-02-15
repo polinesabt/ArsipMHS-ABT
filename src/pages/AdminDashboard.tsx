@@ -1,33 +1,24 @@
-import { useState, useMemo, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { AdminNavbar } from '@/components/layout/AdminNavbar';
-import { Footer } from '@/components/layout/Footer';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAlumni } from '@/contexts/AlumniContext';
 import { jurusanList, prodiList, tahunLulusList } from '@/lib/data';
-import { StatCard, StatusBadge, ChartCard, DataTable } from '@/components/shared';
-import { getGlobalAchievementStats, getStudentsWithAchievements } from '@/services/achievement.service';
-import { ACHIEVEMENT_CATEGORIES, AchievementCategory } from '@/types/achievement.types';
+import { StatCard, StatusBadge, DataTable } from '@/components/shared';
 import { StudentAccountModal, DeleteStudentDialog, AdminStudentEditModal } from '@/components/admin';
 import type { StudentAccountInput, StudentProfile } from '@/types/student.types';
 import {
   Search, Download, Filter, Users2, Briefcase, Rocket, BookOpen, TrendingUp,
-  User, Mail, Phone, Building2, MapPin, Calendar, ExternalLink, Sparkles,
-  BarChart3, PieChart as PieChartIcon, LineChart as LineChartIcon, X,
-  Trophy, Shield, FolderOpen, GraduationCap, Award, Mic2, UserPlus, Trash2, Pencil
+  User, Mail, Phone, Building2, MapPin, Calendar, ExternalLink, X,
+  UserPlus, Trash2, Pencil
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend, LineChart, Line
-} from 'recharts';
+import { exportStudentsToExcel, exportStudentImportTemplate } from '@/lib/excel-export';
+import { parseStudentAccountsFromExcel } from '@/lib/excel-import';
 
 export default function AdminDashboard() {
-  const navigate = useNavigate();
-  const { masterData, alumniData, studentAccounts, addStudentAccount, deleteStudentAccount, updateStudentAccount, resetStudentPassword } = useAlumni();
+  const { masterData, alumniData, studentAccounts, addStudentAccount, deleteStudentAccount, updateStudentAccount, resetStudentPassword, refreshData } = useAlumni();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterTahun, setFilterTahun] = useState<string>('all');
   const [filterJurusan, setFilterJurusan] = useState<string>('all');
@@ -38,6 +29,17 @@ export default function AdminDashboard() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; nama: string; nim: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Import Excel state
+  const [isImporting, setIsImporting] = useState(false); // confirm import to DB
+  const [isReadingFile, setIsReadingFile] = useState(false); // parsing Excel
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [pendingImportAccounts, setPendingImportAccounts] = useState<StudentAccountInput[]>([]);
+  const [importSummary, setImportSummary] = useState<{ success: number; failed: number; warnings: string[] } | null>(null);
+  const [previewWarnings, setPreviewWarnings] = useState<string[]>([]);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   
   // Edit modal state
   const [editStudent, setEditStudent] = useState<StudentProfile | null>(null);
@@ -78,67 +80,9 @@ export default function AdminDashboard() {
     return { filled, bekerja, wirausaha, studi, mencari };
   }, [alumniData]);
 
-  // Achievement statistics
-  const achievementStats = useMemo(() => {
-    return getGlobalAchievementStats();
-  }, []);
-
-  const studentsWithAchievements = useMemo(() => {
-    return getStudentsWithAchievements().length;
-  }, []);
-
-  const achievementChartData = useMemo(() => {
-    const colors = [
-      'hsl(38, 92%, 50%)',   // kegiatan - warning
-      'hsl(222, 60%, 35%)',  // publikasi - primary
-      'hsl(145, 65%, 39%)',  // haki - success
-      'hsl(199, 89%, 48%)',  // magang - info
-      'hsl(262, 83%, 58%)',  // portofolio - secondary
-      'hsl(0, 72%, 51%)',    // wirausaha - destructive
-      'hsl(174, 72%, 40%)',  // pengembangan - accent
-    ];
-    return achievementStats.topCategories.map((item, index) => ({
-      name: item.label,
-      value: item.count,
-      color: colors[index] || colors[0],
-    }));
-  }, [achievementStats]);
-
-  // Chart data
-  const statusChartData = [
-    { name: 'Bekerja', value: stats.bekerja, color: 'hsl(222, 60%, 35%)' },
-    { name: 'Wirausaha', value: stats.wirausaha, color: 'hsl(145, 65%, 39%)' },
-    { name: 'Studi Lanjut', value: stats.studi, color: 'hsl(0, 72%, 51%)' },
-    { name: 'Mencari Kerja', value: stats.mencari, color: 'hsl(38, 92%, 50%)' },
-  ];
-
-  const industryData = useMemo(() => {
-    const counts: Record<string, number> = {};
-    alumniData.filter(d => d.status === 'bekerja').forEach(d => {
-      if (d.bidangIndustri) {
-        counts[d.bidangIndustri] = (counts[d.bidangIndustri] || 0) + 1;
-      }
-    });
-    return Object.entries(counts)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
-  }, [alumniData]);
-
-  const yearTrendData = useMemo(() => {
-    const years = [2019, 2020, 2021, 2022, 2023, 2024];
-    return years.map(year => {
-      const yearData = alumniData.filter(d => {
-        const master = masterData.find(m => m.id === d.alumniMasterId);
-        return master?.tahunLulus === year;
-      });
-      return {
-        year: year.toString(),
-        bekerja: yearData.filter(d => d.status === 'bekerja').length,
-        wirausaha: yearData.filter(d => d.status === 'wirausaha').length,
-      };
-    });
-  }, [alumniData, masterData]);
+  const handleAdminDataChanged = async () => {
+    await refreshData();
+  };
 
   const selectedAlumniDetail = useMemo(() => {
     if (!selectedAlumniId) return null;
@@ -147,27 +91,25 @@ export default function AdminDashboard() {
     return master ? { ...master, filledData: filled } : null;
   }, [selectedAlumniId, masterData, alumniData]);
 
-  const handleExport = () => {
-    const headers = ['Nama', 'NIM', 'Jurusan', 'Prodi', 'Tahun Lulus', 'Status', 'Email', 'No HP'];
-    const rows = filteredData.map(alumni => [
-      alumni.nama,
-      alumni.nim,
-      alumni.jurusan,
-      alumni.prodi,
-      alumni.tahunLulus,
-      alumni.filledData ? getStatusLabel(alumni.filledData.status) : '-',
-      alumni.filledData?.email || '-',
-      alumni.filledData?.noHp || '-',
-    ]);
+  // Export handler - Excel (.xlsx) with formatted table
+  const handleExport = useCallback(async () => {
+    const rows = filteredData.map((alumni) => ({
+      nama: alumni.nama,
+      nim: alumni.nim,
+      email: alumni.filledData?.email || '-',
+      nomor: alumni.filledData?.noHp || '-',
+      tahunMasuk: alumni.tahunMasuk,
+      tahunLulus: alumni.tahunLulus,
+      // Password disimpan di backend sebagai hash, jadi di sini kita tidak bisa menampilkan password asli.
+      // Untuk kebutuhan template import, kita isi password default = NIM.
+      password: alumni.nim,
+    }));
 
-    const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'data-alumni-sipal.csv';
-    a.click();
-  };
+    await exportStudentsToExcel(rows, {
+      filename: 'data-mahasiswa.xlsx',
+      title: 'DATA MAHASISWA',
+    });
+  }, [filteredData]);
 
   const getStatusLabel = (status: string) => {
     switch (status) {
@@ -182,6 +124,9 @@ export default function AdminDashboard() {
   // Handle add student account
   const handleAddStudent = async (data: StudentAccountInput) => {
     const result = await addStudentAccount(data);
+    if (result.success) {
+      await handleAdminDataChanged();
+    }
     return result;
   };
 
@@ -192,6 +137,7 @@ export default function AdminDashboard() {
     setIsDeleting(true);
     try {
       await deleteStudentAccount(deleteTarget.id);
+      await handleAdminDataChanged();
       setDeleteTarget(null);
     } finally {
       setIsDeleting(false);
@@ -203,13 +149,101 @@ export default function AdminDashboard() {
     return studentAccounts.map(s => s.nim);
   }, [studentAccounts]);
 
-  // Table columns configuration with NIM and actions (Edit + Delete)
+  // Step 1: baca file & siapkan preview (tanpa menyimpan ke DB)
+  const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setIsReadingFile(true);
+    setPreviewError(null);
+    setPendingImportAccounts([]);
+    setPreviewWarnings([]);
+    setImportSummary(null);
+    setSelectedFileName(file.name);
+
+    try {
+      const { accounts, warnings } = await parseStudentAccountsFromExcel(file);
+      setPendingImportAccounts(accounts);
+      setPreviewWarnings(warnings);
+    } catch (error) {
+      setPreviewError(
+        error instanceof Error
+          ? `Gagal membaca file: ${error.message}`
+          : 'Gagal membaca file Excel'
+      );
+    } finally {
+      setIsReadingFile(false);
+    }
+  };
+
+  const handleDownloadImportTemplate = async () => {
+    await exportStudentImportTemplate();
+  };
+
+  // Step 2: konfirmasi & simpan ke "database" (state + backend)
+  const handleConfirmImport = async () => {
+    if (pendingImportAccounts.length === 0) return;
+
+    setIsImporting(true);
+    setImportSummary(null);
+
+    try {
+      let success = 0;
+      let failed = 0;
+      const errorMessages: string[] = [];
+
+      for (const account of pendingImportAccounts) {
+        // Skip jika NIM sudah ada di state saat ini
+        if (existingNims.includes(account.nim)) {
+          failed++;
+          errorMessages.push(`NIM ${account.nim} sudah terdaftar, baris di-skip.`);
+          continue;
+        }
+
+        const result = await addStudentAccount(account);
+        if (result.success) {
+          success++;
+        } else {
+          failed++;
+          errorMessages.push(`NIM ${account.nim}: ${result.error || 'Gagal membuat akun'}`);
+        }
+      }
+
+      if (success > 0) {
+        await handleAdminDataChanged();
+      }
+
+      setImportSummary({
+        success,
+        failed,
+        warnings: [...previewWarnings, ...errorMessages],
+      });
+      // Setelah selesai, kosongkan data pending agar tidak ter-import dua kali
+      setPendingImportAccounts([]);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  // Table columns configuration with status and actions (Edit + Delete)
   const tableColumns = [
     { key: 'nama', header: 'Nama', sortable: true },
     { key: 'nim', header: 'NIM', sortable: true },
-    { key: 'jurusan', header: 'Jurusan', hideOnMobile: true, sortable: true },
-    { key: 'prodi', header: 'Prodi', hideOnMobile: true, className: 'text-sm max-w-[150px] truncate' },
-    { key: 'tahunLulus', header: 'Tahun', sortable: true },
+    { 
+      key: 'email', 
+      header: 'Email', 
+      hideOnMobile: true,
+      accessor: (row: typeof filteredData[0]) => row.email || '-',
+      className: 'text-sm'
+    },
+    { 
+      key: 'noHp', 
+      header: 'Nomor', 
+      hideOnMobile: true,
+      accessor: (row: typeof filteredData[0]) => row.noHp || '-',
+      className: 'text-sm'
+    },
     { 
       key: 'status', 
       header: 'Status',
@@ -233,13 +267,8 @@ export default function AdminDashboard() {
         );
       }
     },
-    { 
-      key: 'email', 
-      header: 'Email', 
-      hideOnMobile: true,
-      accessor: (row: typeof filteredData[0]) => row.email || '-',
-      className: 'text-sm'
-    },
+    { key: 'tahunMasuk', header: 'Tahun Masuk', sortable: true, hideOnMobile: true },
+    { key: 'tahunLulus', header: 'Tahun Lulus', sortable: true, hideOnMobile: true },
     {
       key: 'actions',
       header: 'Aksi',
@@ -272,46 +301,332 @@ export default function AdminDashboard() {
     },
   ];
 
-  const { loggedInAdmin } = useAlumni();
-
-  // Protect route - redirect if not admin
-  useEffect(() => {
-    if (!loggedInAdmin) {
-      navigate('/validasi');
-    }
-  }, [loggedInAdmin, navigate]);
-
-  if (!loggedInAdmin) {
-    return null;
-  }
+  // Derive simple step state for import modal UI
+  const hasPreview = pendingImportAccounts.length > 0;
+  const hasResult = !!importSummary;
+  const currentStep = hasResult ? 3 : hasPreview ? 2 : 1;
 
   return (
-    <div className="min-h-screen bg-background">
-      <AdminNavbar />
-      <main className="pt-24 pb-20">
+    <>
+      <main className="pb-12 sm:pb-16">
         <div className="container mx-auto px-4">
+          {/* Import Akun Modal */}
+          <Dialog
+            open={isImportModalOpen}
+            onOpenChange={(open) => {
+              setIsImportModalOpen(open);
+              if (!open) {
+                setPendingImportAccounts([]);
+                setPreviewWarnings([]);
+                setPreviewError(null);
+                setSelectedFileName(null);
+                setIsReadingFile(false);
+                setIsImporting(false);
+              }
+            }}
+          >
+            <DialogContent className="max-w-3xl rounded-3xl border border-border/60 bg-background/95 shadow-2xl transition-all duration-200">
+              <DialogHeader>
+                <DialogTitle className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">
+                  Import Akun Mahasiswa
+                </DialogTitle>
+                <p className="mt-1 text-sm text-muted-foreground max-w-xl">
+                  Upload file Excel, cek preview data, lalu konfirmasi untuk menyimpan akun mahasiswa ke sistem.
+                </p>
+
+                {/* Visual steps indicator */}
+                <div className="mt-3 flex items-center gap-3 text-[11px] text-muted-foreground">
+                  <div className={cn(
+                    "flex items-center gap-1",
+                    currentStep >= 1 && "text-primary"
+                  )}>
+                    <div className={cn(
+                      "h-5 w-5 rounded-full border flex items-center justify-center text-[10px]",
+                      currentStep >= 1
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-muted-foreground/40"
+                    )}>
+                      1
+                    </div>
+                    <span>Upload</span>
+                  </div>
+                  <div className="h-px flex-1 bg-border" />
+                  <div className={cn(
+                    "flex items-center gap-1",
+                    currentStep >= 2 && "text-primary"
+                  )}>
+                    <div className={cn(
+                      "h-5 w-5 rounded-full border flex items-center justify-center text-[10px]",
+                      currentStep >= 2
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-muted-foreground/40"
+                    )}>
+                      2
+                    </div>
+                    <span>Preview</span>
+                  </div>
+                  <div className="h-px flex-1 bg-border" />
+                  <div className={cn(
+                    "flex items-center gap-1",
+                    currentStep >= 3 && "text-primary"
+                  )}>
+                    <div className={cn(
+                      "h-5 w-5 rounded-full border flex items-center justify-center text-[10px]",
+                      currentStep >= 3
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-muted-foreground/40"
+                    )}>
+                      3
+                    </div>
+                    <span>Import</span>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <div className="space-y-5 text-sm">
+                {/* Step 1: Upload */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Langkah 1 · Upload file Excel
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      Wajib: NIM &amp; Nama · Password opsional
+                    </span>
+                  </div>
+
+                  {/* Template download helper */}
+                  <div className="rounded-2xl border border-border/60 bg-muted/40 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="cursor-pointer w-fit"
+                      disabled={isReadingFile || isImporting}
+                      onClick={handleDownloadImportTemplate}
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download Template Excel
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground sm:text-right">
+                      Gunakan template resmi agar format data sesuai sistem dan proses import berjalan lancar.
+                    </p>
+                  </div>
+
+                  <div
+                    className={cn(
+                      "rounded-2xl border border-dashed p-6 flex flex-col gap-3 cursor-pointer transition-all duration-200",
+                      "bg-muted/40 hover:bg-muted/70 hover:border-primary/60",
+                      (isReadingFile || isImporting) && "opacity-70 cursor-not-allowed"
+                    )}
+                    onClick={() => {
+                      if (!isReadingFile && !isImporting) {
+                        fileInputRef.current?.click();
+                      }
+                    }}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-background shadow-sm">
+                          <Download className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">
+                            {isReadingFile ? 'Membaca file…' : 'Seret & letakkan file Excel di sini'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Format file <span className="font-medium">.xlsx</span>. Atau gunakan tombol pilih file.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 sm:self-start">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".xlsx"
+                          className="hidden"
+                          onChange={handleImportExcel}
+                          disabled={isReadingFile || isImporting}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="cursor-pointer"
+                          disabled={isReadingFile || isImporting}
+                        >
+                          Pilih File
+                        </Button>
+                      </div>
+                    </div>
+                    {selectedFileName && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        File terpilih: <span className="font-medium">{selectedFileName}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Feedback error */}
+                {previewError && (
+                  <div className="rounded-2xl border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive transition-opacity duration-200">
+                    {previewError}
+                  </div>
+                )}
+
+                {/* Step 2: Preview */}
+                {hasPreview && (
+                  <div className="space-y-3 animate-fade-up">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Langkah 2 · Preview data
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">
+                        Cek 10 baris pertama sebelum import.
+                      </span>
+                    </div>
+
+                    <div className="rounded-2xl border border-border overflow-hidden bg-background/60 backdrop-blur-sm">
+                      <div className="max-h-64 overflow-auto">
+                        <table className="w-full text-xs">
+                          <thead className="bg-muted/70 sticky top-0 z-10 backdrop-blur-sm">
+                            <tr className="border-b border-border/60">
+                              <th className="px-3 py-2 text-left font-semibold">Nama</th>
+                              <th className="px-3 py-2 text-left font-semibold">NIM</th>
+                              <th className="px-3 py-2 text-left font-semibold">Email</th>
+                              <th className="px-3 py-2 text-left font-semibold">Nomor</th>
+                              <th className="px-3 py-2 text-left font-semibold">Tahun Masuk</th>
+                              <th className="px-3 py-2 text-left font-semibold">Tahun Lulus</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pendingImportAccounts.slice(0, 10).map((acc, idx) => (
+                              <tr
+                                key={`${acc.nim}-${idx}`}
+                                className={idx % 2 === 0 ? 'bg-background' : 'bg-muted/40'}
+                              >
+                                <td className="px-3 py-1.5">{acc.nama}</td>
+                                <td className="px-3 py-1.5 font-mono text-[11px]">{acc.nim}</td>
+                                <td className="px-3 py-1.5">{acc.email || '-'}</td>
+                                <td className="px-3 py-1.5">{acc.noHp || '-'}</td>
+                                <td className="px-3 py-1.5">{acc.tahunMasuk}</td>
+                                <td className="px-3 py-1.5">{acc.tahunLulus ?? '-'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="border-t border-border px-3 py-2 flex items-center justify-between text-xs text-muted-foreground">
+                        <span>Total baris terbaca: {pendingImportAccounts.length}</span>
+                        <span>Menampilkan maksimal 10 baris pertama</span>
+                      </div>
+                    </div>
+
+                    {previewWarnings.length > 0 && (
+                      <div className="rounded-2xl border border-warning/40 bg-warning/5 px-3 py-2 text-xs text-warning-foreground max-h-32 overflow-auto transition-all duration-200">
+                        <p className="font-semibold mb-1">Catatan validasi:</p>
+                        <ul className="list-disc pl-4 space-y-0.5">
+                          {previewWarnings.map((msg, idx) => (
+                            <li key={idx}>{msg}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 3: Ringkasan import */}
+                {importSummary && (
+                  <div className="space-y-2 animate-fade-up">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Langkah 3 · Hasil import
+                      </span>
+                    </div>
+                    <div className="rounded-2xl bg-muted/60 border border-border px-3 py-2 text-xs">
+                      <p className="font-semibold mb-1">Ringkasan:</p>
+                      <p className="text-muted-foreground mb-1">
+                        Berhasil: {importSummary.success} · Gagal: {importSummary.failed}
+                      </p>
+                      {importSummary.warnings.length > 0 && (
+                        <ul className="text-muted-foreground list-disc pl-4 space-y-0.5 max-h-24 overflow-y-auto">
+                          {importSummary.warnings.map((msg, idx) => (
+                            <li key={idx}>{msg}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Footer actions */}
+                <div className="flex justify-between items-center pt-3">
+                  <p className="text-[11px] text-muted-foreground">
+                    Data akan disimpan setelah{' '}
+                    <span className="font-semibold">Konfirmasi Import</span>.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsImportModalOpen(false)}
+                      disabled={isImporting}
+                    >
+                      Batal
+                    </Button>
+                    {hasPreview && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={isReadingFile || isImporting}
+                        onClick={handleConfirmImport}
+                      >
+                        {isImporting ? 'Mengimpor...' : 'Konfirmasi Import'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8 animate-fade-up">
             <div>
-              <h1 className="text-3xl font-bold text-foreground mb-1">Dashboard Admin</h1>
+              <h1 className="text-3xl font-bold text-foreground mb-1">Pengelola Mahasiswa</h1>
               <p className="text-muted-foreground">Kelola dan analisis data alumni ABT Polines.</p>
             </div>
-            <div className="flex gap-3">
-              <Button size="lg" variant="outline" onClick={() => setShowAddModal(true)}>
-                <UserPlus className="w-5 h-5 mr-2" />
-                Tambah Mahasiswa
-              </Button>
-              <Link to="/admin/ai-insight">
-                <Button size="lg" className="group">
-                  <Sparkles className="w-5 h-5 mr-2 group-hover:animate-pulse" />
-                  AI Insight
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex gap-3">
+                <Button size="lg" variant="outline" onClick={() => setShowAddModal(true)}>
+                  <UserPlus className="w-5 h-5 mr-2" />
+                  Tambah Mahasiswa
                 </Button>
-              </Link>
+                <Button
+                  type="button"
+                  size="lg"
+                  variant="outline"
+                  className="cursor-pointer"
+                  onClick={() => {
+                    setIsImportModalOpen(true);
+                    setPreviewError(null);
+                    setPendingImportAccounts([]);
+                    setPreviewWarnings([]);
+                    setImportSummary(null);
+                    setSelectedFileName(null);
+                  }}
+                >
+                  <span className="flex items-center">
+                    <Download className="w-5 h-5 mr-2" />
+                    Import Excel Akun
+                  </span>
+                </Button>
+              </div>
             </div>
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8 animate-fade-up" style={{ animationDelay: '0.1s' }}>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8 animate-fade-up">
             <StatCard title="Total Pengisi" value={stats.filled} icon={Users2} color="primary" />
             <StatCard title="Bekerja" value={stats.bekerja} icon={Briefcase} color="primary" />
             <StatCard title="Wirausaha" value={stats.wirausaha} icon={Rocket} color="success" />
@@ -319,127 +634,8 @@ export default function AdminDashboard() {
             <StatCard title="Mencari Kerja" value={stats.mencari} icon={Search} color="warning" />
           </div>
 
-          {/* Achievement Stats Summary */}
-          <div className="glass-card rounded-2xl p-6 mb-8 animate-fade-up" style={{ animationDelay: '0.15s' }}>
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center">
-                  <Award className="w-5 h-5 text-warning" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground">Prestasi Non-Akademik</h3>
-                  <p className="text-sm text-muted-foreground">Rekam jejak prestasi mahasiswa & alumni</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold text-foreground">{achievementStats.total}</p>
-                <p className="text-xs text-muted-foreground">Total Prestasi</p>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-              {(Object.entries(ACHIEVEMENT_CATEGORIES) as [AchievementCategory, typeof ACHIEVEMENT_CATEGORIES[AchievementCategory]][]).map(([key, cat]) => {
-                const count = achievementStats.byCategory[key];
-                const iconMap: Record<AchievementCategory, React.ElementType> = {
-                  lomba: Trophy,
-                  seminar: Mic2,
-                  publikasi: BookOpen,
-                  haki: Shield,
-                  magang: Briefcase,
-                  portofolio: FolderOpen,
-                  wirausaha: Rocket,
-                  pengembangan: GraduationCap,
-                  organisasi: Users2,
-                };
-                const Icon = iconMap[key];
-                return (
-                  <div key={key} className="p-3 rounded-xl bg-muted/50 text-center">
-                    <Icon className="w-5 h-5 text-primary mx-auto mb-1" />
-                    <p className="text-lg font-bold text-foreground">{count}</p>
-                    <p className="text-xs text-muted-foreground truncate">{cat.label}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 animate-fade-up" style={{ animationDelay: '0.2s' }}>
-            <ChartCard title="Distribusi Status" subtitle="Persentase status alumni">
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={statusChartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      paddingAngle={4}
-                      dataKey="value"
-                    >
-                      {statusChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ 
-                        borderRadius: '12px', 
-                        border: 'none', 
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)' 
-                      }} 
-                    />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </ChartCard>
-
-            <ChartCard title="Bidang Industri" subtitle="Top 5 industri terbanyak">
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={industryData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                    <XAxis type="number" />
-                    <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11 }} />
-                    <Tooltip 
-                      contentStyle={{ 
-                        borderRadius: '12px', 
-                        border: 'none', 
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)' 
-                      }} 
-                    />
-                    <Bar dataKey="value" fill="hsl(222, 60%, 35%)" radius={[0, 6, 6, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </ChartCard>
-
-            <ChartCard title="Tren Per Tahun" subtitle="Bekerja vs Wirausaha">
-              <div className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={yearTrendData}>
-                    <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
-                    <XAxis dataKey="year" />
-                    <YAxis />
-                    <Tooltip 
-                      contentStyle={{ 
-                        borderRadius: '12px', 
-                        border: 'none', 
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)' 
-                      }} 
-                    />
-                    <Legend />
-                    <Line type="monotone" dataKey="bekerja" stroke="hsl(222, 60%, 35%)" strokeWidth={2} dot={{ r: 4 }} />
-                    <Line type="monotone" dataKey="wirausaha" stroke="hsl(145, 65%, 39%)" strokeWidth={2} dot={{ r: 4 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </ChartCard>
-          </div>
-
           {/* Filters */}
-          <div className="glass-card rounded-2xl p-6 mb-6 animate-fade-up" style={{ animationDelay: '0.3s' }}>
+          <div className="glass-card rounded-2xl p-6 mb-6 animate-fade-up">
             <div className="flex items-center gap-2 mb-4">
               <Filter className="w-5 h-5 text-primary" />
               <h3 className="font-semibold text-foreground">Filter Data</h3>
@@ -491,7 +687,24 @@ export default function AdminDashboard() {
           </div>
 
           {/* Data Table */}
-          <div className="animate-fade-up" style={{ animationDelay: '0.4s' }}>
+          <div className="animate-fade-up">
+            {importSummary && (
+              <div className="mb-4 p-4 rounded-2xl bg-muted/60 border border-border">
+                <p className="font-semibold text-sm mb-1">
+                  Hasil import akun mahasiswa:
+                </p>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Berhasil: {importSummary.success} | Gagal: {importSummary.failed}
+                </p>
+                {importSummary.warnings.length > 0 && (
+                  <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5 max-h-32 overflow-y-auto">
+                    {importSummary.warnings.map((msg, idx) => (
+                      <li key={idx}>{msg}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
             <DataTable
               data={filteredData}
               columns={tableColumns}
@@ -656,10 +869,10 @@ export default function AdminDashboard() {
             existingNims={existingNims}
             onUpdateProfile={updateStudentAccount}
             onResetPassword={resetStudentPassword}
+            onDataChanged={handleAdminDataChanged}
           />
         </div>
       </main>
-      <Footer />
-    </div>
+    </>
   );
 }

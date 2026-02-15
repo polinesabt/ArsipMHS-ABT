@@ -6,6 +6,7 @@
 // Legacy types (for backward compatibility during migration)
 export * from './alumni.types';
 export * from './common.types';
+export * from './evaluation.types';
 
 // New student-centric types - namespaced to avoid conflicts
 export type {

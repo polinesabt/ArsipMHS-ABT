@@ -6,7 +6,7 @@
  * - Achievements (with all 9 categories)
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,8 +24,17 @@ import type { StudentProfile, StudentStatus } from '@/types/student.types';
 import type { Achievement } from '@/types/achievement.types';
 import { ACHIEVEMENT_CATEGORIES } from '@/types/achievement.types';
 import type { AlumniData } from '@/types/alumni.types';
-import { useAlumni } from '@/contexts/AlumniContext';
-import { getAchievementsByStudentId, deleteAchievement } from '@/services/achievement.service';
+// Data now fetched via API for admin modal CRUD
+import {
+  getAchievementsFromAPI,
+  deleteAchievementViaAPI,
+  getTracerStudyFromAPI,
+  createTracerStudyViaAPI,
+  updateTracerStudyViaAPI,
+  deleteTracerStudyViaAPI,
+  type TracerStudy as ApiTracerStudy,
+} from '@/repositories/api-student.repository';
+import { mapApiAchievementToUi } from '@/lib/achievement-api-mapper';
 import { AchievementFormModal, CareerFormModal, CAREER_STATUS_CONFIG, type CareerFormData } from '@/components/shared';
 import {
   AlertDialog,
@@ -45,6 +54,7 @@ interface AdminStudentEditModalProps {
   existingNims: string[];
   onUpdateProfile: (studentId: string, updates: Partial<StudentProfile>) => Promise<{ success: boolean; error?: string }>;
   onResetPassword: (studentId: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  onDataChanged?: () => void | Promise<void>;
 }
 
 const currentYear = new Date().getFullYear();
@@ -65,6 +75,109 @@ const STATUS_ICONS = {
   mencari: Search,
 };
 
+function parseJsonField<T = Record<string, unknown>>(value: unknown): T | undefined {
+  if (!value) return undefined;
+  if (typeof value === 'object') return value as T;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
+function mapCareerStatus(status?: string): AlumniData['status'] {
+  switch (status) {
+    case 'working':
+      return 'bekerja';
+    case 'job_seeking':
+      return 'mencari';
+    case 'entrepreneur':
+      return 'wirausaha';
+    case 'further_study':
+      return 'studi';
+    default:
+      return 'mencari';
+  }
+}
+
+function mapTracerToAlumniData(tracer: ApiTracerStudy): AlumniData {
+  const status = mapCareerStatus(tracer.career_status);
+  const employment = parseJsonField<Record<string, unknown>>(tracer.employment_data);
+  const jobSeeking = parseJsonField<Record<string, unknown>>(tracer.job_seeking_data);
+  const entrepreneurship = parseJsonField<Record<string, unknown>>(tracer.entrepreneurship_data);
+  const furtherStudy = parseJsonField<Record<string, unknown>>(tracer.further_study_data);
+  
+  const base: AlumniData = {
+    id: tracer.id,
+    alumniMasterId: tracer.student_id,
+    status,
+    tahunPengisian: tracer.tahun_pengisian ? Number(tracer.tahun_pengisian) : new Date().getFullYear(),
+    email: tracer.email || '',
+    noHp: tracer.no_hp || '',
+    mediaSosial: tracer.media_sosial || undefined,
+    linkedin: tracer.linkedin || undefined,
+    bersediaDihubungi: Boolean(tracer.bersedia_dihubungi),
+    saranKomentar: tracer.saran_komentar || undefined,
+    createdAt: tracer.created_at ? new Date(tracer.created_at) : new Date(),
+  };
+  
+  if (status === 'bekerja' && employment) {
+    return {
+      ...base,
+      namaPerusahaan: employment['nama_perusahaan'] as string | undefined,
+      lokasiPerusahaan: employment['lokasi_perusahaan'] as string | undefined,
+      bidangIndustri: employment['bidang_industri'] as string | undefined,
+      jabatan: employment['jabatan'] as string | undefined,
+      tahunMulaiKerja: employment['tahun_mulai_kerja'] as number | undefined,
+      tahunSelesaiKerja: employment['tahun_selesai_kerja'] as number | undefined,
+      masihAktifKerja: employment['masih_aktif_kerja'] as boolean | undefined,
+      kontakProfesional: employment['kontak_profesional'] as string | undefined,
+    };
+  }
+  
+  if (status === 'wirausaha' && entrepreneurship) {
+    const sosial = entrepreneurship['sosial_media_usaha'];
+    return {
+      ...base,
+      namaUsaha: entrepreneurship['nama_usaha'] as string | undefined,
+      jenisUsaha: entrepreneurship['jenis_usaha'] as string | undefined,
+      lokasiUsaha: entrepreneurship['lokasi_usaha'] as string | undefined,
+      tahunMulaiUsaha: entrepreneurship['tahun_mulai_usaha'] as number | undefined,
+      punyaKaryawan: entrepreneurship['punya_karyawan'] as boolean | undefined,
+      jumlahKaryawan: entrepreneurship['jumlah_karyawan'] as number | undefined,
+      usahaAktif: entrepreneurship['usaha_aktif'] as boolean | undefined,
+      sosialMediaUsaha: Array.isArray(sosial) ? (sosial as string[]) : undefined,
+    };
+  }
+  
+  if (status === 'studi' && furtherStudy) {
+    return {
+      ...base,
+      namaKampus: furtherStudy['nama_kampus'] as string | undefined,
+      programStudi: furtherStudy['program_studi'] as string | undefined,
+      jenjang: furtherStudy['jenjang'] as AlumniData['jenjang'] | undefined,
+      lokasiKampus: furtherStudy['lokasi_kampus'] as string | undefined,
+      tahunMulaiStudi: furtherStudy['tahun_mulai_studi'] as number | undefined,
+      tahunSelesaiStudi: furtherStudy['tahun_selesai_studi'] as number | undefined,
+      masihAktifStudi: furtherStudy['masih_aktif_studi'] as boolean | undefined,
+    };
+  }
+  
+  if (status === 'mencari' && jobSeeking) {
+    return {
+      ...base,
+      lokasiTujuan: jobSeeking['lokasi_tujuan'] as string | undefined,
+      bidangDiincar: jobSeeking['bidang_diincar'] as string | undefined,
+      lamaMencari: jobSeeking['lama_mencari'] as number | undefined,
+    };
+  }
+  
+  return base;
+}
+
 export function AdminStudentEditModal({
   open,
   onOpenChange,
@@ -72,9 +185,8 @@ export function AdminStudentEditModal({
   existingNims,
   onUpdateProfile,
   onResetPassword,
+  onDataChanged,
 }: AdminStudentEditModalProps) {
-  const { getAlumniDataByMasterId, addAlumniData, updateAlumniData, deleteAlumniData } = useAlumni();
-  
   const [activeTab, setActiveTab] = useState('profile');
   const [isSaving, setIsSaving] = useState(false);
   const [saveResult, setSaveResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -111,6 +223,26 @@ export function AdminStudentEditModal({
   const [deleteAchievementDialogOpen, setDeleteAchievementDialogOpen] = useState(false);
   const [achievementToDelete, setAchievementToDelete] = useState<string | null>(null);
 
+  const refreshCareerData = useCallback(async () => {
+    if (!student) return;
+    const response = await getTracerStudyFromAPI(student.id);
+    if (response.success && response.data) {
+      setCareerHistory(response.data.map(mapTracerToAlumniData));
+    } else {
+      setCareerHistory([]);
+    }
+  }, [student]);
+
+  const refreshAchievementData = useCallback(async () => {
+    if (!student) return;
+    const response = await getAchievementsFromAPI(student.id);
+    if (response.success && response.data) {
+      setAchievements(response.data.map(mapApiAchievementToUi));
+    } else {
+      setAchievements([]);
+    }
+  }, [student]);
+
   // Load data when student changes
   useEffect(() => {
     if (student) {
@@ -123,29 +255,17 @@ export function AdminStudentEditModal({
         tahunMasuk: student.tahunMasuk,
         tahunLulus: student.tahunLulus,
       });
-      setCareerHistory(getAlumniDataByMasterId(student.id));
-      setAchievements(getAchievementsByStudentId(student.id));
+      refreshCareerData();
+      refreshAchievementData();
       setProfileErrors({});
       setSaveResult(null);
       setShowPasswordReset(false);
       setNewPassword('');
       setConfirmPassword('');
+      setAchievementFormOpen(false);
+      setEditingAchievement(null);
     }
-  }, [student, getAlumniDataByMasterId]);
-
-  // Refresh career data
-  const refreshCareerData = () => {
-    if (student) {
-      setCareerHistory(getAlumniDataByMasterId(student.id));
-    }
-  };
-
-  // Refresh achievement data
-  const refreshAchievementData = () => {
-    if (student) {
-      setAchievements(getAchievementsByStudentId(student.id));
-    }
-  };
+  }, [student, refreshCareerData, refreshAchievementData]);
 
   // Validate profile
   const validateProfile = (): boolean => {
@@ -193,6 +313,7 @@ export function AdminStudentEditModal({
 
       if (result.success) {
         setSaveResult({ success: true, message: 'Profil berhasil diperbarui!' });
+        await onDataChanged?.();
       } else {
         setSaveResult({ success: false, message: result.error || 'Gagal memperbarui profil' });
       }
@@ -238,66 +359,88 @@ export function AdminStudentEditModal({
   const handleSaveCareer = async (data: CareerFormData) => {
     if (!student) return;
     
-    if (data.id) {
-      // Update existing
-      updateAlumniData(data.id, data);
-    } else {
-      // Add new - create full AlumniData object
-      const newCareerData: AlumniData = {
-        id: `career_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        alumniMasterId: student.id,
-        email: student.email || '',
-        noHp: student.noHp || '',
-        status: data.status,
-        tahunPengisian: data.tahunPengisian,
-        createdAt: new Date(),
-        isActive: data.isActive,
-        // Bekerja fields
-        namaPerusahaan: data.namaPerusahaan,
+    const statusMap: Record<string, string> = {
+      bekerja: 'working',
+      wirausaha: 'entrepreneur',
+      studi: 'further_study',
+      mencari: 'job_seeking',
+    };
+
+    const payload = {
+      student_id: student.id,
+      career_status: statusMap[data.status] || 'job_seeking',
+      email: student.email || '',
+      no_hp: student.noHp || '',
+      media_sosial: undefined,
+      linkedin: undefined,
+      tahun_pengisian: data.tahunPengisian,
+      employment_data: data.status === 'bekerja' ? {
+        nama_perusahaan: data.namaPerusahaan,
+        lokasi_perusahaan: data.lokasiPerusahaan,
+        bidang_industri: data.bidangIndustri,
         jabatan: data.jabatan,
-        lokasiPerusahaan: data.lokasiPerusahaan,
-        bidangIndustri: data.bidangIndustri,
-        tahunMulaiKerja: data.tahunMulaiKerja,
-        tahunSelesaiKerja: data.tahunSelesaiKerja,
-        masihAktifKerja: data.masihAktifKerja,
-        // Wirausaha fields
-        namaUsaha: data.namaUsaha,
-        jenisUsaha: data.jenisUsaha,
-        lokasiUsaha: data.lokasiUsaha,
-        tahunMulaiUsaha: data.tahunMulaiUsaha,
-        usahaAktif: data.usahaAktif,
-        // Studi fields
-        namaKampus: data.namaKampus,
-        programStudi: data.programStudi,
+        tahun_mulai_kerja: data.tahunMulaiKerja,
+        tahun_selesai_kerja: data.tahunSelesaiKerja,
+        masih_aktif_kerja: data.masihAktifKerja,
+      } : undefined,
+      entrepreneurship_data: data.status === 'wirausaha' ? {
+        nama_usaha: data.namaUsaha,
+        jenis_usaha: data.jenisUsaha,
+        lokasi_usaha: data.lokasiUsaha,
+        tahun_mulai_usaha: data.tahunMulaiUsaha,
+        usaha_aktif: data.usahaAktif,
+      } : undefined,
+      further_study_data: data.status === 'studi' ? {
+        nama_kampus: data.namaKampus,
+        program_studi: data.programStudi,
         jenjang: data.jenjang,
-        lokasiKampus: data.lokasiKampus,
-        tahunMulaiStudi: data.tahunMulaiStudi,
-        tahunSelesaiStudi: data.tahunSelesaiStudi,
-        masihAktifStudi: data.masihAktifStudi,
-        // Mencari fields
-        bidangDiincar: data.bidangDiincar,
-        lokasiTujuan: data.lokasiTujuan,
-        lamaMencari: data.lamaMencari,
-      };
-      addAlumniData(newCareerData);
+        lokasi_kampus: data.lokasiKampus,
+        tahun_mulai_studi: data.tahunMulaiStudi,
+        tahun_selesai_studi: data.tahunSelesaiStudi,
+        masih_aktif_studi: data.masihAktifStudi,
+      } : undefined,
+      job_seeking_data: data.status === 'mencari' ? {
+        bidang_diincar: data.bidangDiincar,
+        lokasi_tujuan: data.lokasiTujuan,
+        lama_mencari: data.lamaMencari,
+      } : undefined,
+    };
+
+    if (data.id) {
+      const response = await updateTracerStudyViaAPI(data.id, payload);
+      if (!response.success) {
+        throw new Error(response.error || 'Gagal memperbarui tracer study');
+      }
+    } else {
+      const response = await createTracerStudyViaAPI(payload);
+      if (!response.success) {
+        throw new Error(response.error || 'Gagal menambahkan tracer study');
+      }
     }
-    refreshCareerData();
+    await refreshCareerData();
+    await onDataChanged?.();
   };
 
-  const handleDeleteCareer = () => {
+  const handleDeleteCareer = async () => {
     if (careerToDelete) {
-      deleteAlumniData(careerToDelete);
-      refreshCareerData();
+      const response = await deleteTracerStudyViaAPI(careerToDelete);
+      if (response.success) {
+        await refreshCareerData();
+        await onDataChanged?.();
+      }
       setCareerToDelete(null);
     }
     setDeleteCareerDialogOpen(false);
   };
 
   // Achievement handlers
-  const handleDeleteAchievement = () => {
+  const handleDeleteAchievement = async () => {
     if (achievementToDelete) {
-      deleteAchievement(achievementToDelete);
-      refreshAchievementData();
+      const response = await deleteAchievementViaAPI(achievementToDelete);
+      if (response.success) {
+        await refreshAchievementData();
+        await onDataChanged?.();
+      }
       setAchievementToDelete(null);
     }
     setDeleteAchievementDialogOpen(false);
@@ -337,7 +480,22 @@ export function AdminStudentEditModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="relative max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent
+        className={cn(
+          "max-w-3xl max-h-[90vh] flex flex-col min-h-0",
+          achievementFormOpen ? "overflow-visible" : "overflow-hidden"
+        )}
+        onInteractOutside={(event) => {
+          if (achievementFormOpen) {
+            event.preventDefault();
+          }
+        }}
+        onEscapeKeyDown={(event) => {
+          if (achievementFormOpen) {
+            event.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -355,7 +513,7 @@ export function AdminStudentEditModal({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0 overflow-hidden flex flex-col">
           <TabsList className="w-full justify-start">
             <TabsTrigger value="profile" className="gap-2">
               <User className="w-4 h-4" />
@@ -371,9 +529,9 @@ export function AdminStudentEditModal({
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1 mt-4">
+          <ScrollArea className="min-h-0 mt-4 h-[calc(90vh-16rem)]">
             {/* Profile Tab */}
-            <TabsContent value="profile" className="mt-0 space-y-4">
+            <TabsContent value="profile" className="mt-0 space-y-4 pb-6">
               <div className="grid grid-cols-2 gap-4">
                 {/* Nama */}
                 <div className="space-y-2">
@@ -534,7 +692,7 @@ export function AdminStudentEditModal({
             </TabsContent>
 
             {/* Career Tab */}
-            <TabsContent value="career" className="mt-0 space-y-4">
+            <TabsContent value="career" className="mt-0 space-y-4 pb-6">
               <div className="flex justify-between items-center">
                 <h4 className="font-medium">Riwayat Karir</h4>
                 <Button
@@ -633,7 +791,7 @@ export function AdminStudentEditModal({
             </TabsContent>
 
             {/* Achievements Tab */}
-            <TabsContent value="achievements" className="mt-0 space-y-4">
+            <TabsContent value="achievements" className="mt-0 space-y-4 pb-6">
               <div className="flex justify-between items-center">
                 <h4 className="font-medium">Prestasi Non-Akademik</h4>
                 <Button
@@ -746,13 +904,14 @@ export function AdminStudentEditModal({
               <span className="text-sm">{saveResult.message}</span>
             </div>
           )}
-          {/* Achievement Form Modal (must be inside DialogContent portal layer) */}
+          {/* Achievement Form Modal */}
           {achievementFormOpen && (
             <AchievementFormModal
               masterId={student.id}
               category={editingAchievement?.category}
               editData={editingAchievement}
-              layout="absolute"
+              layout="fixed"
+              useApi
               onClose={() => {
                 setAchievementFormOpen(false);
                 setEditingAchievement(null);
@@ -761,6 +920,7 @@ export function AdminStudentEditModal({
                 setAchievementFormOpen(false);
                 setEditingAchievement(null);
                 refreshAchievementData();
+                onDataChanged?.();
               }}
             />
           )}
@@ -776,7 +936,6 @@ export function AdminStudentEditModal({
         mode={editingCareer ? 'edit' : 'add'}
       />
 
-      {/* Achievement Form Modal is rendered inside DialogContent to avoid being blocked by DialogOverlay */}
 
       {/* Delete Career Dialog */}
       <AlertDialog open={deleteCareerDialogOpen} onOpenChange={setDeleteCareerDialogOpen}>

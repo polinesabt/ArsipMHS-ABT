@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Users, TrendingUp, Globe, GraduationCap, Building2 } from 'lucide-react';
+import { ArrowRight, Users, TrendingUp, Globe, Building2 } from 'lucide-react';
 import { StatCard } from '@/components/shared';
 
 export function HeroSection() {
@@ -32,8 +32,12 @@ export function HeroSection() {
           <div className="text-center mb-16">
             {/* Institution Badge */}
             <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-primary/10 border border-primary/20 mb-8 animate-fade-up">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                <GraduationCap className="w-4 h-4 text-primary-foreground" />
+              <div className="w-8 h-8 rounded-full flex items-center justify-center">
+                <img
+                  src="/logo-polines.png"
+                  alt="Logo Politeknik Negeri Semarang"
+                  className="w-6 h-6 object-contain"
+                />
               </div>
               <div className="text-left">
                 <span className="text-xs text-muted-foreground block">Politeknik Negeri Semarang</span>
@@ -43,16 +47,15 @@ export function HeroSection() {
 
             {/* Main Title */}
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 animate-fade-up" style={{ animationDelay: '0.1s' }}>
-              <span className="gradient-text">Survey Lulusan</span>
+              <span className="gradient-text">ARSIP MAHASISWA</span>
             </h1>
             
-            <h2 className="text-xl md:text-2xl lg:text-3xl font-semibold text-foreground mb-4 animate-fade-up" style={{ animationDelay: '0.15s' }}>
-              Sistem Informasi Lulusan Polines
+            <h2 className="text-2xl md:text-3xl lg:text-4xl font-semibold text-foreground mb-4 animate-fade-up" style={{ animationDelay: '0.15s' }}>
+              Prodi Studi Administrasi Bisnis Terapan
             </h2>
             
             <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-fade-up text-balance" style={{ animationDelay: '0.2s' }}>
-              Arsip digital resmi & sistem terintegrasi untuk pelacakan karir, 
-              pencatatan prestasi, dan analisis data lulusan ABT Polines.
+              Sistem Arsip Digital Terintegrasi Data Mahasiswa Program Studi Administrasi Bisnis Terapan Politeknik Negeri Semarang
             </p>
 
             {/* CTA Buttons */}
@@ -71,44 +74,7 @@ export function HeroSection() {
             </div>
           </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-up" style={{ animationDelay: '0.4s' }}>
-            <div className="glass-card rounded-2xl p-6 hover:shadow-elevated transition-all duration-300 group">
-              <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Users className="w-7 h-7 text-primary" />
-              </div>
-              <p className="text-4xl font-bold text-foreground mb-1">12,500+</p>
-              <p className="text-sm text-muted-foreground">Alumni Terdaftar</p>
-            </div>
-            
-            <div className="glass-card rounded-2xl p-6 hover:shadow-elevated transition-all duration-300 group">
-              <div className="w-14 h-14 rounded-xl bg-success/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <TrendingUp className="w-7 h-7 text-success" />
-              </div>
-              <p className="text-4xl font-bold text-foreground mb-1">89%</p>
-              <p className="text-sm text-muted-foreground">Tingkat Keterserapan Kerja</p>
-            </div>
-            
-            <div className="glass-card rounded-2xl p-6 hover:shadow-elevated transition-all duration-300 group">
-              <div className="w-14 h-14 rounded-xl bg-info/10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Globe className="w-7 h-7 text-info" />
-              </div>
-              <p className="text-4xl font-bold text-foreground mb-1">150+</p>
-              <p className="text-sm text-muted-foreground">Kota Persebaran</p>
-            </div>
-          </div>
-
-          {/* System Features Tags */}
-          <div className="flex flex-wrap justify-center gap-3 mt-12 animate-fade-up" style={{ animationDelay: '0.5s' }}>
-            {['Survey Alumni', 'Rekam Jejak', 'Prestasi Non-Akademik', 'AI Insight', 'Akreditasi'].map((tag) => (
-              <span 
-                key={tag}
-                className="px-4 py-2 rounded-full bg-card border border-border text-sm font-medium text-muted-foreground hover:border-primary/30 hover:text-foreground transition-colors"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
+          {/* (Stats grid and feature tags section removed as requested) */}
         </div>
       </div>
     </section>

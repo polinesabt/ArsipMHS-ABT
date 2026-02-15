@@ -1,73 +1,153 @@
-# Welcome to your Lovable project
+# Arsip Mahasiswa Prodi ABT - Politeknik Negeri Semarang
 
-## Project info
+Sistem arsip digital data mahasiswa & alumni dan tracer study untuk Program Studi Administrasi Bisnis Terapan (ABT) Politeknik Negeri Semarang.
 
-**URL**: https://lovable.dev/projects/6058a6bb-0922-4b5f-af2e-a80890bf0e9c
+## 📋 Fitur Utama
 
-## How can I edit this code?
+- **Dashboard Mahasiswa/Alumni**: Lihat data prestasi, riwayat karier, dan status alumni
+- **Dashboard Admin**: Kelola data mahasiswa, tracer study, dan prestasi
+- **Tracer Study**: Pelacakan karir dan status alumni setelah lulus
+- **Portfolio Prestasi**: Dokumentasi prestasi akademik dan non-akademik
+- **Protected Routes**: Sistem autentikasi untuk mahasiswa dan admin
 
-There are several ways of editing your application.
+## 🛠️ Tech Stack
 
-**Use Lovable**
+### Frontend
+- **Vite** - Build tool & dev server
+- **React 18** - UI library
+- **TypeScript** - Type safety
+- **React Router v6** - Routing & navigation
+- **React Hook Form + Zod** - Form validation
+- **shadcn/ui** - Component library
+- **Tailwind CSS** - Styling
+- **React Query** - Data fetching & caching
+- **Recharts** - Data visualization
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/6058a6bb-0922-4b5f-af2e-a80890bf0e9c) and start prompting.
+### Backend (Coming Soon)
+- **PHP** - Server-side logic
+- **MySQL** - Database
+- **Shared Hosting** (Rumahweb)
 
-Changes made via Lovable will be committed automatically to this repo.
+## 🚀 Development Setup
 
-**Use your preferred IDE**
+### Prerequisites
+- Node.js (v16+)
+- npm atau bun
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Installation
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+```bash
+# Clone repository
+git clone <repo-url>
+cd Arsipmhs
 
-Follow these steps:
+# Install dependencies
+npm install
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Server akan berjalan di `http://localhost:8080`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 📁 Project Structure
 
-**Use GitHub Codespaces**
+```
+src/
+├── auth/              # Authentication module
+├── components/        # Reusable React components
+│   ├── admin/        # Admin-specific components
+│   ├── auth/         # Auth components
+│   ├── dashboard/    # Dashboard components
+│   ├── landing/      # Landing page components
+│   ├── layout/       # Layout components
+│   ├── prestasi/     # Achievement components
+│   ├── shared/       # Shared UI components
+│   └── ui/           # shadcn/ui components
+├── contexts/          # React Context for state
+├── hooks/             # Custom React hooks
+├── lib/               # Utility functions
+├── pages/             # Page components
+├── services/          # Business logic & API calls
+├── types/             # TypeScript type definitions
+├── constants/         # Application constants
+├── data/              # Seed data (temporary)
+└── repositories/      # Data access layer
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## 🔐 Demo Credentials
 
-## What technologies are used for this project?
+### Student Account
+- **Username**: `mahasiswa1`
+- **Password**: `student123`
 
-This project is built with:
+### Admin Account
+- **Username**: `admin`
+- **Password**: `admin123`
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## 📝 Available Scripts
 
-## How can I deploy this project?
+```bash
+npm run dev        # Start development server
+npm run build      # Build for production
+npm run build:dev  # Build in development mode
+npm run preview    # Preview production build
+npm run lint       # Run ESLint
+```
 
-Simply open [Lovable](https://lovable.dev/projects/6058a6bb-0922-4b5f-af2e-a80890bf0e9c) and click on Share -> Publish.
+## ⚠️ Current Status (MVP)
 
-## Can I connect a custom domain to my Lovable project?
+### ✅ Implemented
+- Frontend UI & routing
+- Form validation & submission
+- Protected routes
+- React Context state management
+- In-memory data storage
+- Authentication UI (frontend-only)
 
-Yes, you can!
+### 🔄 In Progress
+- Backend API (PHP + MySQL)
+- Database schema & migrations
+- Server-side authentication
+- Persistent data storage
+- File upload functionality
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### 📌 Planned
+- Email notifications
+- Advanced analytics
+- User permissions & roles
+- Audit logging
+- Performance optimization
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## 🔗 Roadmap
+
+1. **Phase 1**: Cleanup frontend & remove Lovable dependencies ✅
+2. **Phase 2**: Design & implement MySQL database schema
+3. **Phase 3**: Build PHP backend API
+4. **Phase 4**: Connect frontend to backend
+5. **Phase 5**: Implement authentication & security
+6. **Phase 6**: Deploy to shared hosting (Rumahweb)
+7. **Phase 7**: Testing & optimization
+
+## 📦 Deployment
+
+Akan menggunakan **Shared Hosting (Rumahweb)** dengan:
+- PHP (Apache)
+- MySQL
+- .htaccess untuk SPA routing
+
+## 🤝 Contributing
+
+Silakan submit issues dan pull requests.
+
+## 📄 License
+
+[Tentukan license yang sesuai]
+
+## 📧 Contact
+
+For questions or support, contact development team.
+
+---
+
+**Note**: Ini adalah dalam tahap pengembangan awal. Banyak fitur masih menggunakan mock data dan akan dikoneksikan ke database nyata di fase berikutnya.

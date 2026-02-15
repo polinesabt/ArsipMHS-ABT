@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAlumni } from '@/contexts/AlumniContext';
-import { LogIn, Eye, EyeOff, AlertCircle, Shield, CheckCircle2, HelpCircle, GraduationCap, UserCog } from 'lucide-react';
+import { LogIn, Eye, EyeOff, AlertCircle, Shield, CheckCircle2, HelpCircle, GraduationCap, UserCog, ArrowLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type LoginMode = 'student' | 'admin';
@@ -34,9 +34,10 @@ export default function ValidasiPage() {
 
   // If already logged in, redirect using useEffect
   useEffect(() => {
-    if (loggedInAdmin) {
+    const hasToken = Boolean(localStorage.getItem('authToken'));
+    if (hasToken && loggedInAdmin) {
       navigate('/admin', { replace: true });
-    } else if (loggedInStudent) {
+    } else if (hasToken && loggedInStudent) {
       navigate('/dashboard', { replace: true });
     }
   }, [loggedInAdmin, loggedInStudent, navigate]);
@@ -148,10 +149,10 @@ export default function ValidasiPage() {
                 <Shield className="w-8 h-8 text-primary" />
               </div>
               <h1 className="text-3xl font-bold text-foreground mb-3">
-                Masuk ke SIPAL
+                Masuk ke ARSIP MAHASISWA ABT
               </h1>
               <p className="text-muted-foreground max-w-sm mx-auto">
-                Sistem Informasi Pelacakan Alumni - ABT Polines
+                Sistem Arsip Digital Data Mahasiswa & Alumni ABT Polines
               </p>
             </div>
 
@@ -193,11 +194,13 @@ export default function ValidasiPage() {
                   </Label>
                   <Input
                     id="identifier"
-                    placeholder={mode === 'student' ? 'Masukkan NIM Anda (contoh: 20210001)' : 'Masukkan username admin'}
+                    placeholder={mode === 'student' ? 'Masukkan NIM Anda (contoh: 4.51.23.0.17)' : 'Masukkan username admin'}
                     value={identifier}
                     onChange={(e) => {
                       if (mode === 'student') {
-                        setIdentifier(e.target.value.replace(/\D/g, '').slice(0, 8));
+                        const raw = e.target.value;
+                        const value = raw.replace(/[^0-9.]/g, '').slice(0, 20);
+                        setIdentifier(value);
                       } else {
                         setIdentifier(e.target.value);
                       }
@@ -271,6 +274,15 @@ export default function ValidasiPage() {
                       Masuk
                     </>
                   )}
+                </Button>
+                <Button
+                  onClick={() => navigate('/')}
+                  variant="outline"
+                  className="w-full h-12"
+                  size="lg"
+                >
+                  <ArrowLeft className="w-5 h-5 mr-2" />
+                  Kembali ke Home
                 </Button>
 
                 {/* Help Section (only for students) */}

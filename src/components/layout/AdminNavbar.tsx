@@ -4,7 +4,7 @@
  */
 
 import { Link } from 'react-router-dom';
-import { GraduationCap, Moon, Sun, LogOut } from 'lucide-react';
+import { Moon, Sun, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAlumni } from '@/contexts/AlumniContext';
 
@@ -17,12 +17,16 @@ export function AdminNavbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/admin" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-soft group-hover:shadow-elevated transition-shadow">
-              <GraduationCap className="w-5 h-5 text-primary-foreground" />
+            <div className="w-10 h-10 flex items-center justify-center">
+              <img
+                src="/logo-polines.png"
+                alt="Logo Politeknik Negeri Semarang"
+                className="w-full h-full object-contain"
+              />
             </div>
             <div className="hidden sm:block">
               <span className="font-bold text-lg text-foreground block leading-tight">Admin Panel</span>
-              <span className="text-[10px] text-muted-foreground leading-none">SIPAL • ABT</span>
+              <span className="text-[10px] text-muted-foreground leading-none">ARSIP MAHASISWA ABT</span>
             </div>
           </Link>
 
