@@ -121,7 +121,7 @@ npm run lint       # Run ESLint
 
 ## 🔗 Roadmap
 
-1. **Phase 1**: Cleanup frontend & remove Lovable dependencies ✅
+1. **Phase 1**: Cleanup frontend & remove legacy template dependencies ✅
 2. **Phase 2**: Design & implement MySQL database schema
 3. **Phase 3**: Build PHP backend API
 4. **Phase 4**: Connect frontend to backend

@@ -1,38 +1,99 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAlumni } from '@/contexts/AlumniContext';
-import { jurusanList, prodiList, tahunLulusList } from '@/lib/data';
 import { StatCard, StatusBadge, DataTable } from '@/components/shared';
 import { StudentAccountModal, DeleteStudentDialog, AdminStudentEditModal } from '@/components/admin';
 import type { StudentAccountInput, StudentProfile } from '@/types/student.types';
+import type { AlumniData } from '@/types';
 import {
-  Search, Download, Filter, Users2, Briefcase, Rocket, BookOpen, TrendingUp,
+  getStudentsListFromAPI,
+  deleteStudentsBatch,
+  resetPasswordBatch,
+} from '@/repositories/api-student.repository';
+import {
+  Search, Download, Users2, Briefcase, Rocket, BookOpen, TrendingUp,
   User, Mail, Phone, Building2, MapPin, Calendar, ExternalLink, X,
-  UserPlus, Trash2, Pencil
+  UserPlus, Trash2, Pencil, CheckSquare, KeyRound, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { exportStudentsToExcel, exportStudentImportTemplate } from '@/lib/excel-export';
 import { parseStudentAccountsFromExcel } from '@/lib/excel-import';
 
+/** Table row shape for Pengelola Mahasiswa (camelCase from API) */
+interface StudentTableRow {
+  id: string;
+  nama: string;
+  nim: string;
+  email?: string;
+  noHp?: string;
+  status: string;
+  tahunMasuk: number;
+  tahunLulus: number;
+  jurusan: string;
+  prodi: string;
+  filledData?: AlumniData | null;
+}
+
+function mapApiStudentToRow(s: {
+  id: string;
+  nama: string;
+  nim: string;
+  jurusan?: string;
+  prodi?: string;
+  status: string;
+  tahun_masuk: number;
+  tahun_lulus?: number | null;
+  email?: string | null;
+  no_hp?: string | null;
+  [k: string]: unknown;
+}, filled?: AlumniData | null): StudentTableRow {
+  const tahunMasuk = Number(s.tahun_masuk);
+  const tahunLulus = s.tahun_lulus != null ? Number(s.tahun_lulus) : tahunMasuk + 4;
+  return {
+    id: s.id,
+    nama: s.nama,
+    nim: s.nim,
+    email: s.email ?? undefined,
+    noHp: s.no_hp ?? undefined,
+    status: s.status,
+    tahunMasuk,
+    tahunLulus,
+    jurusan: s.jurusan ?? 'Administrasi Bisnis',
+    prodi: s.prodi ?? 'Administrasi Bisnis Terapan',
+    filledData: filled ?? null,
+  };
+}
+
 export default function AdminDashboard() {
   const { masterData, alumniData, studentAccounts, addStudentAccount, deleteStudentAccount, updateStudentAccount, resetStudentPassword, refreshData } = useAlumni();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterTahun, setFilterTahun] = useState<string>('all');
-  const [filterJurusan, setFilterJurusan] = useState<string>('all');
-  const [filterProdi, setFilterProdi] = useState<string>('all');
   const [selectedAlumniId, setSelectedAlumniId] = useState<string | null>(null);
-  
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  const [studentList, setStudentList] = useState<StudentTableRow[]>([]);
+  const [isListLoading, setIsListLoading] = useState(false);
+
+  const [batchMode, setBatchMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
+  const [isBatchDeleting, setIsBatchDeleting] = useState(false);
+  const [showBatchResetModal, setShowBatchResetModal] = useState(false);
+  const [batchResetPassword, setBatchResetPassword] = useState('');
+  const [batchResetPasswordConfirm, setBatchResetPasswordConfirm] = useState('');
+  const [isBatchResetting, setIsBatchResetting] = useState(false);
+
   // Modal states for student account management
   const [showAddModal, setShowAddModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; nama: string; nim: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Import Excel state
-  const [isImporting, setIsImporting] = useState(false); // confirm import to DB
-  const [isReadingFile, setIsReadingFile] = useState(false); // parsing Excel
+  const [isImporting, setIsImporting] = useState(false);
+  const [isReadingFile, setIsReadingFile] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [pendingImportAccounts, setPendingImportAccounts] = useState<StudentAccountInput[]>([]);
   const [importSummary, setImportSummary] = useState<{ success: number; failed: number; warnings: string[] } | null>(null);
@@ -40,35 +101,42 @@ export default function AdminDashboard() {
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  
+
   // Edit modal state
   const [editStudent, setEditStudent] = useState<StudentProfile | null>(null);
 
-  // Use studentAccounts as the primary data source for the table
-  // This ensures all accounts can be managed (edited/deleted)
-  const tableData = useMemo(() => {
-    return studentAccounts.map(student => {
-      const filled = alumniData.find(d => d.alumniMasterId === student.id);
-      return { 
-        ...student, 
-        filledData: filled,
-        // Add tahunLulus for compatibility
-        tahunLulus: student.tahunLulus || student.tahunMasuk + 4,
+  const fetchStudentsList = useCallback(async () => {
+    setIsListLoading(true);
+    try {
+      const params: Record<string, string | number> = {
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
       };
-    });
-  }, [studentAccounts, alumniData]);
 
-  // Filter data based on search and filters
-  const filteredData = useMemo(() => {
-    return tableData.filter(student => {
-      const matchSearch = student.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        student.nim.includes(searchQuery);
-      const matchTahun = filterTahun === 'all' || student.tahunLulus === parseInt(filterTahun);
-      const matchJurusan = filterJurusan === 'all' || student.jurusan === filterJurusan;
-      const matchProdi = filterProdi === 'all' || student.prodi === filterProdi;
-      return matchSearch && matchTahun && matchJurusan && matchProdi;
-    });
-  }, [tableData, searchQuery, filterTahun, filterJurusan, filterProdi]);
+      const res = await getStudentsListFromAPI(params);
+      if (res.success && res.data != null) {
+        const rows = res.data.map((s) => {
+          const filled = alumniData.find((d) => d.alumniMasterId === s.id);
+          return mapApiStudentToRow(s, filled);
+        });
+        setStudentList(rows);
+        setTotalCount(res.total ?? res.data.length);
+      } else {
+        setStudentList([]);
+        setTotalCount(0);
+      }
+    } finally {
+      setIsListLoading(false);
+    }
+  }, [page, pageSize, alumniData]);
+
+  useEffect(() => {
+    fetchStudentsList();
+  }, [fetchStudentsList]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const rangeStart = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
+  const rangeEnd = Math.min(page * pageSize, totalCount);
 
   // Statistics
   const stats = useMemo(() => {
@@ -80,9 +148,10 @@ export default function AdminDashboard() {
     return { filled, bekerja, wirausaha, studi, mencari };
   }, [alumniData]);
 
-  const handleAdminDataChanged = async () => {
+  const handleAdminDataChanged = useCallback(async () => {
     await refreshData();
-  };
+    await fetchStudentsList();
+  }, [refreshData, fetchStudentsList]);
 
   const selectedAlumniDetail = useMemo(() => {
     if (!selectedAlumniId) return null;
@@ -91,25 +160,25 @@ export default function AdminDashboard() {
     return master ? { ...master, filledData: filled } : null;
   }, [selectedAlumniId, masterData, alumniData]);
 
-  // Export handler - Excel (.xlsx) with formatted table
   const handleExport = useCallback(async () => {
-    const rows = filteredData.map((alumni) => ({
-      nama: alumni.nama,
-      nim: alumni.nim,
-      email: alumni.filledData?.email || '-',
-      nomor: alumni.filledData?.noHp || '-',
-      tahunMasuk: alumni.tahunMasuk,
-      tahunLulus: alumni.tahunLulus,
-      // Password disimpan di backend sebagai hash, jadi di sini kita tidak bisa menampilkan password asli.
-      // Untuk kebutuhan template import, kita isi password default = NIM.
-      password: alumni.nim,
+    const params: Record<string, string | number> = { limit: 10000, offset: 0 };
+    const res = await getStudentsListFromAPI(params);
+    const list = res.success && res.data ? res.data : [];
+    const rows = list.map((s) => ({
+      nama: s.nama,
+      nim: s.nim,
+      email: s.email || '-',
+      nomor: s.no_hp || '-',
+      tahunMasuk: Number(s.tahun_masuk),
+      tahunLulus: s.tahun_lulus != null ? Number(s.tahun_lulus) : Number(s.tahun_masuk) + 4,
+      password: s.nim,
     }));
 
     await exportStudentsToExcel(rows, {
       filename: 'data-mahasiswa.xlsx',
       title: 'DATA MAHASISWA',
     });
-  }, [filteredData]);
+  }, []);
 
   const getStatusLabel = (status: string) => {
     switch (status) {
@@ -226,53 +295,53 @@ export default function AdminDashboard() {
     }
   };
 
-  // Table columns configuration with status and actions (Edit + Delete)
   const tableColumns = [
     { key: 'nama', header: 'Nama', sortable: true },
     { key: 'nim', header: 'NIM', sortable: true },
-    { 
-      key: 'email', 
-      header: 'Email', 
+    {
+      key: 'email',
+      header: 'Email',
       hideOnMobile: true,
-      accessor: (row: typeof filteredData[0]) => row.email || '-',
-      className: 'text-sm'
+      accessor: (row: StudentTableRow) => row.email || '-',
+      className: 'text-sm',
     },
-    { 
-      key: 'noHp', 
-      header: 'Nomor', 
+    {
+      key: 'noHp',
+      header: 'Nomor',
       hideOnMobile: true,
-      accessor: (row: typeof filteredData[0]) => row.noHp || '-',
-      className: 'text-sm'
+      accessor: (row: StudentTableRow) => row.noHp || '-',
+      className: 'text-sm',
     },
-    { 
-      key: 'status', 
+    {
+      key: 'status',
       header: 'Status',
-      accessor: (row: typeof filteredData[0]) => {
-        // Show student status (active/alumni/etc) instead of career status
+      accessor: (row: StudentTableRow) => {
         const statusLabels: Record<string, string> = {
-          'active': 'Aktif',
-          'alumni': 'Alumni',
-          'on_leave': 'Cuti',
-          'dropout': 'Dropout',
+          active: 'Aktif',
+          alumni: 'Alumni',
+          on_leave: 'Cuti',
+          dropout: 'Dropout',
         };
         return (
-          <span className={`px-2 py-0.5 rounded-full text-xs ${
-            row.status === 'alumni' ? 'bg-primary/10 text-primary' :
-            row.status === 'active' ? 'bg-success/10 text-success' :
-            row.status === 'on_leave' ? 'bg-warning/10 text-warning' :
-            'bg-muted text-muted-foreground'
-          }`}>
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs ${
+              row.status === 'alumni' ? 'bg-primary/10 text-primary' :
+              row.status === 'active' ? 'bg-success/10 text-success' :
+              row.status === 'on_leave' ? 'bg-warning/10 text-warning' :
+              'bg-muted text-muted-foreground'
+            }`}
+          >
             {statusLabels[row.status] || row.status}
           </span>
         );
-      }
+      },
     },
     { key: 'tahunMasuk', header: 'Tahun Masuk', sortable: true, hideOnMobile: true },
     { key: 'tahunLulus', header: 'Tahun Lulus', sortable: true, hideOnMobile: true },
     {
       key: 'actions',
       header: 'Aksi',
-      accessor: (row: typeof filteredData[0]) => (
+      accessor: (row: StudentTableRow) => (
         <div className="flex gap-1">
           <Button
             variant="ghost"
@@ -280,7 +349,7 @@ export default function AdminDashboard() {
             className="h-8 w-8 p-0 text-primary hover:text-primary hover:bg-primary/10"
             onClick={(e) => {
               e.stopPropagation();
-              setEditStudent(row);
+              setEditStudent(row as unknown as StudentProfile);
             }}
           >
             <Pencil className="h-4 w-4" />
@@ -297,9 +366,52 @@ export default function AdminDashboard() {
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
-      )
+      ),
     },
   ];
+
+  const handleBatchDelete = useCallback(async () => {
+    if (selectedIds.length === 0) return;
+    setIsBatchDeleting(true);
+    try {
+      const res = await deleteStudentsBatch(selectedIds);
+      if (res.success) {
+        setShowBatchDeleteModal(false);
+        setSelectedIds([]);
+        await refreshData();
+        await fetchStudentsList();
+      }
+    } finally {
+      setIsBatchDeleting(false);
+    }
+  }, [selectedIds, refreshData, fetchStudentsList]);
+
+  const handleBatchResetPassword = useCallback(
+    async (password: string) => {
+      if (selectedIds.length === 0 || !password) return;
+      setIsBatchResetting(true);
+      try {
+        const res = await resetPasswordBatch(selectedIds, password);
+        if (res.success) {
+          setShowBatchResetModal(false);
+          setBatchResetPassword('');
+          setBatchResetPasswordConfirm('');
+          setSelectedIds([]);
+          await refreshData();
+          await fetchStudentsList();
+        }
+      } finally {
+        setIsBatchResetting(false);
+      }
+    },
+    [selectedIds, refreshData, fetchStudentsList]
+  );
+
+  const submitBatchReset = useCallback(() => {
+    if (batchResetPassword.length < 6) return;
+    if (batchResetPassword !== batchResetPasswordConfirm) return;
+    void handleBatchResetPassword(batchResetPassword);
+  }, [batchResetPassword, batchResetPasswordConfirm, handleBatchResetPassword]);
 
   // Derive simple step state for import modal UI
   const hasPreview = pendingImportAccounts.length > 0;
@@ -597,7 +709,19 @@ export default function AdminDashboard() {
               <p className="text-muted-foreground">Kelola dan analisis data alumni ABT Polines.</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  size="lg"
+                  variant={batchMode ? 'default' : 'outline'}
+                  className="cursor-pointer"
+                  onClick={() => {
+                    setBatchMode((b) => !b);
+                    if (batchMode) setSelectedIds([]);
+                  }}
+                >
+                  <CheckSquare className="w-5 h-5 mr-2" />
+                  Pilih Data
+                </Button>
                 <Button size="lg" variant="outline" onClick={() => setShowAddModal(true)}>
                   <UserPlus className="w-5 h-5 mr-2" />
                   Tambah Mahasiswa
@@ -634,57 +758,34 @@ export default function AdminDashboard() {
             <StatCard title="Mencari Kerja" value={stats.mencari} icon={Search} color="warning" />
           </div>
 
-          {/* Filters */}
-          <div className="glass-card rounded-2xl p-6 mb-6 animate-fade-up">
-            <div className="flex items-center gap-2 mb-4">
-              <Filter className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold text-foreground">Filter Data</h3>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Cari nama atau NIM..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-11 rounded-xl"
-                />
+          {/* Batch action bar */}
+          {batchMode && (
+            <div className="mb-4 p-4 rounded-2xl border border-border bg-muted/40 flex flex-wrap items-center justify-between gap-3 animate-fade-up">
+              <span className="text-sm text-muted-foreground">
+                {selectedIds.length} dipilih
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={selectedIds.length === 0}
+                  onClick={() => selectedIds.length > 0 && setShowBatchDeleteModal(true)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Hapus
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={selectedIds.length === 0}
+                  onClick={() => { if (selectedIds.length > 0) setShowBatchResetModal(true); }}
+                >
+                  <KeyRound className="w-4 h-4 mr-2" />
+                  Reset Password
+                </Button>
               </div>
-              <Select value={filterTahun} onValueChange={setFilterTahun}>
-                <SelectTrigger className="h-11 rounded-xl">
-                  <SelectValue placeholder="Tahun Lulus" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Tahun</SelectItem>
-                  {tahunLulusList.map(t => (
-                    <SelectItem key={t} value={t.toString()}>{t}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filterJurusan} onValueChange={(v) => { setFilterJurusan(v); setFilterProdi('all'); }}>
-                <SelectTrigger className="h-11 rounded-xl">
-                  <SelectValue placeholder="Jurusan" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Jurusan</SelectItem>
-                  {jurusanList.map(j => (
-                    <SelectItem key={j} value={j}>{j}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={filterProdi} onValueChange={setFilterProdi} disabled={filterJurusan === 'all'}>
-                <SelectTrigger className="h-11 rounded-xl">
-                  <SelectValue placeholder="Prodi" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Prodi</SelectItem>
-                  {filterJurusan !== 'all' && prodiList[filterJurusan]?.map(p => (
-                    <SelectItem key={p} value={p}>{p}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
-          </div>
+          )}
 
           {/* Data Table */}
           <div className="animate-fade-up">
@@ -705,17 +806,163 @@ export default function AdminDashboard() {
                 )}
               </div>
             )}
-            <DataTable
-              data={filteredData}
-              columns={tableColumns}
-              searchPlaceholder="Cari nama atau NIM..."
-              searchKeys={['nama', 'nim'] as (keyof typeof filteredData[0])[]}
-              onRowClick={(row) => setSelectedAlumniId(row.id)}
-              onExport={handleExport}
-              pageSize={10}
-              emptyMessage="Tidak ada data alumni ditemukan"
-            />
+            {isListLoading ? (
+              <div className="p-8 text-center text-muted-foreground">Memuat data...</div>
+            ) : (
+              <>
+                <DataTable<StudentTableRow>
+                  data={studentList}
+                  columns={tableColumns}
+                  onRowClick={(row) => setSelectedAlumniId(row.id)}
+                  onExport={handleExport}
+                  emptyMessage="Tidak ada data alumni ditemukan"
+                  paginationMode="external"
+                  hideToolbar
+                  selectionMode={batchMode ? { rowIdKey: 'id', selectedIds, onSelectionChange: setSelectedIds } : undefined}
+                />
+                {/* Pagination control */}
+                <div className="p-4 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <span className="text-sm text-muted-foreground order-2 sm:order-1">
+                    Menampilkan {rangeStart}–{rangeEnd} dari {totalCount} data
+                  </span>
+                  <div className="flex items-center gap-3 order-1 sm:order-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground whitespace-nowrap">Per halaman:</span>
+                      <Select
+                        value={String(pageSize)}
+                        onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}
+                      >
+                        <SelectTrigger className="w-20 h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[10, 25, 50, 100].map((n) => (
+                            <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-9 w-9 p-0"
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={page <= 1}
+                      >
+                        <span className="sr-only">Previous</span>
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-9 w-9 p-0"
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={page >= totalPages}
+                      >
+                        <span className="sr-only">Next</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
+
+          {/* Batch delete confirmation modal */}
+          <Dialog open={showBatchDeleteModal} onOpenChange={setShowBatchDeleteModal}>
+            <DialogContent className="max-w-md rounded-2xl">
+              <DialogHeader>
+                <DialogTitle>Konfirmasi Hapus</DialogTitle>
+              </DialogHeader>
+              <p className="text-muted-foreground">
+                Apakah Anda yakin ingin menghapus {selectedIds.length} data mahasiswa?
+              </p>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setShowBatchDeleteModal(false)} disabled={isBatchDeleting}>
+                  Batal
+                </Button>
+                <Button variant="destructive" onClick={handleBatchDelete} disabled={isBatchDeleting}>
+                  {isBatchDeleting ? 'Menghapus...' : 'Ya, Hapus'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Batch reset password modal */}
+          <Dialog
+            open={showBatchResetModal}
+            onOpenChange={(open) => {
+              setShowBatchResetModal(open);
+              if (!open) {
+                setBatchResetPassword('');
+                setBatchResetPasswordConfirm('');
+              }
+            }}
+          >
+            <DialogContent className="max-w-md rounded-2xl">
+              <DialogHeader>
+                <DialogTitle>Reset Password ({selectedIds.length} akun)</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground mb-4">
+                Masukkan password baru yang akan dipakai untuk semua akun terpilih.
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Password baru</label>
+                  <Input
+                    type="password"
+                    placeholder="Password baru untuk semua akun terpilih"
+                    value={batchResetPassword}
+                    onChange={(e) => setBatchResetPassword(e.target.value)}
+                    className="h-11 rounded-xl"
+                    autoComplete="new-password"
+                  />
+                  {batchResetPassword.length > 0 && batchResetPassword.length < 6 && (
+                    <p className="text-xs text-destructive mt-1">Password minimal 6 karakter</p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-1.5 block">Konfirmasi password</label>
+                  <Input
+                    type="password"
+                    placeholder="Ulangi password"
+                    value={batchResetPasswordConfirm}
+                    onChange={(e) => setBatchResetPasswordConfirm(e.target.value)}
+                    className="h-11 rounded-xl"
+                    autoComplete="new-password"
+                  />
+                  {batchResetPasswordConfirm.length > 0 && batchResetPassword !== batchResetPasswordConfirm && (
+                    <p className="text-xs text-destructive mt-1">Password tidak cocok</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowBatchResetModal(false);
+                    setBatchResetPassword('');
+                    setBatchResetPasswordConfirm('');
+                  }}
+                  disabled={isBatchResetting}
+                >
+                  Batal
+                </Button>
+                <Button
+                  onClick={submitBatchReset}
+                  disabled={
+                    isBatchResetting ||
+                    batchResetPassword.length < 6 ||
+                    batchResetPassword !== batchResetPasswordConfirm
+                  }
+                >
+                  {isBatchResetting ? 'Mereset...' : 'Ya, Reset'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Detail Dialog */}
           <Dialog open={!!selectedAlumniId} onOpenChange={() => setSelectedAlumniId(null)}>

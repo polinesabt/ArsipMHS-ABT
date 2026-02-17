@@ -127,7 +127,7 @@
     --secondary-foreground: 210 70% 70%;
 
     --muted: 222 30% 15%;
-    --muted-foreground: 220 15% 55%;
+    --muted-foreground: 220 15% 62%;
 
     --accent: 222 35% 20%;
     --accent-foreground: 200 80% 70%;
@@ -202,6 +202,15 @@
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
+
+  /* Kejernihan teks di tema gelap (dashboard admin) */
+  .dark,
+  .dark body {
+    text-rendering: geometricPrecision;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
 }
 
 @layer components {

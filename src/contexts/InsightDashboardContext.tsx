@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Year } from '@/data/insightMockData';
+import type { Year } from '@/types/insight';
 
 interface InsightDashboardContextType {
   selectedYear: Year | 'all';

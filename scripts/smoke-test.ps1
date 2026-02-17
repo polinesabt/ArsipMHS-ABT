@@ -7,7 +7,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $baseUrl = "https://$Domain"
-$apiBase = "$baseUrl/database/backend/api"
+$apiBase = "$baseUrl/backend/api"
 $script:FailureCount = 0
 
 function Invoke-RequestSafe {
@@ -93,7 +93,7 @@ Write-TestResult -Name "API DB Health JSON" `
   -Passed $dbHealthPassed `
   -Detail ("HTTP {0}; Content-Type: {1}" -f $dbHealth.StatusCode, $dbHealth.ContentType)
 
-$envProbe = Invoke-RequestSafe -Method "GET" -Url "$baseUrl/.env.production"
+$envProbe = Invoke-RequestSafe -Method "GET" -Url "$baseUrl/.env"
 Write-TestResult -Name ".env exposure" `
   -Passed ($envProbe.StatusCode -in @(403, 404)) `
   -Detail ("HTTP {0}" -f $envProbe.StatusCode)

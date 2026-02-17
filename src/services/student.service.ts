@@ -6,7 +6,7 @@
  * This service contains business logic and orchestrates repository calls.
  * It should NOT contain UI logic or direct database access.
  * 
- * ISOLATION: Lovable-specific implementation patterns.
+ * ISOLATION: Framework-specific implementation patterns.
  * Service interface remains stable for migration.
  */
 

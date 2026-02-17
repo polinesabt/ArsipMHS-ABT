@@ -11,7 +11,7 @@ export function Footer() {
             <div className="flex items-center gap-3 mb-5">
               <div className="w-12 h-12 flex items-center justify-center rounded-xl">
                 <img
-                  src="/logo-polines.png"
+                  src="/logo.png"
                   alt="Logo Politeknik Negeri Semarang"
                   className="w-full h-full object-contain"
                 />

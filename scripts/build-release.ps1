@@ -39,16 +39,16 @@ try {
 
   Assert-PathExists "dist/index.html"
   Assert-PathExists "dist/.htaccess"
-  Assert-PathExists "database/backend/api"
-  Assert-PathExists "database/backend/config"
-  Assert-PathExists "database/schema.sql"
-  Assert-PathExists "database/seed.sql"
+  Assert-PathExists "backend/api"
+  Assert-PathExists "backend/config"
+  Assert-PathExists "backend/database/schema.sql"
+  Assert-PathExists "backend/database/seed.sql"
 
   $releaseRoot = Join-Path $repoRoot $OutputDir
   $stagingRoot = Join-Path $releaseRoot "staging-$timestamp"
   $publicRoot = Join-Path $stagingRoot "public_html"
-  $backendRoot = Join-Path $publicRoot "database/backend"
-  $dbRoot = Join-Path $stagingRoot "database"
+  $backendRoot = Join-Path $publicRoot "backend"
+  $dbRoot = Join-Path $stagingRoot "backend/database"
 
   New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
   New-Item -ItemType Directory -Path $publicRoot -Force | Out-Null
@@ -61,8 +61,8 @@ try {
   }
 
   Write-Host "Copying backend API/config..."
-  Copy-Item -Path "database/backend/api" -Destination $backendRoot -Recurse -Force
-  Copy-Item -Path "database/backend/config" -Destination $backendRoot -Recurse -Force
+  Copy-Item -Path "backend/api" -Destination $backendRoot -Recurse -Force
+  Copy-Item -Path "backend/config" -Destination $backendRoot -Recurse -Force
 
   Write-Host "Pruning local logs and backup artifacts from release..."
   $apiReleasePath = Join-Path $backendRoot "api"
@@ -78,8 +78,8 @@ try {
   }
 
   Write-Host "Copying SQL files..."
-  Copy-Item -Path "database/schema.sql" -Destination (Join-Path $dbRoot "schema.sql") -Force
-  Copy-Item -Path "database/seed.sql" -Destination (Join-Path $dbRoot "seed.sql") -Force
+  Copy-Item -Path "backend/database/schema.sql" -Destination (Join-Path $dbRoot "schema.sql") -Force
+  Copy-Item -Path "backend/database/seed.sql" -Destination (Join-Path $dbRoot "seed.sql") -Force
 
   $notes = @"
 DEPLOYMENT NOTES
@@ -89,16 +89,16 @@ Domain:
 https://$Domain
 
 API base URL:
-https://$Domain/database/backend/api
+https://$Domain/backend/api
 
 Required env file location on server:
-public_html/.env.production
+public_html/.env (copy from .env.example and fill)
 
 Cron schedule:
 0 * * * *
 
 Cron command:
-curl -sS -X POST "https://$Domain/database/backend/api/evaluations/cron_reminder.php" -H "X-CRON-SECRET: <CRON_SECRET>" -H "Content-Type: application/json" -d "{}" > /dev/null 2>&1
+curl -sS -X POST "https://$Domain/backend/api/evaluations/cron_reminder.php" -H "X-CRON-SECRET: <CRON_SECRET>" -H "Content-Type: application/json" -d "{}" > /dev/null 2>&1
 "@
 
   Set-Content -Path (Join-Path $stagingRoot "DEPLOY_NOTES.txt") -Value $notes

@@ -14,7 +14,7 @@ export function Navbar() {
           <Link to="/" className="flex items-center gap-3 group">
             <div className="w-10 h-10 flex items-center justify-center">
               <img
-                src="/logo-polines.png"
+                src="/logo.png"
                 alt="Logo Politeknik Negeri Semarang"
                 className="w-full h-full object-contain"
               />

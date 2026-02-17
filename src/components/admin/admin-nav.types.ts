@@ -10,13 +10,13 @@ export type AdminNavItemLeaf = {
   children?: never;
 };
 
-/** Parent item: expandable container, no path; click toggles expand/collapse */
+/** Parent item: expandable container; optional path = direct link (e.g. Dashboard Admin → /admin) */
 export type AdminNavItemParent = {
   id: string;
   label: string;
   icon: LucideIcon;
   index: number;
-  path?: never;
+  path?: string;
   children: AdminNavItemLeaf[];
 };
 

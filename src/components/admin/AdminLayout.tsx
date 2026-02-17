@@ -10,8 +10,9 @@ import { useAlumni } from '@/contexts/AlumniContext';
 import { AdminSidebarProvider, useAdminSidebar } from '@/contexts/AdminSidebarContext';
 import { Button } from '@/components/ui/button';
 
-const SIDEBAR_WIDTH = 240;
-const SIDEBAR_COLLAPSED_WIDTH = 70;
+const SIDEBAR_COLLAPSED_WIDTH = 80;
+const SIDEBAR_EXPANDED_WIDTH = 260;
+const EASE_PREMIUM = [0.16, 1, 0.3, 1] as const;
 
 function AdminLayoutShell() {
   const { pathname } = useLocation();
@@ -50,14 +51,14 @@ function AdminLayoutShell() {
   }, []);
 
   const handleSelect = (item: AdminNavItem) => {
-    if (!isNavParent(item) && item.path && item.path !== pathname) {
+    if ('path' in item && item.path && item.path !== pathname) {
       navigate(item.path);
     }
   };
 
   const effectiveCollapsed = isDesktop ? collapsed : true;
-  const contentOffset = effectiveCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH;
-  const routeTransition = { duration: 0.26, ease: [0.22, 1, 0.36, 1] } as const;
+  const contentOffset = effectiveCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_EXPANDED_WIDTH;
+  const routeTransition = { duration: 0.26, ease: EASE_PREMIUM } as const;
   const layoutShiftControls = useAnimationControls();
   const previousOffsetRef = useRef(contentOffset);
 
@@ -70,9 +71,9 @@ function AdminLayoutShell() {
 
     layoutShiftControls.stop();
     layoutShiftControls.set({ x: -delta });
-    void layoutShiftControls.start({
+    void     layoutShiftControls.start({
       x: 0,
-      transition: { duration: 0.22, ease: [0.22, 1, 0.36, 1] },
+      transition: { duration: 0.22, ease: EASE_PREMIUM },
     });
   }, [contentOffset, layoutShiftControls]);
 
@@ -87,7 +88,7 @@ function AdminLayoutShell() {
         onSelect={handleSelect}
         title="Admin Panel"
         collapsedWidth={SIDEBAR_COLLAPSED_WIDTH}
-        expandedWidth={SIDEBAR_WIDTH}
+        expandedWidth={SIDEBAR_EXPANDED_WIDTH}
       />
 
       <div

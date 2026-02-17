@@ -10,18 +10,17 @@
  * etc.
  */
 
-import type { 
-  AlumniMaster, 
-  AlumniData, 
+import type {
+  AlumniMaster,
+  AlumniData,
   AlumniFilterCriteria,
-  AlumniMergedView 
+  AlumniMergedView,
 } from '@/types';
-import { alumniMasterData, alumniFilledData } from '@/data/seed-data';
 
-// ============ In-Memory Storage (Replace with Prisma in production) ============
+// ============ In-Memory Storage (Replace with API/DB in production) ============
 
-let masterDataStore: AlumniMaster[] = [...alumniMasterData];
-let filledDataStore: AlumniData[] = [...alumniFilledData];
+let masterDataStore: AlumniMaster[] = [];
+let filledDataStore: AlumniData[] = [];
 
 // ============ Master Data Operations ============
 
@@ -167,6 +166,6 @@ export const getFilteredMergedData = async (
 // ============ Reset (for testing) ============
 
 export const resetDataStore = (): void => {
-  masterDataStore = [...alumniMasterData];
-  filledDataStore = [...alumniFilledData];
+  masterDataStore = [];
+  filledDataStore = [];
 };

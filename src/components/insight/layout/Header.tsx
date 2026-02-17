@@ -1,7 +1,7 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { useInsightDashboard } from '@/contexts/InsightDashboardContext';
-import { years, Year } from '@/data/insightMockData';
+import { INSIGHT_YEARS, type Year } from '@/types/insight';
 import { X, Calendar, Presentation } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -53,7 +53,7 @@ export function Header({ topOffset = 0 }: HeaderProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Semua Tahun</SelectItem>
-                {years.map((year) => (
+                {INSIGHT_YEARS.map((year) => (
                   <SelectItem key={year} value={year.toString()}>
                     {year}
                   </SelectItem>

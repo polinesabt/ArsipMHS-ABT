@@ -92,8 +92,47 @@ export interface CreateAchievementPayload {
   verified?: boolean;
 }
 
+export interface StudentsListParams {
+  search?: string;
+  status?: string;
+  tahun_masuk?: number;
+  tahun_lulus?: number;
+  career_status?: string;
+  jurusan?: string;
+  prodi?: string;
+  limit?: number;
+  offset?: number;
+  id?: string;
+  nim?: string;
+}
+
+export interface StudentsListResponse extends ApiResponse<Student[]> {
+  total?: number;
+}
+
 /**
- * Get all students from API
+ * Get students list from API with filters and pagination
+ */
+export async function getStudentsListFromAPI(
+  params: StudentsListParams = {}
+): Promise<StudentsListResponse> {
+  const query: Record<string, string | number> = {};
+  if (params.id != null) query.id = params.id;
+  if (params.nim != null) query.nim = params.nim;
+  if (params.search != null && params.search !== '') query.search = params.search;
+  if (params.status != null && params.status !== '' && params.status !== 'all') query.status = params.status;
+  if (params.tahun_masuk != null && params.tahun_masuk > 0) query.tahun_masuk = params.tahun_masuk;
+  if (params.tahun_lulus != null && params.tahun_lulus > 0) query.tahun_lulus = params.tahun_lulus;
+  if (params.career_status != null && params.career_status !== '' && params.career_status !== 'all') query.career_status = params.career_status;
+  if (params.jurusan != null && params.jurusan !== '' && params.jurusan !== 'all') query.jurusan = params.jurusan;
+  if (params.prodi != null && params.prodi !== '' && params.prodi !== 'all') query.prodi = params.prodi;
+  if (params.limit != null) query.limit = params.limit;
+  if (params.offset != null) query.offset = params.offset;
+  return apiClient.get<Student[]>('students/list.php', { params: query }) as Promise<StudentsListResponse>;
+}
+
+/**
+ * Get all students from API (no pagination)
  */
 export async function getAllStudentsFromAPI(): Promise<ApiResponse<Student[]>> {
   return apiClient.get<Student[]>('students/list.php');
@@ -167,6 +206,26 @@ export async function resetStudentPasswordViaAPI(
 ): Promise<ApiResponse<{ success: boolean }>> {
   return apiClient.post<{ success: boolean }>('students/reset_password.php', {
     student_id: studentId,
+    new_password: newPassword,
+  });
+}
+
+/**
+ * Delete multiple students via API (batch)
+ */
+export async function deleteStudentsBatch(ids: string[]): Promise<ApiResponse<{ success: boolean; message?: string }>> {
+  return apiClient.post<{ success: boolean; message?: string }>('students/delete_batch.php', { ids });
+}
+
+/**
+ * Reset password for multiple students via API (batch; random password per student)
+ */
+export async function resetPasswordBatch(
+  ids: string[],
+  newPassword: string
+): Promise<ApiResponse<{ success: boolean; message?: string }>> {
+  return apiClient.post<{ success: boolean; message?: string }>('students/reset_password_batch.php', {
+    ids,
     new_password: newPassword,
   });
 }

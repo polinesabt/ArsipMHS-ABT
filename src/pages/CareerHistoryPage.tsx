@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { isCareerHistoryVisible } from '@/data/student-seed-data';
+import { isCareerHistoryVisible } from '@/lib/student-utils';
 import type { StudentStatus } from '@/types/student.types';
 import {
   AlertDialog,

@@ -4,7 +4,7 @@
  */
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV ? 'http://localhost/Arsipmhs2/database/backend/api' : '');
+  (import.meta.env.DEV ? 'http://localhost/Arsipmhs2/backend/api' : '');
 const API_TIMEOUT = import.meta.env.VITE_API_TIMEOUT ? parseInt(import.meta.env.VITE_API_TIMEOUT) : 10000;
 const AUTH_INVALIDATION_CODES = new Set([
   'AUTH_TOKEN_MALFORMED',

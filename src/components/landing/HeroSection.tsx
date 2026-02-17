@@ -34,7 +34,7 @@ export function HeroSection() {
             <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-primary/10 border border-primary/20 mb-8 animate-fade-up">
               <div className="w-8 h-8 rounded-full flex items-center justify-center">
                 <img
-                  src="/logo-polines.png"
+                  src="/logo.png"
                   alt="Logo Politeknik Negeri Semarang"
                   className="w-6 h-6 object-contain"
                 />

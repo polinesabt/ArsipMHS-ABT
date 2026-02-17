@@ -4,7 +4,7 @@
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteCond %{REQUEST_URI} !^/database/backend/api/
+  RewriteCond %{REQUEST_URI} !^/backend/api/
   RewriteRule . /index.html [L]
 </IfModule>
 

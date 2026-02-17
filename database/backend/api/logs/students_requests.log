@@ -1,8 +1,0 @@
-[2026-02-03 02:52:05] CREATE_PAYLOAD
-﻿{"nim":"testui001","nama":"Test UI Student","password":"secret123"}
-
----
-[2026-02-03 02:52:44] CREATE_PAYLOAD
-{"nim":"testui001","nama":"Test UI Student","password":"secret123"}
-
----

@@ -12,7 +12,7 @@ export default defineConfig(({ mode }) => ({
       mode === "development"
         ? {
             "/api": {
-              target: "http://localhost/Arsipmhs2/database/backend/api",
+              target: "http://localhost/Arsipmhs2/backend/api",
               changeOrigin: true,
               rewrite: (p) => p.replace(/^\/api/, ""),
             },

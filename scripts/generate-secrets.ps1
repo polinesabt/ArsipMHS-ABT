@@ -2,7 +2,7 @@ param(
   [int]$HexBytes = 32,
   [int]$DbPasswordLength = 24,
   [switch]$WriteEnvSnippet,
-  [string]$OutFile = ".env.production.secrets"
+  [string]$OutFile = ".env.secrets"
 )
 
 Set-StrictMode -Version Latest

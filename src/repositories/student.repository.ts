@@ -10,8 +10,8 @@
  * - prisma.achievement.findMany()
  * etc.
  * 
- * ISOLATION: This is a Lovable-specific implementation.
- * Replace this entire file when migrating to Next.js + Prisma.
+ * ISOLATION: This is a temporary in-memory implementation.
+ * Replace this file when migrating to your production persistence layer.
  */
 
 import type {
@@ -26,17 +26,11 @@ import type {
   StudentFilterCriteria,
   AchievementFilterCriteria,
 } from '@/types/student.types';
-import {
-  studentProfiles,
-  tracerStudyRecords,
-  achievementRecords,
-} from '@/data/student-seed-data';
+// ============ In-Memory Storage (Replace with API/DB in production) ============
 
-// ============ In-Memory Storage (Replace with Prisma in production) ============
-
-let studentStore: StudentProfile[] = [...studentProfiles];
-let tracerStore: TracerStudyData[] = [...tracerStudyRecords];
-let achievementStore: NonAcademicAchievement[] = [...achievementRecords];
+let studentStore: StudentProfile[] = [];
+let tracerStore: TracerStudyData[] = [];
+let achievementStore: NonAcademicAchievement[] = [];
 
 // ============ Student Profile Operations ============
 
@@ -350,7 +344,7 @@ export const getStudentSummaries = async (): Promise<StudentSummaryView[]> => {
 // ============ Reset (for testing) ============
 
 export const resetStore = () => {
-  studentStore = [...studentProfiles];
-  tracerStore = [...tracerStudyRecords];
-  achievementStore = [...achievementRecords];
+  studentStore = [];
+  tracerStore = [];
+  achievementStore = [];
 };

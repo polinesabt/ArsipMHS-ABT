@@ -13,10 +13,8 @@ import {
   PengembanganAchievement,
   OrganisasiAchievement
 } from '@/types/achievement.types';
-import { achievementSeedData } from '@/data/achievement-seed-data';
-
-// In-memory storage - pre-seeded with sample data
-let achievements: Achievement[] = [...achievementSeedData];
+// In-memory storage (replace with API/DB in production)
+let achievements: Achievement[] = [];
 
 // Generate unique ID
 const generateId = (): string => {
@@ -224,5 +222,5 @@ export const clearAchievements = (): void => {
 };
 
 export const resetToSeedData = (): void => {
-  achievements = [...achievementSeedData];
+  achievements = [];
 };

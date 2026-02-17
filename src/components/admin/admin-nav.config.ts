@@ -1,19 +1,33 @@
-import { ClipboardCheck, LayoutDashboard, PieChart, Sparkles } from 'lucide-react';
+import {
+  Award,
+  BarChart3,
+  BookOpen,
+  Briefcase,
+  CalendarClock,
+  ClipboardCheck,
+  Clock,
+  FlaskConical,
+  LayoutDashboard,
+  Package,
+  PieChart,
+  Sparkles,
+  Smile,
+  Users,
+} from 'lucide-react';
 import type { AdminNavItem, AdminNavItemLeaf } from '@/components/admin/admin-nav.types';
 
 const DASHBOARD_SUB_MENU: AdminNavItemLeaf[] = [
-  { id: 'dashboard-presentasi', label: 'Presentasi', index: 0, path: '/admin' },
-  { id: 'dashboard-overview', label: 'Overview', index: 1, path: '/admin/dashboard/overview' },
-  { id: 'dashboard-student-achievements', label: 'Student Achievements', index: 2, path: '/admin/dashboard/student-achievements' },
-  { id: 'dashboard-study-period', label: 'Study Period', index: 3, path: '/admin/dashboard/study-period' },
-  { id: 'dashboard-waiting-time', label: 'Waiting Time', index: 4, path: '/admin/dashboard/waiting-time' },
-  { id: 'dashboard-job-relevance', label: 'Job Relevance', index: 5, path: '/admin/dashboard/job-relevance' },
-  { id: 'dashboard-work-coverage', label: 'Work Coverage', index: 6, path: '/admin/dashboard/work-coverage' },
-  { id: 'dashboard-user-satisfaction', label: 'User Satisfaction', index: 7, path: '/admin/dashboard/user-satisfaction' },
-  { id: 'dashboard-publications', label: 'Publications', index: 8, path: '/admin/dashboard/publications' },
-  { id: 'dashboard-active-students', label: 'Active Students', index: 9, path: '/admin/dashboard/active-students' },
-  { id: 'dashboard-student-products', label: 'Student Products', index: 10, path: '/admin/dashboard/student-products' },
-  { id: 'dashboard-research-outputs', label: 'Research Outputs', index: 11, path: '/admin/dashboard/research-outputs' },
+  { id: 'dashboard-overview', label: 'Ringkasan', index: 0, path: '/admin/dashboard/overview', icon: BarChart3 },
+  { id: 'dashboard-student-achievements', label: 'Prestasi Mahasiswa', index: 1, path: '/admin/dashboard/student-achievements', icon: Award },
+  { id: 'dashboard-study-period', label: 'Masa Studi', index: 2, path: '/admin/dashboard/study-period', icon: CalendarClock },
+  { id: 'dashboard-waiting-time', label: 'Waktu Tunggu', index: 3, path: '/admin/dashboard/waiting-time', icon: Clock },
+  { id: 'dashboard-job-relevance', label: 'Relevansi Pekerjaan', index: 4, path: '/admin/dashboard/job-relevance', icon: Briefcase },
+  { id: 'dashboard-work-coverage', label: 'Cakupan Kerja', index: 5, path: '/admin/dashboard/work-coverage', icon: PieChart },
+  { id: 'dashboard-user-satisfaction', label: 'Kepuasan Pengguna', index: 6, path: '/admin/dashboard/user-satisfaction', icon: Smile },
+  { id: 'dashboard-publications', label: 'Publikasi', index: 7, path: '/admin/dashboard/publications', icon: BookOpen },
+  { id: 'dashboard-active-students', label: 'Mahasiswa Aktif', index: 8, path: '/admin/dashboard/active-students', icon: Users },
+  { id: 'dashboard-student-products', label: 'Produk Mahasiswa', index: 9, path: '/admin/dashboard/student-products', icon: Package },
+  { id: 'dashboard-research-outputs', label: 'Luaran Penelitian', index: 10, path: '/admin/dashboard/research-outputs', icon: FlaskConical },
 ];
 
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
@@ -22,6 +36,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     label: 'Dashboard Admin',
     icon: LayoutDashboard,
     index: 0,
+    path: '/admin',
     children: DASHBOARD_SUB_MENU,
   },
   {
