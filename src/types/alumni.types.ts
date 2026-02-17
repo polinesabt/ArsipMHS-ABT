@@ -14,7 +14,7 @@ export type EducationLevel = 'S1' | 'S2' | 'S3';
 
 /**
  * Alumni Master Record
- * Represents validated alumni from the institution's database
+ * Represents validated alumni from the institution (sumber data via API/backend)
  * Maps to: Prisma model AlumniMaster
  */
 export interface AlumniMaster {

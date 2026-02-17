@@ -492,7 +492,7 @@ function ParentNavItem({
           onClick={handleParentClick}
           className={cn(
             'relative flex flex-1 items-center min-w-0 py-2.5 cursor-pointer',
-            collapsed ? 'justify-center px-0 gap-1' : 'pl-3 gap-3'
+            collapsed ? 'justify-center px-0 gap-0' : 'pl-3 gap-3'
           )}
           aria-expanded={!collapsed ? isParentExpanded : undefined}
           aria-label={
@@ -556,11 +556,6 @@ function ParentNavItem({
               <ChevronRight className="h-4 w-4" />
             </motion.span>
           )}
-          {collapsed && (
-            <span className="flex-shrink-0 text-[hsl(var(--sidebar-fg))]">
-              <ChevronRight className="h-4 w-4" />
-            </span>
-          )}
         </motion.a>
         <AnimatePresence>
           {collapsed && isHovered && (
@@ -619,31 +614,55 @@ function ParentNavItem({
                   <motion.a
                     href={child.path}
                     onClick={(e) => {
-                      if (isModifiedEventInner(e)) return;
+                      if (isModifiedEventInner(e.nativeEvent as MouseEvent<HTMLAnchorElement>)) return;
                       e.preventDefault();
                       onSelect(child as AdminNavItem);
                     }}
+                    whileTap={{ scale: 0.985 }}
                     onMouseEnter={() => setSubHoveredId(child.id)}
                     onMouseLeave={() => setSubHoveredId(null)}
                     animate={{ backgroundColor: subBg, color: subFg }}
                     transition={navTransition}
-                    className="relative flex items-center gap-3 rounded-lg py-2 pl-12 pr-3 text-sm w-full overflow-hidden"
+                    className="relative flex items-center gap-3 rounded-lg py-2 pl-9 pr-3 text-sm w-full overflow-hidden cursor-pointer"
                   >
+                    {/* Hover background (scaleX left → right), sama seperti tombol lain */}
+                    <motion.div
+                      className="absolute inset-0 rounded-lg bg-[hsl(var(--sidebar-hover)/0.6)] origin-left"
+                      initial={false}
+                      animate={{ scaleX: isChildHovered && !isChildActive ? 1 : 0 }}
+                      transition={navTransition}
+                      style={{ transformOrigin: 'left' }}
+                    />
                     {isChildActive && (
                       <span
                         className="absolute left-0 top-[18%] bottom-[18%] w-[3px] rounded-r-full bg-[hsl(var(--sidebar-primary))]"
                         aria-hidden
                       />
                     )}
-                    <span
-                      className={cn(
-                        'relative flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center',
-                        isChildActive ? 'bg-[hsl(var(--sidebar-primary)/0.3)]' : 'bg-[hsl(var(--sidebar-hover)/0.3)]'
-                      )}
+                    <motion.span
+                      className="relative flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
+                      animate={{
+                        scale: isChildHovered || isChildActive ? 1.05 : 1,
+                        backgroundColor: isChildActive
+                          ? 'hsl(var(--sidebar-primary) / 0.3)'
+                          : isChildHovered
+                            ? 'rgba(255,255,255,0.05)'
+                            : 'hsl(var(--sidebar-hover) / 0.3)',
+                      }}
+                      transition={navTransition}
                     >
-                      <ChildIconComponent className="w-4 h-4" />
-                    </span>
-                    <span className="font-medium truncate">{child.label}</span>
+                      <motion.div
+                        className="flex items-center justify-center"
+                        animate={{
+                          x: isChildHovered && !isChildActive ? 4 : 0,
+                          color: isChildActive ? 'hsl(0 0% 100%)' : 'hsl(var(--sidebar-fg))',
+                        }}
+                        transition={navTransition}
+                      >
+                        <ChildIconComponent className="w-4 h-4" />
+                      </motion.div>
+                    </motion.span>
+                    <span className="relative font-medium truncate">{child.label}</span>
                   </motion.a>
                 </li>
               );
@@ -671,9 +690,10 @@ function ParentNavItem({
                   e.preventDefault();
                   onSelect(activeChild as AdminNavItem);
                 }}
+                whileTap={{ scale: 0.985 }}
                 onMouseEnter={() => setSubHoveredId(activeChild.id)}
                 onMouseLeave={() => setSubHoveredId(null)}
-                className="relative flex items-center justify-center rounded-lg py-2 mt-0.5 ml-3 w-9 h-9 min-h-[2.25rem] bg-[hsl(var(--sidebar-active)/0.9)] text-[hsl(0_0%_100%)]"
+                className="relative flex items-center justify-center rounded-lg py-2 mt-0.5 ml-3 w-9 h-9 min-h-[2.25rem] bg-[hsl(var(--sidebar-active)/0.9)] text-[hsl(0_0%_100%)] cursor-pointer"
                 title={activeChild.label}
               >
                 <ChildIcon className="w-5 h-5 shrink-0" />

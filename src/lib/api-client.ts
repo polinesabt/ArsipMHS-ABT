@@ -3,9 +3,11 @@
  * Handles authentication, error handling, and request/response transformations
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.DEV ? 'http://localhost/Arsipmhs2/backend/api' : '');
-const API_TIMEOUT = import.meta.env.VITE_API_TIMEOUT ? parseInt(import.meta.env.VITE_API_TIMEOUT) : 10000;
+/** URL API: dari .env (dev) / .env.production (build), atau fallback origin + /backend/api di browser agar build production tetap jalan. */
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ??
+  (typeof window !== 'undefined' ? `${window.location.origin}/backend/api` : '');
+const API_TIMEOUT = import.meta.env.VITE_API_TIMEOUT ? parseInt(import.meta.env.VITE_API_TIMEOUT, 10) : 10000;
 const AUTH_INVALIDATION_CODES = new Set([
   'AUTH_TOKEN_MALFORMED',
   'AUTH_TOKEN_EXPIRED',

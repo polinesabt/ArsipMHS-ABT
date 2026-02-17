@@ -13,7 +13,7 @@ import {
   PengembanganAchievement,
   OrganisasiAchievement
 } from '@/types/achievement.types';
-// In-memory storage (replace with API/DB in production)
+// In-memory storage (replace with API in production)
 let achievements: Achievement[] = [];
 
 // Generate unique ID

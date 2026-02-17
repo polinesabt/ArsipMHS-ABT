@@ -8,7 +8,7 @@ export interface AlumniMaster {
   tahunLulus: number;
 }
 
-// Kosong – data dari database saja
+// Kosong – data diisi dari API (backend + .env)
 export const alumniMasterData: AlumniMaster[] = [];
 
 // Data alumni yang sudah mengisi form

@@ -4,7 +4,7 @@
  * 
  * ARCHITECTURE NOTE:
  * This service contains business logic and orchestrates repository calls.
- * It should NOT contain UI logic or direct database access.
+ * It should NOT contain UI logic or direct data store access; data via API only (URL dari .env).
  * 
  * ISOLATION: Framework-specific implementation patterns.
  * Service interface remains stable for migration.

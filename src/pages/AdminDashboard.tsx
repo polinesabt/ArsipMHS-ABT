@@ -250,7 +250,7 @@ export default function AdminDashboard() {
     await exportStudentImportTemplate();
   };
 
-  // Step 2: konfirmasi & simpan ke "database" (state + backend)
+  // Step 2: konfirmasi & simpan via API (state + backend, URL dari .env)
   const handleConfirmImport = async () => {
     if (pendingImportAccounts.length === 0) return;
 
