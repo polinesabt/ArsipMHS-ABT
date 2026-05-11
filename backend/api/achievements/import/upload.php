@@ -233,6 +233,7 @@ try {
                     achievement_store_normalize_text((string)($row['nama_lomba'] ?? '')),
                     strtolower(trim((string)($row['tingkat'] ?? ''))),
                     (string)($row['tahun'] ?? ''),
+                    achievement_store_normalize_text((string)($row['penyelenggara'] ?? '')),
                 ]);
             case 'kekayaan_intelektual':
                 if (!prestasi_import_is_empty($row['nomor_pendaftaran'] ?? null)) {
@@ -829,11 +830,14 @@ try {
                     $sqlState = (string)$pdoEx->getCode();
                     if ($sqlState === '23000') {
                         $duplicateCount++;
-                        prestasi_import_insert_log_detail($pdo, $logId, $rowNumber, $nim, 'duplicate', 'Duplikat terhadap constraint database.', $row);
+                        prestasi_import_insert_log_detail($pdo, $logId, $rowNumber, $nim, 'duplicate', achievement_store_duplicate_message($config), $row);
                         continue;
                     }
                     $failedCount++;
                     prestasi_import_insert_log_detail($pdo, $logId, $rowNumber, $nim, 'error', 'Gagal insert: ' . $pdoEx->getMessage(), $row);
+                } catch (AchievementDuplicateException $duplicateEx) {
+                    $duplicateCount++;
+                    prestasi_import_insert_log_detail($pdo, $logId, $rowNumber, $nim, 'duplicate', $duplicateEx->getMessage(), $row);
                 } catch (Exception $innerEx) {
                     $failedCount++;
                     prestasi_import_insert_log_detail($pdo, $logId, $rowNumber, $nim, 'error', 'Gagal insert: ' . $innerEx->getMessage(), $row);

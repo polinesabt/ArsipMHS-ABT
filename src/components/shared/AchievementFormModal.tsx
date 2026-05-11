@@ -217,6 +217,11 @@ export function AchievementFormModal({
   );
 
   useEffect(() => {
+    setSelectedCategory(editData?.category || category);
+    setFormData(editData || {});
+  }, [category, editData]);
+
+  useEffect(() => {
     if (scopedCategoryOrder.length === 0) return;
     if (!scopedCategoryOrder.includes(selectedCategory)) {
       setSelectedCategory(scopedCategoryOrder[0]);

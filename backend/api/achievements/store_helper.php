@@ -2,6 +2,10 @@
 
 require_once __DIR__ . '/classification_helper.php';
 
+if (!class_exists('AchievementDuplicateException')) {
+    class AchievementDuplicateException extends Exception {}
+}
+
 function achievement_store_product_subcategory_keys(): array {
     return [
         'makanan_minuman',
@@ -72,7 +76,7 @@ function achievement_store_configs(): array {
             'import_category' => 'lomba',
             'achievement_type_default' => 'non_academic',
             'specific_columns' => [
-                'nama_lomba', 'nama_lomba_norm', 'peran', 'bidang',
+                'nama_lomba', 'nama_lomba_norm', 'penyelenggara_norm', 'peran', 'bidang',
                 'tanggal_mulai', 'tanggal_selesai', 'deskripsi',
             ],
         ],
@@ -455,6 +459,7 @@ function achievement_store_build_specific_data(string $key, array $input, array 
             return [
                 'nama_lomba' => $namaLomba,
                 'nama_lomba_norm' => achievement_store_normalize_text($namaLomba),
+                'penyelenggara_norm' => achievement_store_normalize_text($penyelenggara),
                 'peran' => $input['peran'] ?? ($peringkat !== '' ? 'juara' : 'peserta'),
                 'bidang' => $input['bidang'] ?? null,
                 'tanggal_mulai' => $tanggalMulai,
@@ -693,7 +698,68 @@ function achievement_store_filter_existing_columns(PDO $pdo, string $table, arra
     }));
 }
 
+function achievement_store_duplicate_message(array $config): string {
+    if (($config['key'] ?? '') === 'lomba') {
+        return 'Prestasi lomba yang sama sudah ada untuk mahasiswa ini. Jika lombanya berbeda, ubah salah satu pembeda seperti penyelenggara, tingkat, atau tahun.';
+    }
+
+    return 'Data prestasi yang sama sudah ada.';
+}
+
+function achievement_store_is_duplicate_exception(PDOException $e): bool {
+    if ((string)$e->getCode() === '23000') {
+        return true;
+    }
+
+    $info = $e->errorInfo ?? [];
+    return isset($info[0]) && (string)$info[0] === '23000';
+}
+
+function achievement_store_assert_no_duplicate(PDO $pdo, array $config, array $commonData, array $specificData, ?string $excludeId = null): void {
+    if (($config['key'] ?? '') !== 'lomba') {
+        return;
+    }
+
+    $studentId = trim((string)($commonData['id_mahasiswa'] ?? ''));
+    $namaLombaNorm = trim((string)($specificData['nama_lomba_norm'] ?? ''));
+    $tingkat = $commonData['tingkat'] ?? null;
+    $tanggalMulai = $specificData['tanggal_mulai'] ?? null;
+    $penyelenggaraNorm = trim((string)($specificData['penyelenggara_norm'] ?? achievement_store_normalize_text((string)($commonData['penyelenggara'] ?? ''))));
+
+    if ($studentId === '' || $namaLombaNorm === '' || $tanggalMulai === null) {
+        return;
+    }
+
+    $availableColumns = achievement_store_table_columns($pdo, $config['table']);
+    $penyelenggaraExpr = isset($availableColumns['penyelenggara_norm'])
+        ? 'COALESCE(penyelenggara_norm, \'\')'
+        : 'LOWER(TRIM(COALESCE(penyelenggara, \'\')))';
+
+    $sql = sprintf(
+        'SELECT %s FROM %s WHERE id_mahasiswa = ? AND nama_lomba_norm = ? AND tingkat <=> ? AND tanggal_mulai <=> ? AND %s = ?',
+        $config['id_col'],
+        $config['table'],
+        $penyelenggaraExpr
+    );
+    $values = [$studentId, $namaLombaNorm, $tingkat, $tanggalMulai, $penyelenggaraNorm];
+
+    if ($excludeId !== null && $excludeId !== '') {
+        $sql .= sprintf(' AND %s <> ?', $config['id_col']);
+        $values[] = $excludeId;
+    }
+
+    $sql .= ' LIMIT 1';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($values);
+
+    if ($stmt->fetch(PDO::FETCH_ASSOC)) {
+        throw new AchievementDuplicateException(achievement_store_duplicate_message($config));
+    }
+}
+
 function achievement_store_insert(PDO $pdo, array $config, string $id, array $commonData, array $specificData): void {
+    achievement_store_assert_no_duplicate($pdo, $config, $commonData, $specificData);
+
     $commonColumns = achievement_store_filter_existing_columns($pdo, $config['table'], achievement_store_common_columns());
     $specificColumns = achievement_store_filter_existing_columns($pdo, $config['table'], $config['specific_columns']);
     $columns = array_merge([$config['id_col']], $commonColumns, $specificColumns);
@@ -714,10 +780,19 @@ function achievement_store_insert(PDO $pdo, array $config, string $id, array $co
     }
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute($values);
+    try {
+        $stmt->execute($values);
+    } catch (PDOException $e) {
+        if (achievement_store_is_duplicate_exception($e)) {
+            throw new AchievementDuplicateException(achievement_store_duplicate_message($config));
+        }
+        throw $e;
+    }
 }
 
 function achievement_store_update(PDO $pdo, array $config, string $id, array $commonData, array $specificData): void {
+    achievement_store_assert_no_duplicate($pdo, $config, $commonData, $specificData, $id);
+
     $commonColumns = achievement_store_filter_existing_columns($pdo, $config['table'], achievement_store_common_columns());
     $specificColumns = achievement_store_filter_existing_columns($pdo, $config['table'], $config['specific_columns']);
     $setColumns = array_merge($commonColumns, $specificColumns);
@@ -750,7 +825,14 @@ function achievement_store_update(PDO $pdo, array $config, string $id, array $co
     $values[] = $id;
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute($values);
+    try {
+        $stmt->execute($values);
+    } catch (PDOException $e) {
+        if (achievement_store_is_duplicate_exception($e)) {
+            throw new AchievementDuplicateException(achievement_store_duplicate_message($config));
+        }
+        throw $e;
+    }
 }
 
 function achievement_store_delete(PDO $pdo, array $config, string $id): bool {

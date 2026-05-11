@@ -144,6 +144,7 @@ CREATE TABLE IF NOT EXISTS prestasi_lomba (
   verified BOOLEAN DEFAULT FALSE,
   nama_lomba VARCHAR(255) NULL,
   nama_lomba_norm VARCHAR(255) NOT NULL DEFAULT '',
+  penyelenggara_norm VARCHAR(255) NOT NULL DEFAULT '',
   peran ENUM('peserta','juara') NULL,
   bidang VARCHAR(255) NULL,
   tanggal_mulai DATE NULL,
@@ -151,7 +152,7 @@ CREATE TABLE IF NOT EXISTS prestasi_lomba (
   deskripsi TEXT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY uq_prestasi_lomba (id_mahasiswa, nama_lomba_norm, tingkat, tanggal_mulai),
+  UNIQUE KEY uq_prestasi_lomba (id_mahasiswa, nama_lomba_norm, tingkat, tanggal_mulai, penyelenggara_norm),
   INDEX idx_prestasi_lomba_student (id_mahasiswa),
   INDEX idx_prestasi_lomba_date (tanggal DESC),
   FOREIGN KEY (id_mahasiswa) REFERENCES students(id) ON DELETE CASCADE,
@@ -506,13 +507,13 @@ WHERE a.category = 'applied_academic'
 INSERT IGNORE INTO prestasi_lomba (
   id_lomba, id_mahasiswa, title, description, tanggal, lokasi, penyelenggara, tingkat, peringkat,
   category, subcategory, achievement_type, verified,
-  nama_lomba, nama_lomba_norm, peran, bidang, tanggal_mulai, tanggal_selesai, deskripsi,
+  nama_lomba, nama_lomba_norm, penyelenggara_norm, peran, bidang, tanggal_mulai, tanggal_selesai, deskripsi,
   created_at, updated_at
 )
 SELECT
   a.id, a.student_id, a.title, a.description, a.tanggal, a.lokasi, a.penyelenggara, a.tingkat, a.peringkat,
   a.category, a.subcategory, COALESCE(a.achievement_type, 'non_academic'), a.verified,
-  a.title, LOWER(TRIM(a.title)), IF(a.peringkat IS NULL OR TRIM(a.peringkat) = '', 'peserta', 'juara'), NULL, a.tanggal, NULL, a.description,
+  a.title, LOWER(TRIM(a.title)), LOWER(TRIM(COALESCE(a.penyelenggara, ''))), IF(a.peringkat IS NULL OR TRIM(a.peringkat) = '', 'peserta', 'juara'), NULL, a.tanggal, NULL, a.description,
   a.created_at, a.updated_at
 FROM achievements a
 WHERE a.category = 'event_participation'
