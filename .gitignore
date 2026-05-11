@@ -5,4 +5,3 @@ release/
 dist/
 *.bak
 *.backup
-backend/vendor/
