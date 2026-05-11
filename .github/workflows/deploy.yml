@@ -28,7 +28,7 @@ jobs:
       - name: Build Frontend
         run: npm run build
 
-      # Upload dist to hosting
+      # Upload frontend (dist)
       - name: Deploy Frontend
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -39,6 +39,10 @@ jobs:
           port: 21
           local-dir: ./dist/
           server-dir: public_html/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
 
       # Upload backend
       - name: Deploy Backend
@@ -51,3 +55,10 @@ jobs:
           port: 21
           local-dir: ./backend/
           server-dir: public_html/backend/
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/vendor/**
+            **/storage/**
+            **/.env
+            **/node_modules/**
