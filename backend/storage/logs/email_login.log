@@ -1,5 +1,0 @@
-[2026-02-24 22:42:56] [email_login] fallback_link to=muhammadfauzia01@gmail.com source=dashboard url=http://localhost/Arsipmhs2/validasi?email_verify_token=d294f33acf0ee6beeec624b26bed267d8f89cde497d17462cf580452cba9edc5
-[2026-02-24 16:57:26] [email_login] delivery_failed driver=smtp to=de**************@example.com source=dashboard reason=phpmailer_not_installed
-[2026-02-24 16:57:26] [email_login] fallback_link to=debug.smtp.check@example.com source=dashboard url=http://localhost/Arsipmhs2/validasi?email_verify_token=testtoken
-[2026-02-24 16:58:24] [email_login] delivery_failed driver=smtp to=de**************@example.com source=dashboard reason=phpmailer_not_installed
-[2026-02-24 16:58:24] [email_login] fallback_link to=debug.smtp.check@example.com source=dashboard url=http://localhost/Arsipmhs2/validasi?email_verify_token=testtoken2

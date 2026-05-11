@@ -2,6 +2,17 @@ node_modules
 .env
 .env.*
 release/
+release*/
 dist/
+assets/
+Arsipmhs2/
+PUBLISH/
+backend.zip
+*.zip
 *.bak
 *.backup
+*.log
+*.tmp
+*.temp
+.tmp-*
+.cursor/
