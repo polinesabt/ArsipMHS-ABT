@@ -7,7 +7,7 @@
  *   backend yang akan melakukan hashing sebelum disimpan.
  */
 
-import type { StudentAccountInput, StudentStatus } from '@/types/student.types';
+import type { StudentAccountInput, StudentStatus, StudentStatusMode } from '@/types/student.types';
 
 export interface ParsedStudentAccount extends StudentAccountInput {}
 
@@ -23,8 +23,28 @@ const STATUS_MAP: Record<string, StudentStatus> = {
   alumni: 'alumni',
   on_leave: 'on_leave',
   'on leave': 'on_leave',
+  'on-leave': 'on_leave',
   cuti: 'on_leave',
   dropout: 'dropout',
+  keluar: 'dropout',
+};
+
+const STATUS_MODE_MAP: Record<string, StudentStatusMode> = {
+  auto: 'auto',
+  otomatis: 'auto',
+  'status otomatis': 'auto',
+  yes: 'auto',
+  ya: 'auto',
+  true: 'auto',
+  '1': 'auto',
+  on: 'auto',
+  manual: 'manual',
+  override: 'manual',
+  no: 'manual',
+  tidak: 'manual',
+  false: 'manual',
+  '0': 'manual',
+  off: 'manual',
 };
 
 /**
@@ -46,6 +66,16 @@ function normalizeHeader(value: unknown): string {
   
   // "Tahun_Lulus" -> "tahun lulus"
   if (key === 'tahun_lulus') key = 'tahun lulus';
+
+  // "Status_Mode", "Status Mode", "Mode Status" -> "status otomatis"
+  if (
+    key === 'status_mode' ||
+    key === 'status mode' ||
+    key === 'mode status' ||
+    key === 'status otomatis'
+  ) {
+    key = 'status otomatis';
+  }
   
   return key;
 }
@@ -54,6 +84,13 @@ function mapStatus(raw: unknown): StudentStatus {
   const key = normalizeHeader(raw);
   if (!key) return 'active';
   return STATUS_MAP[key] ?? 'active';
+}
+
+function mapStatusMode(raw: unknown): StudentStatusMode | undefined {
+  if (raw == null) return undefined;
+  const key = String(raw).trim().toLowerCase();
+  if (!key) return undefined;
+  return STATUS_MODE_MAP[key];
 }
 
 /**
@@ -73,6 +110,7 @@ function mapStatus(raw: unknown): StudentStatus {
  * - Tahun Masuk / Tahun_Masuk
  * - Tahun Lulus / Tahun_Lulus
  * - Password (boleh kosong -> akan diisi default NIM di frontend)
+ * - Status Otomatis / Status_Mode / Status Mode (opsional, default auto)
  * - Status
  */
 export async function parseStudentAccountsFromExcel(file: File): Promise<ImportResult> {
@@ -86,20 +124,35 @@ export async function parseStudentAccountsFromExcel(file: File): Promise<ImportR
     throw new Error('File Excel tidak memiliki worksheet');
   }
 
-  const headerRow = worksheet.getRow(1);
+  // Cari baris header secara dinamis (mendukung catatan di atas tabel)
   const headerMap: Record<string, number> = {};
-  headerRow.eachCell((cell, colNumber) => {
-    const key = normalizeHeader(cell.value);
-    if (key) {
-      headerMap[key] = colNumber;
-    }
-  });
-
-  // Validasi kolom wajib
   const requiredColumns = ['nama', 'nim'];
-  const missing = requiredColumns.filter(col => !headerMap[col]);
-  
-  if (missing.length > 0) {
+  let headerRowIndex = 1;
+  let foundHeader = false;
+
+  const maxScanRow = Math.min(10, worksheet.rowCount || 10);
+  for (let rowIndex = 1; rowIndex <= maxScanRow; rowIndex++) {
+    const row = worksheet.getRow(rowIndex);
+    const candidateMap: Record<string, number> = {};
+
+    row.eachCell((cell, colNumber) => {
+      const key = normalizeHeader(cell.value);
+      if (key) {
+        candidateMap[key] = colNumber;
+      }
+    });
+
+    const hasAllRequired = requiredColumns.every(col => !!candidateMap[col]);
+    if (hasAllRequired) {
+      Object.assign(headerMap, candidateMap);
+      headerRowIndex = rowIndex;
+      foundHeader = true;
+      break;
+    }
+  }
+
+  if (!foundHeader) {
+    const missing = requiredColumns.filter(col => !headerMap[col]);
     throw new Error(
       `Header wajib tidak ditemukan: ${missing.map(c => `"${c}"`).join(', ')}. ` +
       `Kolom wajib: ${requiredColumns.map(c => `"${c}"`).join(', ')}. ` +
@@ -113,7 +166,7 @@ export async function parseStudentAccountsFromExcel(file: File): Promise<ImportR
   const lastRow = worksheet.rowCount;
   const currentYear = new Date().getFullYear();
 
-  for (let rowIndex = 2; rowIndex <= lastRow; rowIndex++) {
+  for (let rowIndex = headerRowIndex + 1; rowIndex <= lastRow; rowIndex++) {
     const row = worksheet.getRow(rowIndex);
 
     const nimCell = headerMap['nim'] ? row.getCell(headerMap['nim']) : null;
@@ -138,6 +191,7 @@ export async function parseStudentAccountsFromExcel(file: File): Promise<ImportR
     const passwordCell = headerMap['password'] ? row.getCell(headerMap['password']) : null;
     const emailCell = headerMap['email'] ? row.getCell(headerMap['email']) : null;
     const nomorCell = headerMap['nomor hp'] ? row.getCell(headerMap['nomor hp']) : null;
+    const statusModeCell = headerMap['status otomatis'] ? row.getCell(headerMap['status otomatis']) : null;
     const statusCell = headerMap['status'] ? row.getCell(headerMap['status']) : null;
     const tahunMasukCell = headerMap['tahun masuk'] ? row.getCell(headerMap['tahun masuk']) : null;
     const tahunLulusCell = headerMap['tahun lulus'] ? row.getCell(headerMap['tahun lulus']) : null;
@@ -173,6 +227,11 @@ export async function parseStudentAccountsFromExcel(file: File): Promise<ImportR
     }
 
     const status = mapStatus(statusCell?.value);
+    let statusMode = mapStatusMode(statusModeCell?.value) ?? 'auto';
+    if (status === 'on_leave' || status === 'dropout') {
+      // Safety: cuti/dropout harus manual override agar tidak diabaikan oleh mode auto.
+      statusMode = 'manual';
+    }
 
     accounts.push({
       nim,
@@ -181,6 +240,7 @@ export async function parseStudentAccountsFromExcel(file: File): Promise<ImportR
       email,
       noHp,
       status,
+      statusMode,
       tahunMasuk,
       tahunLulus,
     });
@@ -188,4 +248,3 @@ export async function parseStudentAccountsFromExcel(file: File): Promise<ImportR
 
   return { accounts, warnings };
 }
-

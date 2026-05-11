@@ -1,8 +1,8 @@
-import { 
-  Trophy, BookOpen, Shield, Briefcase, Rocket, Star, Mic2,
-  FolderOpen, Sprout, Users2, Award
+  import { 
+  Trophy, BookOpen, Shield, Briefcase, Rocket, Star, Mic2, FileText,
+  FolderOpen, Sprout, Users2, Award, Package, FlaskConical
 } from 'lucide-react';
-import type { MouseEvent } from 'react';
+import type { MouseEvent, WheelEvent } from 'react';
 import { cn } from '@/lib/utils';
 import { AchievementCategory } from '@/types/achievement.types';
 
@@ -47,11 +47,18 @@ const CATEGORY_CONFIG: Record<CategoryFilter, {
     shortLabel: 'Lomba',
   },
   seminar: { 
-    icon: Mic2, 
+    icon: FileText, 
     color: 'text-purple-500', 
     bgColor: 'bg-purple-500/10',
-    label: 'Seminar',
-    shortLabel: 'Seminar',
+    label: 'Publikasi di Seminar',
+    shortLabel: 'Publikasi di Seminar',
+  },
+  pagelaran: {
+    icon: Mic2,
+    color: 'text-fuchsia-500',
+    bgColor: 'bg-fuchsia-500/10',
+    label: 'Pagelaran / Presentasi',
+    shortLabel: 'Pagelaran',
   },
   publikasi: { 
     icon: BookOpen, 
@@ -67,6 +74,13 @@ const CATEGORY_CONFIG: Record<CategoryFilter, {
     label: 'Kekayaan Intelektual',
     shortLabel: 'HAKI',
   },
+  luaran_penelitian: {
+    icon: FlaskConical,
+    color: 'text-indigo-500',
+    bgColor: 'bg-indigo-500/10',
+    label: 'Luaran Penelitian',
+    shortLabel: 'Luaran',
+  },
   magang: { 
     icon: Briefcase, 
     color: 'text-info', 
@@ -80,6 +94,13 @@ const CATEGORY_CONFIG: Record<CategoryFilter, {
     bgColor: 'bg-orange-500/10',
     label: 'Portofolio Praktikum Kelas',
     shortLabel: 'Portofolio',
+  },
+  produk_mahasiswa: {
+    icon: Package,
+    color: 'text-cyan-500',
+    bgColor: 'bg-cyan-500/10',
+    label: 'Produk Mahasiswa',
+    shortLabel: 'Produk',
   },
   wirausaha: { 
     icon: Rocket, 
@@ -108,19 +129,44 @@ const CATEGORY_CONFIG: Record<CategoryFilter, {
 const categories: CategoryFilter[] = [
   'all', 
   'unggulan',
+  'publikasi',
+  'portofolio',
   'lomba', 
-  'seminar', 
-  'publikasi', 
   'haki', 
+  'luaran_penelitian',
   'magang', 
-  'portofolio', 
+  'produk_mahasiswa',
   'wirausaha', 
   'pengembangan', 
-  'organisasi'
+  'organisasi',
+  'seminar',
+  'pagelaran',
 ];
 
 function isModifiedEvent(event: MouseEvent<HTMLAnchorElement>) {
   return event.button !== 0 || event.metaKey || event.altKey || event.ctrlKey || event.shiftKey;
+}
+
+function redirectSidebarWheelToPage(event: WheelEvent<HTMLElement>) {
+  if (event.ctrlKey) return;
+
+  const scrollingElement = document.scrollingElement;
+  if (!scrollingElement) return;
+
+  event.preventDefault();
+
+  const deltaScale =
+    event.deltaMode === 1
+      ? 16
+      : event.deltaMode === 2
+        ? window.innerHeight
+        : 1;
+
+  scrollingElement.scrollBy({
+    top: event.deltaY * deltaScale,
+    left: event.deltaX * deltaScale,
+    behavior: 'auto',
+  });
 }
 
 export function CategorySidebar({
@@ -141,7 +187,7 @@ export function CategorySidebar({
   return (
     <>
       {/* Desktop Sidebar - Sticky */}
-      <aside className="hidden lg:block w-60 xl:w-64 flex-shrink-0">
+      <aside className="hidden lg:block w-60 xl:w-64 flex-shrink-0" onWheel={redirectSidebarWheelToPage}>
         <div className="sticky top-28 space-y-1.5">
           {/* Sidebar Header */}
           <div className="px-3 py-2 mb-2">

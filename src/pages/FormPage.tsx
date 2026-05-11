@@ -22,7 +22,7 @@ import {
   Briefcase, Search, Rocket, BookOpen, 
   ChevronRight, ChevronLeft, Check, Plus, X,
   Building2, MapPin, Mail, Phone, Linkedin, Instagram,
-  User, MessageSquare, Send
+  User, MessageSquare, Send, ArrowLeft
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -42,10 +42,17 @@ const formSteps = [
   { id: 4, title: 'Selesai', description: 'Konfirmasi' },
 ];
 
+const BULAN_OPTIONS: { value: string; label: string }[] = [
+  { value: '1', label: 'Januari' }, { value: '2', label: 'Februari' }, { value: '3', label: 'Maret' },
+  { value: '4', label: 'April' }, { value: '5', label: 'Mei' }, { value: '6', label: 'Juni' },
+  { value: '7', label: 'Juli' }, { value: '8', label: 'Agustus' }, { value: '9', label: 'September' },
+  { value: '10', label: 'Oktober' }, { value: '11', label: 'November' }, { value: '12', label: 'Desember' },
+];
+
 export default function FormPage() {
   const navigate = useNavigate();
-  const { selectedAlumni, refreshData } = useAlumni();
-  
+  const { selectedAlumni, refreshData, mergeLoggedInStudent } = useAlumni();
+
   const [currentStep, setCurrentStep] = useState(1);
   const [status, setStatus] = useState<Status | null>(null);
   
@@ -55,9 +62,11 @@ export default function FormPage() {
   const [bidangIndustri, setBidangIndustri] = useState('');
   const [jabatan, setJabatan] = useState('');
   const [tahunMulaiKerja, setTahunMulaiKerja] = useState('');
+  const [bulanMulaiKerja, setBulanMulaiKerja] = useState<string>('');
   const [tahunSelesaiKerja, setTahunSelesaiKerja] = useState('');
   const [masihAktifKerja, setMasihAktifKerja] = useState(true);
   const [kontakProfesional, setKontakProfesional] = useState('');
+  const [cakupanTempatKerja, setCakupanTempatKerja] = useState<string>('');
 
   // Form fields - Mencari
   const [lokasiTujuan, setLokasiTujuan] = useState('');
@@ -69,6 +78,7 @@ export default function FormPage() {
   const [jenisUsaha, setJenisUsaha] = useState('');
   const [lokasiUsaha, setLokasiUsaha] = useState('');
   const [tahunMulaiUsaha, setTahunMulaiUsaha] = useState('');
+  const [bulanMulaiUsaha, setBulanMulaiUsaha] = useState<string>('');
   const [punyaKaryawan, setPunyaKaryawan] = useState(false);
   const [jumlahKaryawan, setJumlahKaryawan] = useState('');
   const [usahaAktif, setUsahaAktif] = useState(true);
@@ -170,9 +180,11 @@ export default function FormPage() {
         bidang_industri: bidangIndustri,
         jabatan,
         tahun_mulai_kerja: parseInt(tahunMulaiKerja),
+        bulan_mulai_kerja: bulanMulaiKerja ? parseInt(bulanMulaiKerja) : undefined,
         tahun_selesai_kerja: !masihAktifKerja && tahunSelesaiKerja ? parseInt(tahunSelesaiKerja) : undefined,
         masih_aktif_kerja: masihAktifKerja,
         kontak_profesional: kontakProfesional || undefined,
+        work_scope: cakupanTempatKerja || undefined,
       };
     }
 
@@ -190,9 +202,11 @@ export default function FormPage() {
         jenis_usaha: jenisUsaha,
         lokasi_usaha: lokasiUsaha,
         tahun_mulai_usaha: parseInt(tahunMulaiUsaha),
+        bulan_mulai_usaha: bulanMulaiUsaha ? parseInt(bulanMulaiUsaha) : undefined,
         punya_karyawan: punyaKaryawan,
         jumlah_karyawan: punyaKaryawan ? parseInt(jumlahKaryawan) : undefined,
         usaha_aktif: usahaAktif,
+        work_scope: cakupanTempatKerja || undefined,
         sosial_media_usaha: sosialMediaUsaha.filter(s => s.trim()),
       };
     }
@@ -225,6 +239,7 @@ export default function FormPage() {
       }
 
       await refreshData();
+      if (email.trim()) mergeLoggedInStudent({ email: email.trim() });
       toast({
         title: 'Data berhasil disimpan!',
         description: 'Terima kasih telah mengisi form Arsip Mahasiswa Prodi ABT.',
@@ -337,6 +352,20 @@ export default function FormPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="md:col-span-2">
+              <Label className="mb-2 block font-medium">Cakupan tempat kerja</Label>
+              <Select value={cakupanTempatKerja} onValueChange={setCakupanTempatKerja}>
+                <SelectTrigger className="h-12 rounded-xl">
+                  <SelectValue placeholder="Pilih cakupan" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="local">Lokal/Wilayah</SelectItem>
+                  <SelectItem value="national">Nasional</SelectItem>
+                  <SelectItem value="multinational">Multinasional/ Internasional</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Untuk statistik Cakupan Kerja lulusan</p>
+            </div>
             <div>
               <Label className="mb-2 block font-medium">Jabatan / Posisi *</Label>
               <Input
@@ -355,6 +384,20 @@ export default function FormPage() {
                 onChange={(e) => setTahunMulaiKerja(e.target.value)}
                 className="h-12 rounded-xl"
               />
+            </div>
+            <div>
+              <Label className="mb-2 block font-medium">Bulan Mulai Bekerja</Label>
+              <Select value={bulanMulaiKerja} onValueChange={setBulanMulaiKerja}>
+                <SelectTrigger className="h-12 rounded-xl">
+                  <SelectValue placeholder="Pilih bulan (untuk waktu tunggu lulusan)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {BULAN_OPTIONS.map((b) => (
+                    <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Agar perhitungan waktu tunggu lulusan lebih akurat</p>
             </div>
             <div>
               <Label className="mb-2 block font-medium">Status Pekerjaan</Label>
@@ -450,6 +493,20 @@ export default function FormPage() {
                 className="h-12 rounded-xl"
               />
             </div>
+            <div className="md:col-span-2">
+              <Label className="mb-2 block font-medium">Level Wirausaha</Label>
+              <Select value={cakupanTempatKerja} onValueChange={setCakupanTempatKerja}>
+                <SelectTrigger className="h-12 rounded-xl">
+                  <SelectValue placeholder="Pilih level wirausaha" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="local">Lokal/Wilayah/ Berwirausaha tidak Berizin</SelectItem>
+                  <SelectItem value="national">Nasional/ Berwirausaha Berizin</SelectItem>
+                  <SelectItem value="multinational">Multinasional/ Internasional</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Untuk statistik Cakupan Kerja tab Wirausaha</p>
+            </div>
             <div>
               <Label className="mb-2 block font-medium">Tahun Mulai Usaha *</Label>
               <Input
@@ -459,6 +516,20 @@ export default function FormPage() {
                 onChange={(e) => setTahunMulaiUsaha(e.target.value)}
                 className="h-12 rounded-xl"
               />
+            </div>
+            <div>
+              <Label className="mb-2 block font-medium">Bulan Mulai Usaha</Label>
+              <Select value={bulanMulaiUsaha} onValueChange={setBulanMulaiUsaha}>
+                <SelectTrigger className="h-12 rounded-xl">
+                  <SelectValue placeholder="Pilih bulan (untuk waktu tunggu lulusan)" />
+                </SelectTrigger>
+                <SelectContent>
+                  {BULAN_OPTIONS.map((b) => (
+                    <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">Agar perhitungan waktu tunggu lulusan lebih akurat</p>
             </div>
             <div>
               <Label className="mb-2 block font-medium">Status Usaha</Label>
@@ -714,7 +785,7 @@ export default function FormPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
             <div>
               <p className="text-muted-foreground">Email</p>
               <p className="font-medium text-foreground">{email || '-'}</p>
@@ -781,7 +852,7 @@ export default function FormPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="pt-24 pb-20">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-3 sm:px-4">
           <div className="max-w-2xl mx-auto">
             {/* Header */}
             <div className="text-center mb-8">
@@ -799,7 +870,7 @@ export default function FormPage() {
             </div>
 
             {/* Form Card */}
-            <div className="glass-card rounded-2xl p-6 md:p-8 mb-6">
+            <div className="glass-card mb-6 rounded-2xl p-4 sm:p-6 md:p-8">
               {currentStep === 1 && renderStatusSelection()}
               {currentStep === 2 && renderStatusForm()}
               {currentStep === 3 && renderContactForm()}
@@ -807,24 +878,36 @@ export default function FormPage() {
             </div>
 
             {/* Navigation Buttons */}
-            <div className="flex gap-3">
-              {currentStep > 1 && (
-                <Button variant="outline" onClick={handleBack} className="flex-1 h-12">
-                  <ChevronLeft className="w-5 h-5 mr-2" />
-                  Kembali
+            <div className="flex flex-col gap-4">
+              <div className="flex justify-start">
+                <Button
+                  variant="ghost"
+                  onClick={() => navigate('/dashboard')}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Kembali ke Dashboard
                 </Button>
-              )}
-              {currentStep < 4 ? (
-                <Button onClick={handleNext} className="flex-1 h-12">
-                  Lanjutkan
-                  <ChevronRight className="w-5 h-5 ml-2" />
-                </Button>
-              ) : (
-                <Button onClick={handleSubmit} className="flex-1 h-12">
-                  <Send className="w-5 h-5 mr-2" />
-                  Kirim Data
-                </Button>
-              )}
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                {currentStep > 1 && (
+                  <Button variant="outline" onClick={handleBack} className="flex-1 h-12">
+                    <ChevronLeft className="w-5 h-5 mr-2" />
+                    Kembali
+                  </Button>
+                )}
+                {currentStep < 4 ? (
+                  <Button onClick={handleNext} className="flex-1 h-12">
+                    Lanjutkan
+                    <ChevronRight className="w-5 h-5 ml-2" />
+                  </Button>
+                ) : (
+                  <Button onClick={handleSubmit} className="flex-1 h-12">
+                    <Send className="w-5 h-5 mr-2" />
+                    Kirim Data
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
         </div>

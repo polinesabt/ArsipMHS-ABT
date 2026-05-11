@@ -30,6 +30,11 @@ export interface StudentData {
   tahun_masuk?: number;
   tahun_lulus?: number | null;
   email?: string | null;
+  login_email?: string | null;
+  pending_login_email?: string | null;
+  is_email_login_enabled?: boolean | number;
+  email_verified_at?: string | null;
+  is_first_login?: boolean;
   no_hp?: string | null;
   alamat?: string | null;
   has_credentials?: boolean | number;
@@ -45,6 +50,31 @@ export interface LoginResponse {
   token?: string;
   jwt?: string;
   refreshToken?: string;
+}
+
+export type EmailLoginSource = 'dashboard' | 'career_form' | 'future_form';
+
+export interface EmailLoginRequestPayload {
+  email?: string;
+  source?: EmailLoginSource;
+}
+
+export interface EmailLoginRequestResponse {
+  requested_email: string;
+  login_email?: string | null;
+  pending_login_email?: string | null;
+  is_email_login_enabled: boolean;
+  email_verified_at?: string | null;
+  expires_at?: string | null;
+  cooldown_seconds: number;
+  source: EmailLoginSource;
+  debug_verification_url?: string | null;
+}
+
+export interface EmailLoginVerifyResponse {
+  login_email: string;
+  is_email_login_enabled: boolean;
+  email_verified_at?: string | null;
 }
 
 /**
@@ -96,6 +126,31 @@ export async function loginStudent(
 }
 
 /**
+ * Login satu form: username/NIM + password, tanpa role.
+ * Backend mengembalikan role (admin/student); gunakan untuk redirect.
+ * Username case-insensitive, boleh huruf atau angka.
+ */
+export async function login(
+  identifier: string,
+  password: string
+): Promise<ApiResponse<LoginResponse>> {
+  const response = await apiClient.post<LoginResponse>('auth/login.php', {
+    username: identifier.trim(),
+    password,
+  });
+
+  if (response.success && response.data) {
+    const token = response.data.jwt || response.data.token;
+    if (token) {
+      apiClient.setToken(token);
+      if (response.data.refreshToken) apiClient.setRefreshToken(response.data.refreshToken);
+    }
+  }
+
+  return response;
+}
+
+/**
  * Logout - clear authentication (access + refresh token)
  */
 export function logout(): void {
@@ -130,4 +185,32 @@ export function getCurrentUser(): AuthUser | null {
  */
 export function setCurrentUser(user: AuthUser): void {
   localStorage.setItem('currentUser', JSON.stringify(user));
+}
+
+/**
+ * Request email login activation link (student auth required)
+ */
+export async function requestEmailLoginVerification(
+  payload: EmailLoginRequestPayload
+): Promise<ApiResponse<EmailLoginRequestResponse>> {
+  return apiClient.post<EmailLoginRequestResponse>('auth/email_login/request_verification.php', payload);
+}
+
+/**
+ * Verify email login by token (link) or OTP. Public when using token; requires auth when using otp.
+ */
+export async function verifyEmailLogin(payload: {
+  token?: string;
+  otp?: string;
+}): Promise<ApiResponse<EmailLoginVerifyResponse>> {
+  return apiClient.post<EmailLoginVerifyResponse>('auth/email_login/verify.php', payload);
+}
+
+/**
+ * Verify email login token from link (public endpoint)
+ */
+export async function verifyEmailLoginToken(
+  token: string
+): Promise<ApiResponse<EmailLoginVerifyResponse>> {
+  return verifyEmailLogin({ token });
 }

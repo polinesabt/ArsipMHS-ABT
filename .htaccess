@@ -1,0 +1,21 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /Arsipmhs2/
+  RewriteRule ^index\.html$ - [L]
+  # Asset build: layani dari dist/assets/
+  RewriteRule ^assets/(.*)$ dist/assets/$1 [L]
+  # SPA fallback: route frontend (bukan file/dir, bukan backend) ke dist/index.html
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_URI} !^/Arsipmhs2/backend/
+  RewriteRule ^(.*)$ dist/index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Prevent stale SPA shell (index.html) so new hashed bundles are picked up immediately.
+  <FilesMatch "\.html$">
+    Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+</IfModule>

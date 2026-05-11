@@ -26,7 +26,7 @@ const steps = [
     icon: BarChart,
     number: '04',
     title: 'Analisis & Insight',
-    description: 'Admin dapat melihat statistik, grafik, dan AI Insight untuk kebutuhan pelaporan.',
+    description: 'Admin dapat melihat statistik, grafik, dan Insight untuk kebutuhan pelaporan.',
     color: 'warning',
   },
 ];

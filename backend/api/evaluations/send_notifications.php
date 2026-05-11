@@ -2,6 +2,10 @@
 require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/auth.php';
+require_once __DIR__ . '/../../config/email_login.php';
+require_once __DIR__ . '/../../config/evaluation_email.php';
+require_once __DIR__ . '/../satisfaction-forms/template_resolver.php';
+require_once __DIR__ . '/../students/status_effective_sql.php';
 
 function unique_array_values(array $items): array {
     $out = [];
@@ -36,7 +40,7 @@ try {
         throw new Exception('Pilih minimal satu alumni target');
     }
 
-    $evalStmt = $pdo->prepare('SELECT * FROM evaluations WHERE id = ? LIMIT 1');
+    $evalStmt = $pdo->prepare('SELECT * FROM evaluations WHERE id = ? AND deleted_at IS NULL LIMIT 1');
     $evalStmt->execute([$evaluationId]);
     $evaluation = $evalStmt->fetch(PDO::FETCH_ASSOC);
 
@@ -47,22 +51,29 @@ try {
         throw new Exception('Evaluasi sudah ditutup dan tidak bisa mengirim notifikasi');
     }
 
+    $resolvedTemplate = resolveCurrentSatisfactionTemplate($pdo);
+
     $pdo->beginTransaction();
 
+    $statusEffectiveExpr = student_status_effective_expr('s');
     $studentStmt = $pdo->prepare('
         SELECT
             s.id,
             s.nama,
             s.status,
+            s.status_mode,
+            (' . $statusEffectiveExpr . ') AS status_effective,
             t.career_status,
             u.id AS user_id,
             u.role,
-            u.is_active
+            u.is_active,
+            TRIM(COALESCE(s.login_email, s.email)) AS student_email
         FROM students s
-        JOIN tracer_study t ON s.id COLLATE utf8mb4_unicode_ci = t.student_id
-        JOIN users u ON s.user_id COLLATE utf8mb4_unicode_ci = u.id
+        JOIN tracer_study t ON s.id = t.student_id
+        JOIN users u ON s.user_id = u.id
         WHERE s.id = ?
-          AND s.status = ?
+          AND (' . $statusEffectiveExpr . ') = ?
+          AND s.deleted_at IS NULL
           AND t.career_status = ?
           AND u.role = ?
           AND u.is_active = 1
@@ -71,11 +82,11 @@ try {
     $invitationFindStmt = $pdo->prepare('SELECT * FROM evaluation_invitations WHERE evaluation_id = ? AND student_id = ? LIMIT 1');
     $invitationInsertStmt = $pdo->prepare('
         INSERT INTO evaluation_invitations (
-            id, evaluation_id, student_id, access_token,
+            id, evaluation_id, student_id, user_id, access_token,
             first_sent_at, last_sent_at, send_count,
             submitted_at, created_by, created_at, updated_at
         ) VALUES (
-            ?, ?, ?, ?, NOW(), NOW(), 1,
+            ?, ?, ?, ?, ?, NOW(), NOW(), 1,
             NULL, ?, NOW(), NOW()
         )
     ');
@@ -86,6 +97,19 @@ try {
             send_count = send_count + 1,
             updated_at = NOW()
         WHERE id = ?
+    ');
+    $invitationUpdateWithNewTokenStmt = $pdo->prepare('
+        UPDATE evaluation_invitations
+        SET access_token = ?,
+            first_sent_at = COALESCE(first_sent_at, NOW()),
+            last_sent_at = NOW(),
+            send_count = send_count + 1,
+            updated_at = NOW()
+        WHERE id = ?
+    ');
+    $blacklistInsertStmt = $pdo->prepare('
+        INSERT INTO evaluation_token_blacklist (token, evaluation_id)
+        VALUES (?, ?)
     ');
     $notificationStmt = $pdo->prepare('
         INSERT INTO student_notifications (
@@ -131,10 +155,16 @@ try {
             }
 
             $invitationId = $invitation['id'];
-            $token = $invitation['access_token'];
+            $oldToken = $invitation['access_token'];
+            $token = bin2hex(random_bytes(32));
             $sendType = ((int)$invitation['send_count'] >= 1) ? 'reminder' : 'invitation';
 
-            $invitationUpdateStmt->execute([$invitationId]);
+            try {
+                $blacklistInsertStmt->execute([$oldToken, $evaluationId]);
+            } catch (Throwable $e) {
+                // Table may not exist yet; resend still invalidates old link by updating token
+            }
+            $invitationUpdateWithNewTokenStmt->execute([$token, $invitationId]);
         } else {
             $invitationId = bin2hex(random_bytes(18));
             $token = bin2hex(random_bytes(32));
@@ -144,6 +174,7 @@ try {
                 $invitationId,
                 $evaluationId,
                 $studentId,
+                $student['user_id'] ?? null,
                 $token,
                 $auth['sub'] ?? null,
             ]);
@@ -159,7 +190,7 @@ try {
         }
 
         $message = $customMessage !== '' ? $customMessage : $defaultMessage;
-        $linkPath = '/evaluasi-lulusan/survey/' . $token;
+        $linkPath = '/evaluasi?token=' . rawurlencode($token);
 
         $notificationStmt->execute([
             bin2hex(random_bytes(18)),
@@ -172,22 +203,46 @@ try {
             $linkPath,
         ]);
 
+        $emailSent = false;
+        $studentEmail = trim((string)($student['student_email'] ?? ''));
+        if ($studentEmail !== '' && filter_var($studentEmail, FILTER_VALIDATE_EMAIL)) {
+            $surveyUrl = rtrim(email_login_frontend_base_url(), '/') . '/evaluasi?token=' . rawurlencode($token);
+            $emailResult = evaluation_send_survey_email(
+                $studentEmail,
+                $student['nama'] ?? '',
+                $evaluation['title'] ?? 'Evaluasi Lulusan',
+                $surveyUrl
+            );
+            $emailSent = ($emailResult['sent'] ?? false) === true;
+        }
+
         $sent++;
         $details[] = [
             'student_id' => $studentId,
             'status' => 'sent',
             'type' => $sendType,
             'link_path' => $linkPath,
+            'email_sent' => $emailSent,
         ];
     }
 
     $pdo->commit();
+
+    $emailSentCount = 0;
+    foreach ($details as $d) {
+        if (!empty($d['email_sent'])) {
+            $emailSentCount++;
+        }
+    }
 
     echo json_encode([
         'success' => true,
         'data' => [
             'sent_count' => $sent,
             'skipped_count' => $skipped,
+            'email_sent_count' => $emailSentCount,
+            'resolved_template_id' => $resolvedTemplate['template']['id'] ?? null,
+            'resolved_template_updated_at' => $resolvedTemplate['template']['updated_at'] ?? null,
             'details' => $details,
         ],
         'message' => 'Pengiriman notifikasi evaluasi selesai',

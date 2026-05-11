@@ -47,9 +47,12 @@ export interface EmploymentData {
   bidangIndustri: string;
   jabatan: string;
   tahunMulaiKerja: number;
+  bulanMulaiKerja?: number; // 1-12, untuk kalkulasi waktu tunggu lulusan
   tahunSelesaiKerja?: number; // End year - only required if masihAktifKerja is false
   masihAktifKerja?: boolean; // Active toggle - hides end date when true
   kontakProfesional?: string;
+  /** Cakupan tempat kerja: local | national | multinational */
+  cakupanTempatKerja?: string;
 }
 
 /**
@@ -69,6 +72,7 @@ export interface EntrepreneurshipData {
   jenisUsaha: string;
   lokasiUsaha: string;
   tahunMulaiUsaha: number;
+  bulanMulaiUsaha?: number; // 1-12, untuk kalkulasi waktu tunggu lulusan
   punyaKaryawan: boolean;
   jumlahKaryawan?: number;
   usahaAktif: boolean;
@@ -118,9 +122,12 @@ export interface AlumniData extends AlumniContactInfo, AlumniAdditionalInfo {
   bidangIndustri?: string;
   jabatan?: string;
   tahunMulaiKerja?: number;
+  bulanMulaiKerja?: number; // 1-12
   tahunSelesaiKerja?: number; // End year - only when masihAktifKerja is false
   masihAktifKerja?: boolean; // Active toggle - hides end date when true
   kontakProfesional?: string;
+  /** Cakupan tempat kerja: local | national | multinational (untuk chart Cakupan Kerja) */
+  cakupanTempatKerja?: string;
 
   // Job Seeking (mencari)
   lokasiTujuan?: string;
@@ -132,6 +139,7 @@ export interface AlumniData extends AlumniContactInfo, AlumniAdditionalInfo {
   jenisUsaha?: string;
   lokasiUsaha?: string;
   tahunMulaiUsaha?: number;
+  bulanMulaiUsaha?: number; // 1-12
   punyaKaryawan?: boolean;
   jumlahKaryawan?: number;
   usahaAktif?: boolean;

@@ -62,9 +62,9 @@ export function CareerTimeline({ items, maxItems = 4, contextText, onViewAll, on
   if (items.length === 0) return null;
 
   return (
-    <div className={cn('glass-card rounded-2xl p-6 flex flex-col', className)}>
+    <div className={cn('glass-card flex flex-col rounded-2xl p-5 sm:p-6', className)}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
             <Briefcase className="w-5 h-5 text-primary" />
@@ -74,7 +74,7 @@ export function CareerTimeline({ items, maxItems = 4, contextText, onViewAll, on
             <p className="text-sm text-muted-foreground truncate">Riwayat karir Anda</p>
           </div>
         </div>
-        <span className="text-sm text-muted-foreground px-3 py-1 rounded-full bg-muted flex-shrink-0">
+        <span className="rounded-full bg-muted px-3 py-1 text-sm text-muted-foreground sm:flex-shrink-0">
           {items.length} entri
         </span>
       </div>
@@ -147,7 +147,7 @@ export function CareerTimeline({ items, maxItems = 4, contextText, onViewAll, on
       )}
 
       {/* Actions */}
-      <div className="flex gap-2 mt-4">
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
         {(hasMore || onViewAll) && (
           <Button variant="ghost" className="flex-1" onClick={onViewAll}>
             Lihat semua karir

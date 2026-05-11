@@ -1,6 +1,6 @@
 import { 
-  Trophy, BookOpen, Shield, Briefcase, FolderOpen, Rocket, Sprout, Mic2, Users2,
-  ChevronRight, Paperclip, ExternalLink, HelpCircle
+  Trophy, BookOpen, Shield, Briefcase, FolderOpen, Rocket, Sprout, Mic2, Users2, Package, FileText,
+  ChevronRight, Paperclip, ExternalLink, HelpCircle, FlaskConical
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -9,10 +9,12 @@ import {
   AchievementCategory,
   LombaAchievement,
   SeminarAchievement,
+  PagelaranAchievement,
   PublikasiAchievement,
   HakiAchievement,
   MagangAchievement,
   PortofolioAchievement,
+  ProdukMahasiswaAchievement,
   WirausahaAchievement,
   PengembanganAchievement,
   OrganisasiAchievement
@@ -34,14 +36,17 @@ const CATEGORY_CONFIG: Record<string, {
   label: string;
 }> = {
   lomba: { icon: Trophy, color: 'text-warning', bgColor: 'bg-warning/10', label: 'Lomba' },
-  seminar: { icon: Mic2, color: 'text-purple-500', bgColor: 'bg-purple-500/10', label: 'Seminar' },
+  seminar: { icon: FileText, color: 'text-purple-500', bgColor: 'bg-purple-500/10', label: 'Publikasi di Seminar' },
+  pagelaran: { icon: Mic2, color: 'text-fuchsia-500', bgColor: 'bg-fuchsia-500/10', label: 'Pagelaran / Presentasi' },
   publikasi: { icon: BookOpen, color: 'text-primary', bgColor: 'bg-primary/10', label: 'Publikasi' },
   haki: { icon: Shield, color: 'text-success', bgColor: 'bg-success/10', label: 'HAKI' },
   magang: { icon: Briefcase, color: 'text-info', bgColor: 'bg-info/10', label: 'Magang' },
   portofolio: { icon: FolderOpen, color: 'text-orange-500', bgColor: 'bg-orange-500/10', label: 'Portofolio' },
+  produk_mahasiswa: { icon: Package, color: 'text-cyan-500', bgColor: 'bg-cyan-500/10', label: 'Produk Mahasiswa' },
   wirausaha: { icon: Rocket, color: 'text-destructive', bgColor: 'bg-destructive/10', label: 'Wirausaha' },
   pengembangan: { icon: Sprout, color: 'text-emerald-500', bgColor: 'bg-emerald-500/10', label: 'Pengembangan' },
   organisasi: { icon: Users2, color: 'text-sky-500', bgColor: 'bg-sky-500/10', label: 'Organisasi' },
+  luaran_penelitian: { icon: FlaskConical, color: 'text-indigo-500', bgColor: 'bg-indigo-500/10', label: 'Luaran Penelitian' },
   // Fallback for legacy/unknown categories
   kegiatan: { icon: Trophy, color: 'text-warning', bgColor: 'bg-warning/10', label: 'Kegiatan' },
 };
@@ -51,11 +56,24 @@ const DEFAULT_CONFIG = { icon: HelpCircle, color: 'text-muted-foreground', bgCol
 function getAchievementTitle(achievement: Achievement): string {
   switch (achievement.category) {
     case 'lomba': return (achievement as LombaAchievement).namaLomba;
-    case 'seminar': return (achievement as SeminarAchievement).namaSeminar;
+    case 'seminar':
+      return (
+        (achievement as SeminarAchievement).judulPublikasi
+        || (achievement as unknown as { namaSeminar?: string }).namaSeminar
+        || 'Publikasi di Seminar'
+      );
+    case 'pagelaran':
+      return (
+        (achievement as PagelaranAchievement).judulPublikasi
+        || (achievement as unknown as { namaKegiatan?: string }).namaKegiatan
+        || 'Pagelaran / Presentasi'
+      );
     case 'publikasi': return (achievement as PublikasiAchievement).judul;
     case 'haki': return (achievement as HakiAchievement).judul;
+    case 'luaran_penelitian': return (achievement as any).judul || 'Luaran Penelitian';
     case 'magang': return `${(achievement as MagangAchievement).posisi} - ${(achievement as MagangAchievement).namaPerusahaan}`;
     case 'portofolio': return (achievement as PortofolioAchievement).judulProyek;
+    case 'produk_mahasiswa': return (achievement as ProdukMahasiswaAchievement).namaProduk;
     case 'wirausaha': return (achievement as WirausahaAchievement).namaUsaha;
     case 'pengembangan': return (achievement as PengembanganAchievement).namaProgram;
     case 'organisasi': return `${(achievement as OrganisasiAchievement).jabatan} - ${(achievement as OrganisasiAchievement).namaOrganisasi}`;
@@ -67,10 +85,13 @@ function getAchievementYear(achievement: Achievement): number {
   switch (achievement.category) {
     case 'lomba': return (achievement as LombaAchievement).tahun;
     case 'seminar': return (achievement as SeminarAchievement).tahun;
+    case 'pagelaran': return (achievement as PagelaranAchievement).tahun;
     case 'publikasi': return (achievement as PublikasiAchievement).tahun;
     case 'haki': return (achievement as HakiAchievement).tahunPengajuan;
+    case 'luaran_penelitian': return (achievement as any).tahun || new Date((achievement as any).tanggalLuaran || Date.now()).getFullYear();
     case 'magang': return new Date((achievement as MagangAchievement).tanggalMulai).getFullYear();
     case 'portofolio': return (achievement as PortofolioAchievement).tahun;
+    case 'produk_mahasiswa': return new Date((achievement as ProdukMahasiswaAchievement).tanggalAdopsi).getFullYear();
     case 'wirausaha': return (achievement as WirausahaAchievement).tahunMulai;
     case 'pengembangan': return new Date((achievement as PengembanganAchievement).tanggalMulai).getFullYear();
     case 'organisasi': return new Date((achievement as OrganisasiAchievement).tanggalMulai).getFullYear();
@@ -86,7 +107,24 @@ function getAchievementSubtitle(achievement: Achievement): string | undefined {
     }
     case 'seminar': {
       const a = achievement as SeminarAchievement;
-      return `${a.peran} • ${a.penyelenggara}`;
+      const levelLabel = a.levelSeminar === 'international'
+        ? 'Internasional'
+        : a.levelSeminar === 'national'
+          ? 'Nasional'
+          : 'Lokal/Wilayah/PT';
+      if (a.jenisPerolehan === 'kolaborasi_dosen') {
+        return `${levelLabel} - Kolaborasi Dosen (${a.namaDosen || '-'})`;
+      }
+      return `${levelLabel} - Mandiri`;
+    }
+    case 'pagelaran': {
+      const a = achievement as PagelaranAchievement;
+      const levelLabel = a.levelSeminar === 'international'
+        ? 'Internasional'
+        : a.levelSeminar === 'national'
+          ? 'Nasional'
+          : 'Lokal/Wilayah/PT';
+      return a.penyelenggara ? `${levelLabel} - Mitra: ${a.penyelenggara}` : levelLabel;
     }
     case 'publikasi': {
       const a = achievement as PublikasiAchievement;
@@ -94,13 +132,21 @@ function getAchievementSubtitle(achievement: Achievement): string | undefined {
     }
     case 'haki': {
       const a = achievement as HakiAchievement;
-      return `${a.jenisHaki.replace('_', ' ')} • ${a.status}`;
+      return `${a.jenisHaki.replace('_', ' ')} - ${a.status}`;
+    }
+    case 'luaran_penelitian': {
+      const a = achievement as any;
+      return a.jenisLuaran ? String(a.jenisLuaran).replace(/_/g, ' ') : 'Luaran Penelitian';
     }
     case 'magang': return (achievement as MagangAchievement).lokasi;
     case 'portofolio': return (achievement as PortofolioAchievement).mataKuliah;
+    case 'produk_mahasiswa': {
+      const a = achievement as ProdukMahasiswaAchievement;
+      return a.mitraAdopsi || a.lokasi;
+    }
     case 'wirausaha': {
       const a = achievement as WirausahaAchievement;
-      return `${a.jenisUsaha} • ${a.masihAktif ? 'Aktif' : 'Tidak Aktif'}`;
+      return `${a.jenisUsaha} - ${a.masihAktif ? 'Aktif' : 'Tidak Aktif'}`;
     }
     case 'pengembangan': {
       const a = achievement as PengembanganAchievement;
@@ -128,19 +174,19 @@ export function AchievementTimeline({
   const hasMore = achievements.length > maxItems;
 
   return (
-    <div className={cn('glass-card rounded-2xl p-6 flex flex-col', className)}>
+    <div className={cn('glass-card flex flex-col rounded-2xl p-5 sm:p-6', className)}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-success/10 flex items-center justify-center">
             <Trophy className="w-5 h-5 text-success" />
           </div>
           <div>
             <h3 className="font-semibold text-foreground">Riwayat Prestasi</h3>
-            <p className="text-sm text-muted-foreground">Pencapaian non-akademik</p>
+            <p className="text-sm text-muted-foreground">Pencapaian akademik & non-akademik</p>
           </div>
         </div>
-        <span className="text-sm text-muted-foreground px-3 py-1 rounded-full bg-muted">
+        <span className="self-start rounded-full bg-muted px-3 py-1 text-sm text-muted-foreground sm:self-auto">
           {achievements.length} prestasi
         </span>
       </div>
@@ -210,7 +256,7 @@ export function AchievementTimeline({
           )}
 
           {/* Actions */}
-          <div className="flex gap-2 mt-4">
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             {(hasMore || onViewAll) && (
               <Button variant="ghost" className="flex-1" onClick={onViewAll}>
                 Lihat semua prestasi
@@ -232,7 +278,7 @@ export function AchievementTimeline({
           </div>
           <h4 className="font-semibold text-foreground mb-1">Belum Ada Prestasi</h4>
           <p className="text-sm text-muted-foreground mb-4 max-w-xs mx-auto">
-            Yuk, tambahkan pencapaian non-akademikmu
+            Yuk, tambahkan pencapaian akademik dan non-akademikmu
           </p>
           {onAddNew && (
             <Button onClick={onAddNew}>

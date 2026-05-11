@@ -17,7 +17,7 @@ export default function AIInsightPage() {
 
   const generateInsights = () => {
     setIsGenerating(true);
-    
+
     // Simulate AI analysis
     setTimeout(() => {
       const bekerja = alumniData.filter(d => d.status === 'bekerja');
@@ -60,19 +60,19 @@ export default function AIInsightPage() {
 
       const generatedInsights = [
         `## Tingkat Keterserapan Kerja\n\nDari total ${total} alumni yang telah tercatat di Arsip Mahasiswa Prodi ABT, sebanyak **${bekerjaPercent}%** saat ini berstatus bekerja. Angka ini menunjukkan tingkat employability yang ${bekerjaPercent >= 70 ? 'sangat baik dan sejalan dengan target program studi' : bekerjaPercent >= 50 ? 'cukup baik namun masih perlu ditingkatkan' : 'perlu perhatian khusus dari pihak program studi'}.`,
-        
+
         `## Tren Kewirausahaan\n\nSebanyak **${wirausahaPercent}%** alumni memilih jalur wirausaha. ${wirausahaPercent >= 20 ? 'Ini menunjukkan jiwa entrepreneurship yang tinggi di kalangan alumni ABT Polines, selaras dengan kurikulum yang menekankan kewirausahaan.' : 'Kampus dapat mempertimbangkan penguatan program inkubasi bisnis dan mentoring kewirausahaan untuk meningkatkan minat berwirausaha di kalangan mahasiswa.'}`,
-        
+
         topIndustry ? `## Industri Dominan\n\nSektor **${topIndustry[0]}** menjadi pilihan terbanyak dengan ${topIndustry[1]} alumni. Hal ini menunjukkan kesesuaian kurikulum ABT dengan kebutuhan industri tersebut dan dapat menjadi acuan untuk penguatan mata kuliah terkait.` : '',
-        
+
         topLocation ? `## Persebaran Lokasi Kerja\n\n**${topLocation[0]}** menjadi lokasi kerja terfavorit dengan ${topLocation[1]} alumni. Data ini dapat menjadi acuan untuk program kerjasama industri dan penempatan magang mahasiswa.` : '',
-        
+
         topJurusan ? `## Analisis Per Jurusan\n\nAlumni dari jurusan **${topJurusan[0]}** menunjukkan tingkat keterserapan kerja tertinggi dengan ${topJurusan[1]} alumni bekerja. Best practice dari jurusan ini dapat diterapkan ke jurusan lainnya.` : '',
-        
+
         studi.length > 0 ? `## Minat Studi Lanjut\n\nTerdapat **${studi.length} alumni** yang melanjutkan pendidikan ke jenjang yang lebih tinggi. Ini menunjukkan komitmen untuk pengembangan akademik dan dapat menjadi indikator positif untuk akreditasi program studi.` : '',
-        
+
         mencari.length > 0 ? `## Alumni Mencari Kerja\n\nSaat ini terdapat **${mencari.length} alumni** yang sedang aktif mencari pekerjaan. Program studi dapat membantu melalui program job fair, career counseling, atau menghubungkan dengan mitra industri.` : '',
-        
+
         `## Rekomendasi Strategis\n\nBerdasarkan analisis data Arsip Mahasiswa Prodi ABT, disarankan untuk:\n1. Memperkuat kerjasama dengan industri ${topIndustry?.[0] || 'unggulan'}\n2. Mengembangkan program magang yang lebih intensif\n3. Menyelenggarakan alumni networking secara berkala\n4. Meningkatkan pelatihan soft skill dan sertifikasi kompetensi`,
       ].filter(Boolean);
 
@@ -120,8 +120,8 @@ export default function AIInsightPage() {
                   <Sparkles className="w-8 h-8 text-primary-foreground" />
                 </div>
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold text-foreground">AI Insight</h1>
-                  <p className="text-muted-foreground">Analisis cerdas data alumni menggunakan AI.</p>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Insight</h1>
+                  <p className="text-muted-foreground">Analisis cerdas data alumni secara otomatis.</p>
                 </div>
               </div>
             </div>
@@ -142,7 +142,7 @@ export default function AIInsightPage() {
                 </div>
                 <h2 className="text-2xl font-bold text-foreground mb-3">Siap Menganalisis Data Alumni</h2>
                 <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
-                  AI akan menganalisis seluruh data alumni dan menghasilkan insight dalam format 
+                  Sistem akan menganalisis seluruh data alumni dan menghasilkan insight dalam format
                   laporan naratif yang siap digunakan untuk kebutuhan akreditasi dan pelaporan.
                 </p>
                 <Button onClick={generateInsights} disabled={isGenerating} size="lg" className="px-8">
@@ -154,7 +154,7 @@ export default function AIInsightPage() {
                   ) : (
                     <>
                       <Sparkles className="w-5 h-5 mr-2" />
-                      Generate AI Insight
+                      Generate Insight
                     </>
                   )}
                 </Button>
@@ -165,7 +165,7 @@ export default function AIInsightPage() {
             {insights.length > 0 && (
               <div className="space-y-4 animate-fade-up">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-                  <h2 className="text-xl font-semibold text-foreground">Hasil Analisis AI</h2>
+                  <h2 className="text-xl font-semibold text-foreground">Hasil Analisis</h2>
                   <div className="flex flex-wrap gap-2">
                     <Button variant="outline" size="sm" onClick={handleCopyAll}>
                       <Copy className="w-4 h-4 mr-2" />
@@ -224,7 +224,7 @@ export default function AIInsightPage() {
                     <div>
                       <p className="font-medium text-foreground mb-1">Catatan Penggunaan</p>
                       <p className="text-sm text-muted-foreground">
-                        Insight ini dihasilkan berdasarkan data yang tersedia saat ini di Arsip Mahasiswa Prodi ABT. 
+                        Insight ini dihasilkan berdasarkan data yang tersedia saat ini di Arsip Mahasiswa Prodi ABT.
                         Untuk hasil yang lebih akurat, pastikan lebih banyak alumni telah melengkapi data pada sistem arsip.
                         Konten dapat langsung disalin dan digunakan untuk keperluan pelaporan akreditasi.
                       </p>

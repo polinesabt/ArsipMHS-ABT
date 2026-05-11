@@ -41,13 +41,13 @@ export function SummaryCard({
   return (
     <div 
       className={cn(
-        'glass-card rounded-2xl p-6 transition-all duration-300 hover:shadow-elevated group flex flex-col',
+        'glass-card group flex flex-col rounded-2xl p-5 transition-all duration-300 hover:shadow-elevated sm:p-6',
         className
       )}
     >
       {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0', iconBgClass)}>
+      <div className="mb-4 flex items-start justify-between">
+        <div className={cn('flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl sm:h-12 sm:w-12', iconBgClass)}>
           {icon}
         </div>
         <ChevronRight className="w-5 h-5 text-muted-foreground group-hover:translate-x-1 transition-transform flex-shrink-0" />
@@ -57,7 +57,7 @@ export function SummaryCard({
       <h3 className="font-semibold text-foreground mb-4 break-words">{title}</h3>
 
       {/* Content - auto-expand */}
-      <div className="space-y-3 mb-5 flex-1">
+      <div className="mb-5 flex-1 space-y-3">
         {primaryLabel && primaryValue && (
           <div className="flex items-start justify-between gap-2">
             <span className="text-sm text-muted-foreground flex-shrink-0">{primaryLabel}</span>

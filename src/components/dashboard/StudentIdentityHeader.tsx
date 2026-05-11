@@ -1,8 +1,6 @@
 import { GraduationCap, Building2, Calendar } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { StudentStatus } from '@/types/student.types';
-import { RoleBadge } from './RoleBadge';
-import { ROLE_CONFIG, aggregateAlumniStatus } from '@/lib/role-utils';
+import { aggregateAlumniStatus } from '@/lib/role-utils';
 import type { AlumniData } from '@/types/alumni.types';
 import {
   Tooltip,
@@ -42,17 +40,14 @@ export function StudentIdentityHeader({
         {/* Greeting Section */}
         <div className="mb-6">
           <p className="text-sm text-muted-foreground mb-1 tracking-wide">
-            Selamat datang kembali
+            Hai, Selamat datang!
           </p>
           
-          {/* Name with Prominent Role Badge */}
+          {/* Name */}
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl md:text-4xl">
               {nama}
             </h1>
-            
-            {/* Role Badge - Always Visible, Prominent */}
-            <RoleBadge role={studentStatus} size="md" />
           </div>
           
           {/* Aggregated Alumni Status (LinkedIn-style) - Only for Alumni with career data */}
@@ -64,10 +59,10 @@ export function StudentIdentityHeader({
         </div>
 
         {/* Identity Info Bar */}
-        <div className="flex flex-wrap items-center gap-3 text-sm">
+        <div className="flex flex-wrap items-center gap-2 text-sm sm:gap-3">
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 text-muted-foreground hover:bg-muted transition-colors cursor-help">
+              <div className="flex items-center gap-2 rounded-full bg-muted/50 px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted sm:px-3 sm:text-sm">
                 <span className="font-semibold text-foreground">NIM:</span>
                 <span>{nim}</span>
               </div>
@@ -79,7 +74,7 @@ export function StudentIdentityHeader({
           
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 text-muted-foreground hover:bg-muted transition-colors cursor-help">
+              <div className="flex items-center gap-2 rounded-full bg-muted/50 px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted sm:px-3 sm:text-sm">
                 <GraduationCap className="w-3.5 h-3.5" />
                 <span>{prodi}</span>
               </div>
@@ -91,7 +86,7 @@ export function StudentIdentityHeader({
           
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 text-muted-foreground hover:bg-muted transition-colors cursor-help">
+              <div className="flex items-center gap-2 rounded-full bg-muted/50 px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted sm:px-3 sm:text-sm">
                 <Building2 className="w-3.5 h-3.5" />
                 <span>{jurusan}</span>
               </div>
@@ -104,7 +99,7 @@ export function StudentIdentityHeader({
           {tahunLulus && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/50 text-muted-foreground hover:bg-muted transition-colors cursor-help">
+                <div className="flex items-center gap-2 rounded-full bg-muted/50 px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted sm:px-3 sm:text-sm">
                   <Calendar className="w-3.5 h-3.5" />
                   <span>Lulus {tahunLulus}</span>
                 </div>

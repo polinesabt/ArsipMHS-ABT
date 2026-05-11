@@ -11,6 +11,7 @@ export * from './evaluation.types';
 // New student-centric types - namespaced to avoid conflicts
 export type {
   StudentStatus,
+  StudentStatusMode,
   CareerStatus,
   AchievementCategory,
   AchievementSubcategory,

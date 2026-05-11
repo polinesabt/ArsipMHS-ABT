@@ -3,16 +3,45 @@
  * Handles authentication, error handling, and request/response transformations
  */
 
-/** URL API: dari .env (dev) / .env.production (build), atau fallback origin + /backend/api di browser agar build production tetap jalan. */
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ??
-  (typeof window !== 'undefined' ? `${window.location.origin}/backend/api` : '');
+/** Base path dari Vite (tanpa trailing slash): "" atau "/Arsipmhs2". */
+const getBasePath = (): string => (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
+
+/** URL API: dari VITE_API_BASE_URL (build) atau fallback origin + base path. */
+export const getApiBaseUrl = (): string => {
+  const envApiBase = (import.meta.env.VITE_API_BASE_URL || '').trim();
+  if (typeof window === 'undefined') return envApiBase;
+
+  const origin = window.location.origin;
+  const hostname = window.location.hostname.toLowerCase();
+  const basePath = getBasePath();
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+  const isDevServer = isLocalhost && /^https?:\/\/(localhost|127\.0\.0\.1):8080$/i.test(origin);
+
+  if (isDevServer) return `${origin}/api`;
+  if (envApiBase) return envApiBase;
+  return `${origin}${basePath}/backend/api`;
+};
+const API_BASE_URL = getApiBaseUrl();
 const API_TIMEOUT = import.meta.env.VITE_API_TIMEOUT ? parseInt(import.meta.env.VITE_API_TIMEOUT, 10) : 10000;
 const AUTH_INVALIDATION_CODES = new Set([
   'AUTH_TOKEN_MALFORMED',
   'AUTH_TOKEN_EXPIRED',
   'AUTH_TOKEN_INVALID_SIGNATURE',
   'AUTH_TOKEN_MISSING',
+]);
+
+/** 401 from these endpoints will not trigger global logout (e.g. dashboard chart; admin stays logged in) */
+const IGNORE_LOGOUT_ENDPOINTS = new Set([
+  'insight/stats.php',
+  'achievements/stats.php',
+  'insight/records.php',
+]);
+
+/** Endpoint dashboard chart yang boleh retry auth sekali lagi untuk meredam race antar-request */
+const TRANSIENT_AUTH_RETRY_ENDPOINTS = new Set([
+  'insight/stats.php',
+  'achievements/stats.php',
+  'insight/records.php',
 ]);
 
 const UNAUTHORIZED_LOGOUT_DELAY_MS = 400;
@@ -26,13 +55,13 @@ function cancelPendingUnauthorizedLogout(): void {
   }
 }
 
-function scheduleUnauthorizedLogout(client: ApiClient): void {
+function scheduleUnauthorizedLogout(client: ApiClient, endpoint?: string): void {
   cancelPendingUnauthorizedLogout();
   pendingUnauthorizedLogoutId = setTimeout(() => {
     pendingUnauthorizedLogoutId = null;
     client.clearToken();
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+      window.dispatchEvent(new CustomEvent('auth:unauthorized', { detail: { endpoint } }));
     }
   }, UNAUTHORIZED_LOGOUT_DELAY_MS);
 }
@@ -54,6 +83,29 @@ export interface ApiErrorResponse {
 
 const REFRESH_TOKEN_KEY = 'refreshToken';
 const REFRESH_ENDPOINT = 'auth/refresh.php';
+
+/** Detik sebelum expiry di mana kita refresh token proaktif */
+const REFRESH_BEFORE_EXPIRY_SEC = 5 * 60; // 5 menit
+
+/**
+ * Ambil klaim exp dari JWT (tanpa verifikasi) untuk cek kadaluarsa.
+ */
+function getJwtExp(token: string | null): number | null {
+  if (!token || typeof token !== 'string') return null;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = parts[1];
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const pad = base64.length % 4;
+    const padded = pad ? base64 + '='.repeat(4 - pad) : base64;
+    const json = atob(padded);
+    const obj = JSON.parse(json) as { exp?: number };
+    return typeof obj.exp === 'number' ? obj.exp : null;
+  } catch {
+    return null;
+  }
+}
 
 export class ApiClient {
   private baseURL: string;
@@ -120,6 +172,8 @@ export class ApiClient {
     const activeToken = tokenOverride !== undefined ? tokenOverride : this.token;
     if (activeToken) {
       defaultHeaders['Authorization'] = `Bearer ${activeToken}`;
+      // Fallback agar backend tetap dapat token jika Apache/proxy strip header Authorization
+      defaultHeaders['X-Auth-Token'] = activeToken;
     }
 
     return { ...defaultHeaders, ...headers };
@@ -166,15 +220,41 @@ export class ApiClient {
       body?: unknown;
       headers?: Record<string, string>;
       params?: Record<string, string | number | boolean>;
+      /** Override timeout untuk request ini (ms). Berguna untuk operasi lama seperti kirim notifikasi banyak. */
+      timeout?: number;
       _retriedAfterRefresh?: boolean;
+      _retriedWithLatestToken?: boolean;
+      _retriedTransientAuth?: boolean;
     } = {}
   ): Promise<ApiResponse<T>> {
-    const { _retriedAfterRefresh, ...requestOptions } = options;
+    const { _retriedAfterRefresh, _retriedWithLatestToken, _retriedTransientAuth, timeout: requestTimeout, ...requestOptions } = options;
+    const effectiveTimeout = requestTimeout ?? this.timeout;
     const url = new URL(`${this.baseURL}/${endpoint}`);
-    const tokenFromStorage =
-      typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-    const tokenAtRequestStart = this.token ?? tokenFromStorage;
-    if (!this.token && tokenAtRequestStart) this.token = tokenAtRequestStart;
+    // Browser: localStorage jadi single source of truth agar token in-memory tidak usang.
+    let tokenAtRequestStart: string | null =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('authToken')
+        : (this.token ?? null);
+    this.token = tokenAtRequestStart;
+
+    // Refresh proaktif jika token akan kadaluarsa dalam 5 menit (agar tidak pernah kirim token expired)
+    if (
+      tokenAtRequestStart &&
+      this.getRefreshToken() &&
+      endpoint !== REFRESH_ENDPOINT &&
+      !_retriedAfterRefresh
+    ) {
+      const exp = getJwtExp(tokenAtRequestStart);
+      const now = Math.floor(Date.now() / 1000);
+      if (exp != null && exp - now < REFRESH_BEFORE_EXPIRY_SEC) {
+        const newTokens = await this.tryRefreshAndGetNewTokens();
+        if (newTokens) {
+          this.setToken(newTokens.token);
+          this.setRefreshToken(newTokens.refreshToken);
+          tokenAtRequestStart = newTokens.token;
+        }
+      }
+    }
 
     if (requestOptions.params) {
       Object.entries(requestOptions.params).forEach(([key, value]) => {
@@ -183,30 +263,55 @@ export class ApiClient {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+    const timeoutId = setTimeout(() => controller.abort(), effectiveTimeout);
+
+    const isSurveyEndpoint = endpoint === 'evaluations/survey.php' || url.toString().includes('survey.php');
+    const fetchInit: RequestInit = {
+      method,
+      headers: this.buildHeaders(
+        requestOptions.headers,
+        tokenAtRequestStart,
+        requestOptions.body !== undefined
+      ),
+      body: requestOptions.body ? JSON.stringify(requestOptions.body) : undefined,
+      signal: controller.signal,
+    };
+    if (method === 'GET' && isSurveyEndpoint) {
+      fetchInit.cache = 'no-store';
+    }
 
     try {
-      const response = await fetch(url.toString(), {
-        method,
-        headers: this.buildHeaders(
-          requestOptions.headers,
-          tokenAtRequestStart,
-          requestOptions.body !== undefined
-        ),
-        body: requestOptions.body ? JSON.stringify(requestOptions.body) : undefined,
-        signal: controller.signal,
-      });
+      const response = await fetch(url.toString(), fetchInit);
 
       clearTimeout(timeoutId);
 
-      // Handle response
-      let data: unknown;
+      // Handle response: baca body sebagai text dulu agar bisa deteksi HTML (error PHP)
       const contentType = response.headers.get('content-type');
-      
+      const rawText = await response.text();
+
+      let data: unknown;
       if (contentType?.includes('application/json')) {
-        data = await response.json();
+        const trimmed = rawText.trim();
+        if (trimmed.startsWith('<')) {
+          // Server mengembalikan HTML (biasanya error PHP), bukan JSON
+          data = {
+            success: false,
+            error: 'Server mengembalikan respons bukan JSON (mungkin error PHP). Periksa log server.',
+            code: 'INVALID_JSON_RESPONSE',
+          };
+        } else {
+          try {
+            data = JSON.parse(rawText);
+          } catch {
+            data = {
+              success: false,
+              error: 'Respons server tidak valid (bukan JSON).',
+              code: 'INVALID_JSON_RESPONSE',
+            };
+          }
+        }
       } else {
-        data = await response.text();
+        data = rawText;
       }
 
       // Check if response is successful
@@ -222,10 +327,26 @@ export class ApiClient {
 
         const isAuth401 =
           response.status === 401 &&
-          errorCode &&
+          typeof errorCode === 'string' &&
           AUTH_INVALIDATION_CODES.has(errorCode) &&
-          tokenAtRequestStart &&
-          this.token === tokenAtRequestStart;
+          Boolean(tokenAtRequestStart);
+
+        // Saat request paralel, token bisa sudah dirotasi oleh request lain.
+        // Coba sekali lagi dengan token terbaru sebelum memaksa refresh token.
+        if (isAuth401 && !_retriedWithLatestToken) {
+          const latestToken =
+            typeof window !== 'undefined' ? localStorage.getItem('authToken') : this.token;
+          if (latestToken && latestToken !== tokenAtRequestStart) {
+            this.token = latestToken;
+            cancelPendingUnauthorizedLogout();
+            return this.makeRequest<T>(method, endpoint, {
+              ...requestOptions,
+              timeout: requestTimeout,
+              _retriedAfterRefresh,
+              _retriedWithLatestToken: true,
+            });
+          }
+        }
 
         if (
           isAuth401 &&
@@ -238,8 +359,34 @@ export class ApiClient {
             this.setToken(newTokens.token);
             this.setRefreshToken(newTokens.refreshToken);
             cancelPendingUnauthorizedLogout();
-            return this.makeRequest<T>(method, endpoint, { ...requestOptions, _retriedAfterRefresh: true });
+            return this.makeRequest<T>(method, endpoint, {
+              ...requestOptions,
+              timeout: requestTimeout,
+              _retriedAfterRefresh: true,
+              _retriedWithLatestToken,
+              _retriedTransientAuth,
+            });
           }
+        }
+
+        // Retry sekali lagi khusus endpoint chart untuk meredam 401 transient akibat race/concurrency.
+        if (
+          isAuth401 &&
+          TRANSIENT_AUTH_RETRY_ENDPOINTS.has(endpoint) &&
+          !_retriedTransientAuth
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 250));
+          const latestToken =
+            typeof window !== 'undefined' ? localStorage.getItem('authToken') : this.token;
+          this.token = latestToken ?? null;
+          cancelPendingUnauthorizedLogout();
+          return this.makeRequest<T>(method, endpoint, {
+            ...requestOptions,
+            timeout: requestTimeout,
+            _retriedAfterRefresh,
+            _retriedWithLatestToken,
+            _retriedTransientAuth: true,
+          });
         }
 
         if (isAuth401) {
@@ -254,7 +401,9 @@ export class ApiClient {
               })
             );
           }
-          scheduleUnauthorizedLogout(this);
+          if (!IGNORE_LOGOUT_ENDPOINTS.has(endpoint)) {
+            scheduleUnauthorizedLogout(this, endpoint);
+          }
         }
 
         return {
@@ -286,7 +435,7 @@ export class ApiClient {
       if (error instanceof Error && error.name === 'AbortError') {
         return {
           success: false,
-          error: `Request timeout after ${this.timeout}ms`,
+          error: `Request timeout after ${effectiveTimeout}ms`,
         };
       }
 

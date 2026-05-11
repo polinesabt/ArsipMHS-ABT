@@ -3,6 +3,7 @@ import { TooltipProps } from 'recharts';
 interface CustomTooltipProps extends TooltipProps<number, string> {
   valueFormatter?: (value: number) => string;
   labelFormatter?: (label: string) => string;
+  hideZeroValues?: boolean;
 }
 
 export function ChartTooltip({
@@ -11,14 +12,19 @@ export function ChartTooltip({
   label,
   valueFormatter = (v) => v.toLocaleString(),
   labelFormatter = (l) => l,
+  hideZeroValues = false,
 }: CustomTooltipProps) {
   if (!active || !payload || !payload.length) return null;
+  const filteredPayload = hideZeroValues
+    ? payload.filter((entry) => Math.abs(Number(entry.value ?? 0)) > 0)
+    : payload;
+  if (!filteredPayload.length) return null;
 
   return (
     <div className="chart-tooltip">
       <p className="font-medium text-foreground mb-2">{labelFormatter(label)}</p>
       <div className="space-y-1">
-        {payload.map((entry, index) => (
+        {filteredPayload.map((entry, index) => (
           <div key={index} className="flex items-center gap-2 text-sm">
             <div
               className="w-3 h-3 rounded-full"

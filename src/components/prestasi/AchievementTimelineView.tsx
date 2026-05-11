@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { 
   Trophy, BookOpen, Shield, Briefcase, Rocket, Sprout, Mic2, Users2, FolderOpen,
+  Package, FlaskConical,
   Paperclip, Plus, ChevronDown, Building2, MapPin, Calendar,
   User, Award, FileText, ExternalLink, Download, X, ZoomIn,
   Edit3, Trash2, Image as ImageIcon, HelpCircle, Star, CheckCircle2
@@ -11,18 +12,24 @@ import { format } from 'date-fns';
 import { id as idLocale } from 'date-fns/locale';
 import { 
   Achievement, 
+  AchievementAttachment,
   AchievementCategory,
   LombaAchievement,
   SeminarAchievement,
+  PagelaranAchievement,
   PublikasiAchievement,
   HakiAchievement,
   MagangAchievement,
   PortofolioAchievement,
+  ProdukMahasiswaAchievement,
+  RESEARCH_OUTPUT_SUBTYPE_LABELS,
+  STUDENT_PRODUCT_CATEGORY_LABELS,
   WirausahaAchievement,
   PengembanganAchievement,
   OrganisasiAchievement
 } from '@/types/achievement.types';
 import { CategoryFilter } from './CategorySidebar';
+import { downloadAttachment, fetchAttachmentBlobUrl } from '@/lib/attachment-file';
 
 interface AchievementTimelineViewProps {
   achievements: Achievement[];
@@ -50,11 +57,18 @@ const CATEGORY_CONFIG: Record<string, {
     borderColor: 'border-warning/30'
   },
   seminar: { 
-    icon: Mic2, 
+    icon: FileText, 
     color: 'text-purple-500', 
     nodeColor: 'bg-purple-500', 
     bgColor: 'bg-purple-500/10',
     borderColor: 'border-purple-500/30'
+  },
+  pagelaran: {
+    icon: Mic2,
+    color: 'text-fuchsia-500',
+    nodeColor: 'bg-fuchsia-500',
+    bgColor: 'bg-fuchsia-500/10',
+    borderColor: 'border-fuchsia-500/30'
   },
   publikasi: { 
     icon: BookOpen, 
@@ -70,6 +84,13 @@ const CATEGORY_CONFIG: Record<string, {
     bgColor: 'bg-success/10',
     borderColor: 'border-success/30'
   },
+  luaran_penelitian: {
+    icon: FlaskConical,
+    color: 'text-indigo-500',
+    nodeColor: 'bg-indigo-500',
+    bgColor: 'bg-indigo-500/10',
+    borderColor: 'border-indigo-500/30'
+  },
   magang: { 
     icon: Briefcase, 
     color: 'text-info', 
@@ -83,6 +104,13 @@ const CATEGORY_CONFIG: Record<string, {
     nodeColor: 'bg-orange-500', 
     bgColor: 'bg-orange-500/10',
     borderColor: 'border-orange-500/30'
+  },
+  produk_mahasiswa: {
+    icon: Package,
+    color: 'text-cyan-500',
+    nodeColor: 'bg-cyan-500',
+    bgColor: 'bg-cyan-500/10',
+    borderColor: 'border-cyan-500/30'
   },
   wirausaha: { 
     icon: Rocket, 
@@ -123,6 +151,17 @@ const DEFAULT_CONFIG = {
   borderColor: 'border-border',
 };
 
+function getPagelaranTypeLabel(jenisKegiatan: string | undefined): string {
+  const token = String(jenisKegiatan || '').trim().toLowerCase().replace(/-+/g, '_').replace(/\s+/g, '_');
+  if (token === 'conference') return 'Presentasi Konferensi';
+  if (token === 'presentasi' || token === 'presentation') return 'Presentasi Ilmiah';
+  if (token === 'oral_presentation') return 'Presentasi Lisan';
+  if (token === 'poster_presentation') return 'Presentasi Poster';
+  if (token === 'expo' || token === 'exhibition' || token === 'pameran') return 'Pameran / Expo';
+  if (token === 'pagelaran') return 'Pagelaran';
+  return 'Pagelaran / Presentasi';
+}
+
 function getAchievementDetails(achievement: Achievement): { 
   title: string; 
   subtitle: string; 
@@ -145,11 +184,35 @@ function getAchievementDetails(achievement: Achievement): {
     }
     case 'seminar': {
       const a = achievement as SeminarAchievement;
+      const levelLabel = a.levelSeminar === 'international'
+        ? 'Internasional'
+        : a.levelSeminar === 'national'
+          ? 'Nasional'
+          : 'Lokal/Wilayah/PT';
+      const perolehanLabel = a.jenisPerolehan === 'kolaborasi_dosen'
+        ? `Kolaborasi Dosen${a.namaDosen ? ` (${a.namaDosen})` : ''}`
+        : 'Mandiri';
+      const subtitleBase = a.namaSeminarKonferensi || a.penyelenggara || 'Publikasi di Seminar';
       return {
-        title: a.namaSeminar,
-        subtitle: a.penyelenggara,
+        title: a.judulPublikasi,
+        subtitle: `${subtitleBase} - ${levelLabel} - ${perolehanLabel}`,
         year: a.tahun,
-        level: a.peran === 'pembicara' ? 'Pembicara' : 'Peserta',
+        level: levelLabel,
+      };
+    }
+    case 'pagelaran': {
+      const a = achievement as PagelaranAchievement;
+      const levelLabel = a.levelSeminar === 'international'
+        ? 'Internasional'
+        : a.levelSeminar === 'national'
+          ? 'Nasional'
+          : 'Lokal/Wilayah/PT';
+      const mitraLabel = a.penyelenggara ? ` - Mitra: ${a.penyelenggara}` : '';
+      return {
+        title: a.judulPublikasi,
+        subtitle: `${getPagelaranTypeLabel(a.jenisKegiatan)} - ${levelLabel}${mitraLabel}`,
+        year: a.tahun,
+        level: levelLabel,
       };
     }
     case 'publikasi': {
@@ -170,11 +233,25 @@ function getAchievementDetails(achievement: Achievement): {
         result: a.status,
       };
     }
+    case 'luaran_penelitian': {
+      const a = achievement as any;
+      const subtype = String(a.jenisLuaran || '');
+      const subtypeLabel = RESEARCH_OUTPUT_SUBTYPE_LABELS[subtype as keyof typeof RESEARCH_OUTPUT_SUBTYPE_LABELS]
+        || subtype.replace(/_/g, ' ');
+      return {
+        title: a.judul || 'Luaran Penelitian',
+        subtitle: a.jenisPerolehan === 'kolaborasi_dosen'
+          ? `${subtypeLabel} - Kolaborasi Dosen${a.namaDosen ? ` (${a.namaDosen})` : ''}`
+          : `${subtypeLabel} - Mandiri`,
+        year: a.tahun || new Date(a.tanggalLuaran || Date.now()).getFullYear(),
+        level: subtypeLabel,
+      };
+    }
     case 'magang': {
       const a = achievement as MagangAchievement;
       return {
         title: `${a.posisi} di ${a.namaPerusahaan}`,
-        subtitle: `${a.industri} • ${a.lokasi}`,
+        subtitle: `${a.industri} - ${a.lokasi}`,
         year: new Date(a.tanggalMulai).getFullYear(),
       };
     }
@@ -187,11 +264,20 @@ function getAchievementDetails(achievement: Achievement): {
         result: a.nilai ? `Nilai: ${a.nilai}` : undefined,
       };
     }
+    case 'produk_mahasiswa': {
+      const a = achievement as ProdukMahasiswaAchievement;
+      return {
+        title: a.namaProduk,
+        subtitle: `${a.mitraAdopsi || 'Produk Mahasiswa'}${a.lokasi ? ` - ${a.lokasi}` : ''}`,
+        year: new Date(a.tanggalAdopsi).getFullYear(),
+        level: a.tingkat,
+      };
+    }
     case 'wirausaha': {
       const a = achievement as WirausahaAchievement;
       return {
         title: a.namaUsaha,
-        subtitle: `${a.jenisUsaha} • ${a.lokasi}`,
+        subtitle: `${a.jenisUsaha} - ${a.lokasi}`,
         year: a.tahunMulai,
         result: a.masihAktif ? 'Masih Aktif' : 'Tidak Aktif',
       };
@@ -200,7 +286,7 @@ function getAchievementDetails(achievement: Achievement): {
       const a = achievement as PengembanganAchievement;
       return {
         title: a.namaProgram,
-        subtitle: a.penyelenggara + (a.negara ? ` • ${a.negara}` : ''),
+        subtitle: a.penyelenggara + (a.negara ? ` - ${a.negara}` : ''),
         year: new Date(a.tanggalMulai).getFullYear(),
         result: a.output,
       };
@@ -243,12 +329,39 @@ function getCategoryDetailFields(achievement: Achievement): { label: string; val
     }
     case 'seminar': {
       const a = achievement as SeminarAchievement;
+      const levelLabel = a.levelSeminar === 'international'
+        ? 'Internasional'
+        : a.levelSeminar === 'national'
+          ? 'Nasional'
+          : 'Lokal/Wilayah/Perguruan Tinggi';
+      const perolehanLabel = a.jenisPerolehan === 'kolaborasi_dosen'
+        ? 'Kolaborasi dengan Dosen'
+        : 'Mandiri';
       return [
-        { label: 'Peran', value: a.peran?.charAt(0).toUpperCase() + a.peran?.slice(1), icon: User },
-        { label: 'Mode', value: a.mode?.charAt(0).toUpperCase() + a.mode?.slice(1), icon: Award },
-        { label: 'Penyelenggara', value: a.penyelenggara, icon: Building2 },
+        { label: 'Level Seminar', value: levelLabel, icon: Award },
+        { label: 'Jenis Perolehan', value: perolehanLabel, icon: User },
+        { label: 'Nama Dosen', value: a.jenisPerolehan === 'kolaborasi_dosen' ? (a.namaDosen || '-') : '-', icon: User },
+        { label: 'Nama Seminar / Konferensi', value: a.namaSeminarKonferensi || '-', icon: Building2 },
+        { label: 'Penyelenggara', value: a.penyelenggara || '-', icon: Building2 },
+        { label: 'Tanggal Publikasi', value: a.tanggalPublikasi || '-', icon: Calendar },
         { label: 'Tahun', value: a.tahun?.toString(), icon: Calendar },
-      ].filter(f => f.value);
+      ].filter((f) => f.value && f.value !== '-');
+    }
+    case 'pagelaran': {
+      const a = achievement as PagelaranAchievement;
+      const levelLabel = a.levelSeminar === 'international'
+        ? 'Internasional'
+        : a.levelSeminar === 'national'
+          ? 'Nasional'
+          : 'Lokal/Wilayah/Perguruan Tinggi';
+      return [
+        { label: 'Jenis Kegiatan', value: getPagelaranTypeLabel(a.jenisKegiatan), icon: Award },
+        { label: 'Level Kegiatan', value: levelLabel, icon: Award },
+        ...(a.penyelenggara ? [{ label: 'Mitra Kegiatan', value: a.penyelenggara, icon: Building2 }] : []),
+        { label: 'Nama Acara / Konferensi', value: a.namaSeminarKonferensi || '-', icon: Building2 },
+        { label: 'Tanggal Kegiatan', value: a.tanggalPublikasi || '-', icon: Calendar },
+        { label: 'Tahun', value: a.tahun?.toString(), icon: Calendar },
+      ].filter((f) => f.value && f.value !== '-');
     }
     case 'magang': {
       const a = achievement as MagangAchievement;
@@ -278,6 +391,19 @@ function getCategoryDetailFields(achievement: Achievement): { label: string; val
         { label: 'Status', value: a.status === 'granted' ? 'Granted' : a.status === 'terdaftar' ? 'Terdaftar' : a.status, icon: Award },
       ].filter(f => f.value && f.value !== '-');
     }
+    case 'luaran_penelitian': {
+      const a = achievement as any;
+      const subtype = String(a.jenisLuaran || '');
+      const subtypeLabel = RESEARCH_OUTPUT_SUBTYPE_LABELS[subtype as keyof typeof RESEARCH_OUTPUT_SUBTYPE_LABELS]
+        || subtype.replace(/_/g, ' ');
+      return [
+        { label: 'Jenis Luaran', value: subtypeLabel, icon: FlaskConical },
+        { label: 'Jenis Perolehan', value: a.jenisPerolehan === 'kolaborasi_dosen' ? 'Kolaborasi Dosen' : 'Mandiri', icon: User },
+        ...(a.namaDosen ? [{ label: 'Nama Dosen', value: a.namaDosen, icon: User }] : []),
+        { label: 'Tanggal Luaran', value: a.tanggalLuaran || '-', icon: Calendar },
+        { label: 'Tahun', value: String(a.tahun || '-'), icon: Calendar },
+      ].filter((f) => f.value && f.value !== '-');
+    }
     case 'wirausaha': {
       const a = achievement as WirausahaAchievement;
       return [
@@ -305,14 +431,25 @@ function getCategoryDetailFields(achievement: Achievement): { label: string; val
         ...(a.nilai ? [{ label: 'Nilai', value: a.nilai, icon: Award }] : []),
       ].filter(f => f.value);
     }
+    case 'produk_mahasiswa': {
+      const a = achievement as ProdukMahasiswaAchievement;
+      return [
+        { label: 'Nama Produk', value: a.namaProduk, icon: Package },
+        { label: 'Kategori Produk', value: STUDENT_PRODUCT_CATEGORY_LABELS[a.kategoriProduk] || a.kategoriProduk.replace(/_/g, ' '), icon: Award },
+        { label: 'Tanggal Adopsi', value: a.tanggalAdopsi, icon: Calendar },
+        ...(a.mitraAdopsi ? [{ label: 'Mitra Adopsi', value: a.mitraAdopsi, icon: Building2 }] : []),
+        ...(a.lokasi ? [{ label: 'Lokasi', value: a.lokasi, icon: MapPin }] : []),
+        ...(a.tingkat ? [{ label: 'Tingkat', value: a.tingkat, icon: Trophy }] : []),
+      ].filter(f => f.value);
+    }
     case 'organisasi': {
       const a = achievement as OrganisasiAchievement;
       const formatPeriod = () => {
         const start = format(new Date(a.tanggalMulai), 'd MMM yyyy', { locale: idLocale });
-        if (a.masihAktif) return `${start} – Sekarang`;
+        if (a.masihAktif) return `${start} - Sekarang`;
         return a.tanggalSelesai 
-          ? `${start} – ${format(new Date(a.tanggalSelesai), 'd MMM yyyy', { locale: idLocale })}`
-          : `${start} – Selesai`;
+          ? `${start} - ${format(new Date(a.tanggalSelesai), 'd MMM yyyy', { locale: idLocale })}`
+          : `${start} - Selesai`;
       };
       return [
         { label: 'Nama Organisasi', value: a.namaOrganisasi, icon: Users2 },
@@ -407,6 +544,9 @@ export function AchievementTimelineView({
   onToggleFeatured
 }: AchievementTimelineViewProps) {
   const [lightboxState, setLightboxState] = useState<{ images: any[]; index: number } | null>(null);
+  const [resolvedAttachmentUrls, setResolvedAttachmentUrls] = useState<Record<string, string>>({});
+  const resolvingAttachmentIdsRef = useRef<Set<string>>(new Set());
+  const resolvedUrlsRef = useRef<Record<string, string>>({});
 
   const openLightbox = useCallback((images: any[], index: number) => {
     setLightboxState({ images, index });
@@ -414,6 +554,102 @@ export function AchievementTimelineView({
 
   const closeLightbox = useCallback(() => {
     setLightboxState(null);
+  }, []);
+
+  const persistedAttachments = useMemo(
+    () =>
+      achievements.flatMap((achievement) =>
+        (achievement.attachments || []).filter((attachment) => {
+          const attachmentId = attachment.attachmentId || attachment.id;
+          return Boolean(attachment.isPersisted && attachmentId);
+        })
+      ),
+    [achievements]
+  );
+
+  useEffect(() => {
+    resolvedUrlsRef.current = resolvedAttachmentUrls;
+  }, [resolvedAttachmentUrls]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(resolvedUrlsRef.current).forEach((url) => URL.revokeObjectURL(url));
+      resolvedUrlsRef.current = {};
+      resolvingAttachmentIdsRef.current.clear();
+    };
+  }, []);
+
+  useEffect(() => {
+    const activeIds = new Set(
+      persistedAttachments
+        .map((attachment) => attachment.attachmentId || attachment.id)
+        .filter((attachmentId): attachmentId is string => Boolean(attachmentId))
+    );
+
+    setResolvedAttachmentUrls((previous) => {
+      let changed = false;
+      const next = { ...previous };
+      Object.entries(previous).forEach(([attachmentId, url]) => {
+        if (activeIds.has(attachmentId)) return;
+        URL.revokeObjectURL(url);
+        delete next[attachmentId];
+        changed = true;
+      });
+      return changed ? next : previous;
+    });
+
+    persistedAttachments.forEach((attachment) => {
+      const attachmentId = attachment.attachmentId || attachment.id;
+      if (!attachmentId) return;
+      if (resolvedAttachmentUrls[attachmentId]) return;
+      if (resolvingAttachmentIdsRef.current.has(attachmentId)) return;
+      resolvingAttachmentIdsRef.current.add(attachmentId);
+
+      void fetchAttachmentBlobUrl(attachmentId)
+        .then((url) => {
+          setResolvedAttachmentUrls((previous) => ({
+            ...previous,
+            [attachmentId]: url,
+          }));
+        })
+        .catch(() => {
+          // Keep UI usable even when one attachment fails to resolve.
+        })
+        .finally(() => {
+          resolvingAttachmentIdsRef.current.delete(attachmentId);
+        });
+    });
+  }, [persistedAttachments, resolvedAttachmentUrls]);
+
+  const resolveAttachmentUrl = useCallback(
+    (attachment: AchievementAttachment): string => {
+      const attachmentId = attachment.attachmentId || attachment.id;
+      if (attachment.isPersisted && attachmentId) {
+        return resolvedAttachmentUrls[attachmentId] || '';
+      }
+      return attachment.fileUrl;
+    },
+    [resolvedAttachmentUrls]
+  );
+
+  const handleDocumentDownload = useCallback((attachment: AchievementAttachment) => {
+    if (attachment.isPersisted) {
+      const attachmentId = attachment.attachmentId || attachment.id;
+      if (!attachmentId) return;
+      void downloadAttachment(attachmentId, attachment.fileName).catch(() => {
+        const fallback = attachment.fileUrl;
+        if (!fallback) return;
+        window.open(fallback, '_blank', 'noopener,noreferrer');
+      });
+      return;
+    }
+
+    const anchor = document.createElement('a');
+    anchor.href = attachment.fileUrl;
+    anchor.download = attachment.fileName;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
   }, []);
 
   // Group achievements by year
@@ -467,11 +703,18 @@ export function AchievementTimelineView({
         description: 'Tambahkan pencapaian kompetisi dan perlombaan yang pernah kamu ikuti.',
       },
       seminar: {
-        icon: Mic2,
+        icon: FileText,
         iconColor: 'text-info',
         bgGradient: 'from-info/10 to-info/5',
-        title: 'Belum ada partisipasi seminar',
-        description: 'Dokumentasikan seminar, workshop, atau konferensi yang pernah kamu ikuti.',
+        title: 'Belum ada publikasi di seminar',
+        description: 'Tambahkan publikasi seminar yang pernah kamu presentasikan atau terbitkan.',
+      },
+      pagelaran: {
+        icon: Mic2,
+        iconColor: 'text-fuchsia-500',
+        bgGradient: 'from-fuchsia-500/10 to-fuchsia-500/5',
+        title: 'Belum ada data pagelaran/presentasi',
+        description: 'Tambahkan kegiatan pagelaran, pameran, atau presentasi ilmiah yang pernah kamu ikuti.',
       },
       publikasi: {
         icon: BookOpen,
@@ -486,6 +729,13 @@ export function AchievementTimelineView({
         bgGradient: 'from-violet-500/10 to-violet-500/5',
         title: 'Belum ada Hak Kekayaan Intelektual',
         description: 'Dokumentasikan paten, hak cipta, atau kekayaan intelektual lainnya.',
+      },
+      luaran_penelitian: {
+        icon: FlaskConical,
+        iconColor: 'text-indigo-500',
+        bgGradient: 'from-indigo-500/10 to-indigo-500/5',
+        title: 'Belum ada luaran penelitian',
+        description: 'Tambahkan luaran penelitian/PKM seperti HKI, teknologi tepat guna, atau buku.',
       },
       magang: {
         icon: Briefcase,
@@ -507,6 +757,13 @@ export function AchievementTimelineView({
         bgGradient: 'from-rose-500/10 to-rose-500/5',
         title: 'Belum ada portofolio',
         description: 'Tambahkan karya atau proyek yang menunjukkan kemampuanmu.',
+      },
+      produk_mahasiswa: {
+        icon: Package,
+        iconColor: 'text-cyan-500',
+        bgGradient: 'from-cyan-500/10 to-cyan-500/5',
+        title: 'Belum ada produk mahasiswa',
+        description: 'Tambahkan produk mahasiswa yang sudah diadopsi oleh pihak eksternal.',
       },
       volunteer: {
         icon: Sprout,
@@ -586,7 +843,15 @@ export function AchievementTimelineView({
                   const isExpanded = expandedId === achievement.id;
                   const isFeatured = achievement.isUnggulan;
                   const detailFields = getCategoryDetailFields(achievement);
-                  const imageAttachments = achievement.attachments?.filter(a => a.fileType.startsWith('image/')) || [];
+                  const rawImageAttachments = achievement.attachments?.filter(a => a.fileType.startsWith('image/')) || [];
+                  const imageAttachments = rawImageAttachments
+                    .map((attachment) => {
+                      const fileUrl = resolveAttachmentUrl(attachment);
+                      if (!fileUrl) return null;
+                      return { ...attachment, fileUrl };
+                    })
+                    .filter((attachment): attachment is AchievementAttachment => attachment !== null);
+                  const isResolvingImages = rawImageAttachments.length > 0 && imageAttachments.length === 0;
                   const documentAttachments = achievement.attachments?.filter(a => !a.fileType.startsWith('image/')) || [];
 
                   return (
@@ -745,6 +1010,11 @@ export function AchievementTimelineView({
                                   </div>
                                 ))}
                               </div>
+                            ) : isResolvingImages ? (
+                              <div className="flex items-center gap-3 py-4 px-4 rounded-xl bg-muted/50 text-muted-foreground">
+                                <ImageIcon className="w-5 h-5" />
+                                <span className="text-sm">Memuat dokumentasi...</span>
+                              </div>
                             ) : (
                               <div className="flex items-center gap-3 py-4 px-4 rounded-xl bg-muted/50 text-muted-foreground">
                                 <ImageIcon className="w-5 h-5" />
@@ -756,12 +1026,13 @@ export function AchievementTimelineView({
                             {documentAttachments.length > 0 && (
                               <div className="mt-4 space-y-2">
                                 {documentAttachments.map((doc) => (
-                                  <a
+                                  <button
                                     key={doc.id}
-                                    href={doc.fileUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDocumentDownload(doc);
+                                    }}
                                     className="flex items-center gap-3 p-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors group/doc"
                                   >
                                     <FileText className="w-5 h-5 text-primary" />
@@ -769,7 +1040,7 @@ export function AchievementTimelineView({
                                       {doc.fileName}
                                     </span>
                                     <Download className="w-4 h-4 text-muted-foreground group-hover/doc:text-primary transition-colors" />
-                                  </a>
+                                  </button>
                                 ))}
                               </div>
                             )}
@@ -878,3 +1149,4 @@ export function AchievementTimelineView({
     </>
   );
 }
+

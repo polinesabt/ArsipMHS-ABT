@@ -1,0 +1,17 @@
+DEPLOYMENT NOTES
+Generated: 2026-03-05 15:30:15
+
+Domain:
+https://arsipmhs-abt.com
+
+API base URL:
+https://arsipmhs-abt.com/backend/api
+
+Required env file location on server:
+public_html/.env (copy from .env.example and fill)
+
+Cron schedule:
+0 * * * *
+
+Cron command:
+curl -sS -X POST "https://arsipmhs-abt.com/backend/api/evaluations/cron_reminder.php" -H "X-CRON-SECRET: <CRON_SECRET>" -H "Content-Type: application/json" -d "{}" > /dev/null 2>&1

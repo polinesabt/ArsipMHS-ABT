@@ -67,6 +67,20 @@ export const CAREER_STATUS_CSS: Record<CareerStatus, string> = {
   further_study: 'career-study',
 };
 
+/** Opsi cakupan tempat kerja (untuk statistik Cakupan Kerja): value disimpan di DB, label untuk form & chart. */
+export const CAKUPAN_KERJA_OPTIONS = [
+  { value: 'local', label: 'Lokal/Wilayah/ Berwirausaha tidak Berizin' },
+  { value: 'national', label: 'Nasional/ Berwirausaha Berizin' },
+  { value: 'multinational', label: 'Multinasional/ Internasional' },
+] as const;
+
+/** Label untuk menampilkan work_scope (local/national/multinational) di tabel & dashboard. */
+export const WORK_SCOPE_LABELS: Record<string, string> = {
+  local: 'Lokal/Wilayah/ Berwirausaha tidak Berizin',
+  national: 'Nasional/ Berwirausaha Berizin',
+  multinational: 'Multinasional/ Internasional',
+};
+
 // ============ Achievement Category Configuration ============
 
 export const ACHIEVEMENT_CATEGORY_LABELS: Record<AchievementCategory, string> = {
@@ -89,7 +103,7 @@ export const ACHIEVEMENT_CATEGORY_ICONS: Record<AchievementCategory, string> = {
 
 export const ACHIEVEMENT_SUBCATEGORY_LABELS: Record<AchievementSubcategory, string> = {
   // Event participation
-  seminar: 'Seminar',
+  seminar: 'Publikasi di Seminar',
   competition: 'Kompetisi',
   award: 'Penghargaan',
   conference: 'Konferensi',
@@ -267,6 +281,6 @@ export const getStudentStatusChartData = (stats: {
 export const VALIDATION_PATTERNS = {
   email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
   phone: /^(\+62|62|0)8[1-9][0-9]{6,9}$/,
-  nim: /^\d{8,12}$/,
+  nim: /^(?=.{4,20}$)[0-9.]+$/,
   year: /^(19|20)\d{2}$/,
 } as const;

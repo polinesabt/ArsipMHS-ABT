@@ -14,13 +14,14 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
 import { 
   User, Briefcase, Trophy, Eye, EyeOff, Save, Trash2, Plus, 
   AlertCircle, CheckCircle2, Pencil, Building2, MapPin, Calendar,
   Rocket, GraduationCap, Search
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { StudentProfile, StudentStatus } from '@/types/student.types';
+import type { StudentProfile, StudentStatus, StudentStatusMode } from '@/types/student.types';
 import type { Achievement } from '@/types/achievement.types';
 import { ACHIEVEMENT_CATEGORIES } from '@/types/achievement.types';
 import type { AlumniData } from '@/types/alumni.types';
@@ -66,6 +67,21 @@ const statusOptions: { value: StudentStatus; label: string }[] = [
   { value: 'on_leave', label: 'Cuti' },
   { value: 'dropout', label: 'Dropout' },
 ];
+
+const NIM_PATTERN = /^(?=.{4,20}$)[0-9.]+$/;
+
+function computeEffectiveStudentStatus(
+  statusMode: StudentStatusMode,
+  statusManual: StudentStatus,
+  tahunMasuk: number,
+  tahunLulus?: number
+): StudentStatus {
+  if (statusMode === 'manual') return statusManual;
+  const nowYear = new Date().getFullYear();
+  if (tahunLulus && tahunLulus <= nowYear) return 'alumni';
+  if (!tahunLulus && nowYear >= tahunMasuk + 4) return 'alumni';
+  return 'active';
+}
 
 // Career status icons
 const STATUS_ICONS = {
@@ -132,9 +148,11 @@ function mapTracerToAlumniData(tracer: ApiTracerStudy): AlumniData {
       bidangIndustri: employment['bidang_industri'] as string | undefined,
       jabatan: employment['jabatan'] as string | undefined,
       tahunMulaiKerja: employment['tahun_mulai_kerja'] as number | undefined,
+      bulanMulaiKerja: employment['bulan_mulai_kerja'] as number | undefined,
       tahunSelesaiKerja: employment['tahun_selesai_kerja'] as number | undefined,
       masihAktifKerja: employment['masih_aktif_kerja'] as boolean | undefined,
       kontakProfesional: employment['kontak_profesional'] as string | undefined,
+      cakupanTempatKerja: employment['work_scope'] as string | undefined,
     };
   }
   
@@ -146,9 +164,11 @@ function mapTracerToAlumniData(tracer: ApiTracerStudy): AlumniData {
       jenisUsaha: entrepreneurship['jenis_usaha'] as string | undefined,
       lokasiUsaha: entrepreneurship['lokasi_usaha'] as string | undefined,
       tahunMulaiUsaha: entrepreneurship['tahun_mulai_usaha'] as number | undefined,
+      bulanMulaiUsaha: entrepreneurship['bulan_mulai_usaha'] as number | undefined,
       punyaKaryawan: entrepreneurship['punya_karyawan'] as boolean | undefined,
       jumlahKaryawan: entrepreneurship['jumlah_karyawan'] as number | undefined,
       usahaAktif: entrepreneurship['usaha_aktif'] as boolean | undefined,
+      cakupanTempatKerja: entrepreneurship['work_scope'] as string | undefined,
       sosialMediaUsaha: Array.isArray(sosial) ? (sosial as string[]) : undefined,
     };
   }
@@ -197,7 +217,8 @@ export function AdminStudentEditModal({
     nim: '',
     email: '',
     noHp: '',
-    status: 'active' as StudentStatus,
+    statusManual: 'active' as StudentStatus,
+    statusMode: 'auto' as StudentStatusMode,
     tahunMasuk: currentYear,
     tahunLulus: undefined as number | undefined,
   });
@@ -235,7 +256,7 @@ export function AdminStudentEditModal({
 
   const refreshAchievementData = useCallback(async () => {
     if (!student) return;
-    const response = await getAchievementsFromAPI(student.id);
+    const response = await getAchievementsFromAPI(student.id, { includeAttachments: true });
     if (response.success && response.data) {
       setAchievements(response.data.map(mapApiAchievementToUi));
     } else {
@@ -251,7 +272,8 @@ export function AdminStudentEditModal({
         nim: student.nim,
         email: student.email || '',
         noHp: student.noHp || '',
-        status: student.status,
+        statusManual: student.statusManual ?? student.status,
+        statusMode: student.statusMode ?? 'manual',
         tahunMasuk: student.tahunMasuk,
         tahunLulus: student.tahunLulus,
       });
@@ -275,13 +297,13 @@ export function AdminStudentEditModal({
       errors.nama = 'Nama minimal 3 karakter';
     }
 
-    if (!/^\d{8}$/.test(profileForm.nim)) {
-      errors.nim = 'NIM harus 8 digit angka';
+    if (!NIM_PATTERN.test(profileForm.nim.trim())) {
+      errors.nim = 'NIM hanya boleh berisi angka dan titik, 4-20 karakter';
     } else if (profileForm.nim !== student?.nim && existingNims.includes(profileForm.nim)) {
       errors.nim = 'NIM sudah digunakan';
     }
 
-    if (profileForm.status === 'alumni' && !profileForm.tahunLulus) {
+    if (profileForm.statusMode === 'manual' && profileForm.statusManual === 'alumni' && !profileForm.tahunLulus) {
       errors.tahunLulus = 'Tahun lulus wajib diisi untuk alumni';
     }
 
@@ -306,7 +328,8 @@ export function AdminStudentEditModal({
         nim: profileForm.nim,
         email: profileForm.email || undefined,
         noHp: profileForm.noHp || undefined,
-        status: profileForm.status,
+        statusMode: profileForm.statusMode,
+        statusManual: profileForm.statusManual,
         tahunMasuk: profileForm.tahunMasuk,
         tahunLulus: profileForm.tahunLulus,
       });
@@ -380,15 +403,19 @@ export function AdminStudentEditModal({
         bidang_industri: data.bidangIndustri,
         jabatan: data.jabatan,
         tahun_mulai_kerja: data.tahunMulaiKerja,
+        bulan_mulai_kerja: data.bulanMulaiKerja,
         tahun_selesai_kerja: data.tahunSelesaiKerja,
         masih_aktif_kerja: data.masihAktifKerja,
+        work_scope: data.cakupanTempatKerja || undefined,
       } : undefined,
       entrepreneurship_data: data.status === 'wirausaha' ? {
         nama_usaha: data.namaUsaha,
         jenis_usaha: data.jenisUsaha,
         lokasi_usaha: data.lokasiUsaha,
         tahun_mulai_usaha: data.tahunMulaiUsaha,
+        bulan_mulai_usaha: data.bulanMulaiUsaha,
         usaha_aktif: data.usahaAktif,
+        work_scope: data.cakupanTempatKerja || undefined,
       } : undefined,
       further_study_data: data.status === 'studi' ? {
         nama_kampus: data.namaKampus,
@@ -406,18 +433,54 @@ export function AdminStudentEditModal({
       } : undefined,
     };
 
-    if (data.id) {
-      const response = await updateTracerStudyViaAPI(data.id, payload);
+    let savedTracer: ApiTracerStudy | null = null;
+    let tracerId = data.id;
+
+    // tracer_study currently enforces one row per student via UNIQUE(student_id),
+    // so admin save must fall back to update whenever a record already exists.
+    if (!tracerId) {
+      tracerId = careerHistory.find((item) => item.alumniMasterId === student.id)?.id;
+    }
+
+    if (!tracerId) {
+      const existingTracer = await getTracerStudyFromAPI(student.id);
+      if (!existingTracer.success) {
+        throw new Error(existingTracer.error || 'Gagal memeriksa tracer study yang sudah ada');
+      }
+      tracerId = existingTracer.data?.[0]?.id;
+    }
+
+    if (tracerId) {
+      const response = await updateTracerStudyViaAPI(tracerId, payload);
       if (!response.success) {
         throw new Error(response.error || 'Gagal memperbarui tracer study');
       }
+      if (response.data) savedTracer = response.data;
     } else {
       const response = await createTracerStudyViaAPI(payload);
       if (!response.success) {
         throw new Error(response.error || 'Gagal menambahkan tracer study');
       }
+      if (response.data) savedTracer = response.data;
     }
-    await refreshCareerData();
+    // Optimistic update: tampilkan perubahan di UI meskipun refetch gagal (mis. 500)
+    if (savedTracer) {
+      const newEntry = mapTracerToAlumniData(savedTracer);
+      setCareerHistory((prev) => {
+        if (tracerId) {
+          const existingIndex = prev.findIndex((career) => career.id === tracerId);
+          if (existingIndex >= 0) {
+            return prev.map((career) => (career.id === tracerId ? newEntry : career));
+          }
+        }
+        return [newEntry, ...prev];
+      });
+    }
+    try {
+      await refreshCareerData();
+    } catch {
+      // Refetch gagal (mis. 500); UI sudah di-update di atas
+    }
     await onDataChanged?.();
   };
 
@@ -431,6 +494,13 @@ export function AdminStudentEditModal({
       setCareerToDelete(null);
     }
     setDeleteCareerDialogOpen(false);
+  };
+
+  const handleCareerFormOpenChange = (nextOpen: boolean) => {
+    setCareerFormOpen(nextOpen);
+    if (!nextOpen) {
+      setEditingCareer(null);
+    }
   };
 
   // Achievement handlers
@@ -482,7 +552,7 @@ export function AdminStudentEditModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "max-w-3xl max-h-[90vh] flex flex-col min-h-0",
+          "max-h-[90vh] flex min-h-0 flex-col sm:max-w-3xl",
           achievementFormOpen ? "overflow-visible" : "overflow-hidden"
         )}
         onInteractOutside={(event) => {
@@ -514,25 +584,25 @@ export function AdminStudentEditModal({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0 overflow-hidden flex flex-col">
-          <TabsList className="w-full justify-start">
-            <TabsTrigger value="profile" className="gap-2">
+          <TabsList className="grid h-auto w-full grid-cols-3 gap-1">
+            <TabsTrigger value="profile" className="gap-1.5 px-2 text-xs sm:gap-2 sm:text-sm">
               <User className="w-4 h-4" />
               Profil
             </TabsTrigger>
-            <TabsTrigger value="career" className="gap-2">
+            <TabsTrigger value="career" className="gap-1.5 px-2 text-xs sm:gap-2 sm:text-sm">
               <Briefcase className="w-4 h-4" />
               Karir ({careerHistory.length})
             </TabsTrigger>
-            <TabsTrigger value="achievements" className="gap-2">
+            <TabsTrigger value="achievements" className="gap-1.5 px-2 text-xs sm:gap-2 sm:text-sm">
               <Trophy className="w-4 h-4" />
               Prestasi ({achievements.length})
             </TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="min-h-0 mt-4 h-[calc(90vh-16rem)]">
+          <ScrollArea className="mt-4 h-[calc(90vh-14rem)] min-h-0 sm:h-[calc(90vh-16rem)]">
             {/* Profile Tab */}
             <TabsContent value="profile" className="mt-0 space-y-4 pb-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {/* Nama */}
                 <div className="space-y-2">
                   <Label>Nama Lengkap *</Label>
@@ -549,8 +619,14 @@ export function AdminStudentEditModal({
                   <Label>NIM *</Label>
                   <Input
                     value={profileForm.nim}
-                    onChange={(e) => setProfileForm({ ...profileForm, nim: e.target.value.replace(/\D/g, '').slice(0, 8) })}
+                    onChange={(e) =>
+                      setProfileForm({
+                        ...profileForm,
+                        nim: e.target.value.replace(/[^0-9.]/g, '').slice(0, 20),
+                      })
+                    }
                     className={profileErrors.nim ? 'border-destructive' : ''}
+                    maxLength={20}
                   />
                   {profileErrors.nim && <p className="text-xs text-destructive">{profileErrors.nim}</p>}
                 </div>
@@ -574,12 +650,50 @@ export function AdminStudentEditModal({
                   />
                 </div>
 
-                {/* Status */}
-                <div className="space-y-2">
-                  <Label>Status *</Label>
+                {/* Status (Auto + Manual) */}
+                <div className="space-y-2 sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Status Otomatis</Label>
+                    <Switch
+                      checked={profileForm.statusMode === 'auto'}
+                      onCheckedChange={(checked) =>
+                        setProfileForm((prev) => ({
+                          ...prev,
+                          statusMode: checked ? 'auto' : 'manual',
+                          statusManual:
+                            checked && (prev.statusManual === 'on_leave' || prev.statusManual === 'dropout')
+                              ? 'active'
+                              : prev.statusManual,
+                        }))
+                      }
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Jika aktif, sistem menentukan status efektif (Aktif/Alumni) berdasarkan Tahun Masuk/Lulus (estimasi 4 tahun).
+                    Mode manual diperlukan untuk Cuti/Dropout atau override khusus.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {(() => {
+                      const effective = computeEffectiveStudentStatus(
+                        profileForm.statusMode,
+                        profileForm.statusManual,
+                        profileForm.tahunMasuk,
+                        profileForm.tahunLulus
+                      );
+                      const label = statusOptions.find((o) => o.value === effective)?.label || effective;
+                      return (
+                        <>
+                          Status efektif saat ini: <span className="font-semibold text-foreground">{label}</span>
+                        </>
+                      );
+                    })()}
+                  </p>
+
+                  <Label>Status Mahasiswa (Manual) *</Label>
                   <Select
-                    value={profileForm.status}
-                    onValueChange={(v) => setProfileForm({ ...profileForm, status: v as StudentStatus })}
+                    value={profileForm.statusManual}
+                    onValueChange={(v) => setProfileForm({ ...profileForm, statusManual: v as StudentStatus })}
+                    disabled={profileForm.statusMode === 'auto'}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -613,8 +727,10 @@ export function AdminStudentEditModal({
                 </div>
 
                 {/* Tahun Lulus */}
-                <div className="space-y-2 col-span-2">
-                  <Label>Tahun Lulus {profileForm.status === 'alumni' && '*'}</Label>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label>
+                    Tahun Lulus {profileForm.statusMode === 'manual' && profileForm.statusManual === 'alumni' && '*'}
+                  </Label>
                   <Select
                     value={profileForm.tahunLulus?.toString() || ''}
                     onValueChange={(v) => setProfileForm({ ...profileForm, tahunLulus: v ? parseInt(v) : undefined })}
@@ -683,7 +799,7 @@ export function AdminStudentEditModal({
               </div>
 
               {/* Save Profile Button */}
-              <div className="flex gap-3 pt-4">
+              <div className="flex flex-col gap-3 pt-4 sm:flex-row">
                 <Button onClick={handleSaveProfile} disabled={isSaving} className="flex-1">
                   <Save className="w-4 h-4 mr-2" />
                   {isSaving ? 'Menyimpan...' : 'Simpan Profil'}
@@ -693,7 +809,7 @@ export function AdminStudentEditModal({
 
             {/* Career Tab */}
             <TabsContent value="career" className="mt-0 space-y-4 pb-6">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h4 className="font-medium">Riwayat Karir</h4>
                 <Button
                   size="sm"
@@ -721,7 +837,7 @@ export function AdminStudentEditModal({
                         key={career.id}
                         className="p-4 rounded-lg border border-border hover:border-primary/30 transition-colors"
                       >
-                        <div className="flex justify-between">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
                               <span className={cn(
@@ -742,7 +858,7 @@ export function AdminStudentEditModal({
                               </span>
                             </div>
                             <h5 className="font-medium">{title}</h5>
-                            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                            <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <Building2 className="w-3.5 h-3.5" />
                                 {subtitle}
@@ -759,7 +875,7 @@ export function AdminStudentEditModal({
                               </span>
                             </div>
                           </div>
-                          <div className="flex gap-1">
+                          <div className="flex gap-1 self-start sm:self-auto">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -792,8 +908,8 @@ export function AdminStudentEditModal({
 
             {/* Achievements Tab */}
             <TabsContent value="achievements" className="mt-0 space-y-4 pb-6">
-              <div className="flex justify-between items-center">
-                <h4 className="font-medium">Prestasi Non-Akademik</h4>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h4 className="font-medium">Prestasi Mahasiswa</h4>
                 <Button
                   size="sm"
                   onClick={() => {
@@ -837,6 +953,7 @@ export function AdminStudentEditModal({
                             </div>
                             <h5 className="font-medium">
                               {(achievement as any).namaLomba || 
+                               (achievement as any).judulPublikasi ||
                                (achievement as any).namaSeminar || 
                                (achievement as any).judul || 
                                (achievement as any).namaPerusahaan ||
@@ -930,7 +1047,7 @@ export function AdminStudentEditModal({
       {/* Career Form Modal */}
       <CareerFormModal
         open={careerFormOpen}
-        onOpenChange={setCareerFormOpen}
+        onOpenChange={handleCareerFormOpenChange}
         editData={editingCareer}
         onSave={handleSaveCareer}
         mode={editingCareer ? 'edit' : 'add'}

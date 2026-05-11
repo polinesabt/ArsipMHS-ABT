@@ -45,11 +45,20 @@ CREATE TABLE IF NOT EXISTS students (
   
   -- Status tracking
   status ENUM('active', 'on_leave', 'dropout', 'alumni') NOT NULL DEFAULT 'active' COMMENT 'Student status',
+  status_mode ENUM('manual', 'auto') NOT NULL DEFAULT 'auto' COMMENT 'manual=use status; auto=compute active/alumni from tahun_masuk/tahun_lulus',
   tahun_masuk INT NOT NULL COMMENT 'Year of enrollment',
   tahun_lulus INT NULL COMMENT 'Year of graduation (NULL if not alumni)',
   
   -- Contact
   email VARCHAR(100) NULL UNIQUE COMMENT 'Email address',
+  login_email VARCHAR(100) NULL UNIQUE COMMENT 'Verified email for optional login',
+  pending_login_email VARCHAR(100) NULL COMMENT 'Pending email waiting for verification',
+  is_email_login_enabled BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'Email login activation status',
+  email_verified_at TIMESTAMP NULL COMMENT 'Email login verification timestamp',
+  email_verification_token_hash CHAR(64) NULL COMMENT 'SHA-256 hash of verification token',
+  email_verification_expires_at DATETIME NULL COMMENT 'Verification token expiry timestamp',
+  email_verification_sent_at DATETIME NULL COMMENT 'Last verification email sent timestamp',
+  email_verification_otp_hash CHAR(64) NULL COMMENT 'SHA-256 hash of 6-digit OTP for email verification',
   no_hp VARCHAR(20) NULL COMMENT 'Phone number',
   alamat TEXT NULL COMMENT 'Address',
   
@@ -61,13 +70,21 @@ CREATE TABLE IF NOT EXISTS students (
   -- Metadata
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Record creation',
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update',
+  deleted_at TIMESTAMP NULL COMMENT 'Soft delete timestamp (Recycle Bin)',
+  deleted_by VARCHAR(36) NULL COMMENT 'Admin user id that moved account to Recycle Bin',
   
   -- Indexes
   INDEX idx_nim (nim),
   INDEX idx_status (status),
   INDEX idx_tahun_lulus (tahun_lulus),
   INDEX idx_email (email),
+  INDEX idx_login_email (login_email),
+  INDEX idx_pending_login_email (pending_login_email),
+  INDEX idx_email_verification_token_hash (email_verification_token_hash),
+  INDEX idx_email_verification_otp_hash (email_verification_otp_hash),
   INDEX idx_status_tahun (status, tahun_lulus),
+  INDEX idx_deleted_at (deleted_at),
+  INDEX idx_deleted_by (deleted_by),
   
   -- Constraints
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
@@ -134,6 +151,7 @@ CREATE TABLE IF NOT EXISTS achievements (
   -- Classification
   category VARCHAR(50) NOT NULL COMMENT 'Achievement category',
   subcategory VARCHAR(50) NOT NULL COMMENT 'Achievement subcategory',
+  achievement_type ENUM('academic', 'non_academic') NOT NULL DEFAULT 'non_academic' COMMENT 'Derived achievement classification',
   
   -- Details
   title VARCHAR(255) NOT NULL COMMENT 'Achievement title',
@@ -157,6 +175,7 @@ CREATE TABLE IF NOT EXISTS achievements (
   FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
   INDEX idx_category (category),
   INDEX idx_subcategory (subcategory),
+  INDEX idx_achievement_type (achievement_type),
   INDEX idx_student_id (student_id),
   INDEX idx_tanggal (tanggal DESC),
   INDEX idx_student_category (student_id, category)
@@ -177,10 +196,14 @@ CREATE TABLE IF NOT EXISTS achievement_attachments (
   
   -- Upload tracking
   uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Upload timestamp',
+  deleted_at TIMESTAMP NULL COMMENT 'Soft delete timestamp (Recycle Bin)',
+  deleted_by VARCHAR(36) NULL COMMENT 'Admin/system actor id that moved attachment to Recycle Bin',
   
   -- Indexes
   FOREIGN KEY (achievement_id) REFERENCES achievements(id) ON DELETE CASCADE,
   INDEX idx_achievement_id (achievement_id),
+  INDEX idx_achievement_attachments_deleted_at (deleted_at),
+  INDEX idx_achievement_attachments_deleted_by (deleted_by),
   CONSTRAINT check_file_size CHECK (file_size > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Achievement file attachments metadata';
 
@@ -201,6 +224,8 @@ CREATE TABLE IF NOT EXISTS evaluations (
   closed_at TIMESTAMP NULL COMMENT 'Closed timestamp',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Creation timestamp',
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update timestamp',
+  deleted_at TIMESTAMP NULL COMMENT 'Soft delete timestamp (Recycle Bin)',
+  deleted_by VARCHAR(36) NULL COMMENT 'Admin/system actor id that moved evaluation to Recycle Bin',
 
   FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT,
   FOREIGN KEY (closed_by) REFERENCES users(id) ON DELETE SET NULL,
@@ -208,7 +233,9 @@ CREATE TABLE IF NOT EXISTS evaluations (
   CONSTRAINT check_reminder_days CHECK (reminder_interval_days >= 1 AND reminder_interval_days <= 365),
   INDEX idx_evaluations_status (status),
   INDEX idx_evaluations_period (start_at, end_at),
-  INDEX idx_evaluations_creator (created_by)
+  INDEX idx_evaluations_creator (created_by),
+  INDEX idx_evaluations_deleted_at (deleted_at),
+  INDEX idx_evaluations_deleted_by (deleted_by)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Graduate evaluation campaigns';
 
 -- =====================================================================
@@ -234,6 +261,7 @@ CREATE TABLE IF NOT EXISTS evaluation_invitations (
   id VARCHAR(36) PRIMARY KEY COMMENT 'UUID-like id',
   evaluation_id VARCHAR(36) NOT NULL COMMENT 'FK to evaluations',
   student_id VARCHAR(36) NOT NULL COMMENT 'FK to students (alumni target)',
+  user_id VARCHAR(36) NULL COMMENT 'FK to users (student account)',
   access_token VARCHAR(128) NOT NULL UNIQUE COMMENT 'Secure survey access token',
   first_sent_at TIMESTAMP NULL COMMENT 'First invitation sent timestamp',
   last_sent_at TIMESTAMP NULL COMMENT 'Latest invitation/reminder sent timestamp',
@@ -250,6 +278,7 @@ CREATE TABLE IF NOT EXISTS evaluation_invitations (
   CONSTRAINT check_send_count CHECK (send_count >= 0),
   INDEX idx_invitations_evaluation (evaluation_id),
   INDEX idx_invitations_student (student_id),
+  INDEX idx_invitations_user_id (user_id),
   INDEX idx_invitations_submitted (submitted_at),
   INDEX idx_invitations_reminder_due (submitted_at, last_sent_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Invitation mapping between evaluation and alumni';
@@ -356,7 +385,18 @@ SELECT
 FROM students s
 LEFT JOIN tracer_study t ON s.id = t.student_id
 LEFT JOIN achievements a ON s.id = a.student_id
-WHERE s.status = 'alumni'
+WHERE (
+  CASE
+    WHEN s.status_mode = 'manual' THEN s.status
+    WHEN s.status_mode = 'auto' THEN
+      CASE
+        WHEN s.tahun_lulus IS NOT NULL AND s.tahun_lulus <= YEAR(CURDATE()) THEN 'alumni'
+        WHEN s.tahun_lulus IS NULL AND YEAR(CURDATE()) >= (s.tahun_masuk + 4) THEN 'alumni'
+        ELSE 'active'
+      END
+    ELSE s.status
+  END
+) = 'alumni'
 GROUP BY s.id, s.nim, s.nama, s.tahun_lulus, s.email, s.no_hp, t.career_status, t.tahun_pengisian;
 
 -- Student Achievement Summary

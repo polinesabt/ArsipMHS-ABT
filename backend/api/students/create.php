@@ -7,6 +7,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../config/security.php';
+require_once __DIR__ . '/status_effective_sql.php';
 
 try {
     $input = json_decode(file_get_contents('php://input'), true);
@@ -26,6 +28,7 @@ try {
     $nama = trim($input['nama']);
     $password = $input['password'];
     $status = $input['status'];
+    $status_mode = isset($input['status_mode']) ? trim((string)$input['status_mode']) : '';
     $tahun_masuk = (int)$input['tahun_masuk'];
     $tahun_lulus = isset($input['tahun_lulus']) ? (int)$input['tahun_lulus'] : null;
     $email = $input['email'] ?? null;
@@ -34,11 +37,27 @@ try {
     $jurusan = $input['jurusan'] ?? 'Administrasi Bisnis';
     $prodi = $input['prodi'] ?? 'Administrasi Bisnis Terapan';
     
-    if (strlen($nim) < 4) {
-        throw new Exception('NIM tidak valid');
+    if (!validateNIM($nim)) {
+        throw new Exception('NIM hanya boleh berisi angka dan titik, dengan panjang 4 sampai 20 karakter');
     }
     if (strlen($password) < 6) {
         throw new Exception('Password minimal 6 karakter');
+    }
+
+    $validStatuses = ['active', 'alumni', 'on_leave', 'dropout'];
+    if (!in_array($status, $validStatuses, true)) {
+        throw new Exception('Status mahasiswa tidak valid');
+    }
+
+    if ($status_mode === '') {
+        $status_mode = in_array($status, ['on_leave', 'dropout'], true) ? 'manual' : 'auto';
+    }
+    if (!in_array($status_mode, ['manual', 'auto'], true)) {
+        throw new Exception('status_mode tidak valid');
+    }
+    // Safety: cuti/dropout must be manual override (auto mode would ignore these statuses).
+    if (in_array($status, ['on_leave', 'dropout'], true)) {
+        $status_mode = 'manual';
     }
     
     $pdo->beginTransaction();
@@ -74,10 +93,10 @@ try {
     // Create student profile
     $stmt = $pdo->prepare('
         INSERT INTO students (
-            id, nim, nama, jurusan, prodi, status, tahun_masuk, tahun_lulus,
+            id, nim, nama, jurusan, prodi, status, status_mode, tahun_masuk, tahun_lulus,
             email, no_hp, alamat, user_id, has_credentials, created_at, updated_at
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW()
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW()
         )
     ');
     $stmt->execute([
@@ -87,6 +106,7 @@ try {
         $jurusan,
         $prodi,
         $status,
+        $status_mode,
         $tahun_masuk,
         $tahun_lulus,
         $email,
@@ -96,16 +116,23 @@ try {
     ]);
     
     $pdo->commit();
+
+    $statusEffectiveExpr = student_status_effective_expr('s');
+    $createdStmt = $pdo->prepare('SELECT s.*, (' . $statusEffectiveExpr . ') AS status_effective FROM students s WHERE s.id = ? LIMIT 1');
+    $createdStmt->execute([$student_id]);
+    $created = $createdStmt->fetch(PDO::FETCH_ASSOC);
     
     echo json_encode([
         'success' => true,
-        'data' => [
+        'data' => $created ?: [
             'id' => $student_id,
             'nim' => $nim,
             'nama' => $nama,
             'jurusan' => $jurusan,
             'prodi' => $prodi,
             'status' => $status,
+            'status_mode' => $status_mode,
+            'status_effective' => ($status_mode === 'manual') ? $status : null,
             'tahun_masuk' => $tahun_masuk,
             'tahun_lulus' => $tahun_lulus,
             'email' => $email,

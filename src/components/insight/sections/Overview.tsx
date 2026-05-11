@@ -1,5 +1,4 @@
 import { useInsightDashboard } from '@/contexts/InsightDashboardContext';
-import { InsightDataEmpty } from '@/components/insight/InsightDataEmpty';
 import type { Year } from '@/types/insight';
 
 export function Overview() {
@@ -8,13 +7,13 @@ export function Overview() {
 
   return (
     <div className="space-y-6">
+      {/* Welcome block */}
       <div>
-        <h2 className="text-2xl font-bold text-foreground">Ringkasan Dasbor</h2>
+        <h2 className="text-2xl font-bold text-foreground">Selamat datang di Dashboard Admin.</h2>
         <p className="text-muted-foreground mt-1">
-          Indikator kunci arsip dan hasil survei mahasiswa ABT ({yearLabel})
+          Kelola indikator arsip dan hasil survei mahasiswa ABT. Data ditampilkan untuk periode {yearLabel}.
         </p>
       </div>
-      <InsightDataEmpty />
     </div>
   );
 }

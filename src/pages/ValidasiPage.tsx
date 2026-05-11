@@ -1,38 +1,36 @@
 /**
- * Validasi Page - Unified Login for Admin and Students
- * 
- * Single login page that detects user role and redirects accordingly:
- * - Admin → /admin
- * - Student → /dashboard
+ * Validasi Page - Login satu form untuk Admin dan Mahasiswa
+ *
+ * Satu form: Username atau NIM (huruf/angka, case-insensitive) + Password.
+ * Redirect: Admin → /admin, Mahasiswa → /dashboard.
  */
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Footer } from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAlumni } from '@/contexts/AlumniContext';
-import { LogIn, Eye, EyeOff, AlertCircle, Shield, CheckCircle2, HelpCircle, GraduationCap, UserCog, ArrowLeft } from 'lucide-react';
-import { cn } from '@/lib/utils';
-
-type LoginMode = 'student' | 'admin';
+import { useEmailLoginActivation } from '@/hooks/use-email-login-activation';
+import { LogIn, Eye, EyeOff, AlertCircle, Shield, CheckCircle2, HelpCircle, ArrowLeft } from 'lucide-react';
 
 export default function ValidasiPage() {
   const navigate = useNavigate();
-  const { loginWithCredentials, loginAsAdmin, loggedInStudent, loggedInAdmin } = useAlumni();
-  
-  const [mode, setMode] = useState<LoginMode>('student');
-  const [identifier, setIdentifier] = useState(''); // NIM for student, username for admin
+  const location = useLocation();
+  const { login, loggedInStudent, loggedInAdmin } = useAlumni();
+  const { verifyToken, isVerifying } = useEmailLoginActivation();
+
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [verificationMessage, setVerificationMessage] = useState('');
+  const [verificationError, setVerificationError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [redirectTarget, setRedirectTarget] = useState<'student' | 'admin'>('student');
 
-  // If already logged in, redirect using useEffect
   useEffect(() => {
     const hasToken = Boolean(localStorage.getItem('authToken'));
     if (hasToken && loggedInAdmin) {
@@ -42,50 +40,60 @@ export default function ValidasiPage() {
     }
   }, [loggedInAdmin, loggedInStudent, navigate]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const token = params.get('email_verify_token');
+    if (!token) return;
+
+    let cancelled = false;
+    const runVerification = async () => {
+      setVerificationMessage('');
+      setVerificationError('');
+      const response = await verifyToken(token);
+      if (cancelled) return;
+
+      if (response.success) {
+        setVerificationMessage(response.message || 'Email berhasil diverifikasi. Anda dapat login dengan email.');
+        params.delete('email_verify_token');
+        const newSearch = params.toString();
+        navigate(
+          { pathname: location.pathname, search: newSearch ? `?${newSearch}` : '' },
+          { replace: true }
+        );
+      } else {
+        setVerificationError(response.error || 'Verifikasi email gagal. Silakan minta link baru dari dashboard.');
+      }
+    };
+
+    void runVerification();
+    return () => {
+      cancelled = true;
+    };
+  }, [location.pathname, location.search, navigate, verifyToken]);
+
   const handleLogin = async () => {
-    // Reset error
     setError('');
-    
-    // Validation
     if (!identifier.trim()) {
-      setError(mode === 'student' ? 'NIM wajib diisi' : 'Username wajib diisi');
+      setError('Username, NIM, atau email wajib diisi');
       return;
     }
-    
     if (!password) {
       setError('Password wajib diisi');
       return;
     }
-    
     setIsLoading(true);
-    
     try {
-      if (mode === 'admin') {
-        const result = await loginAsAdmin(identifier.trim(), password);
-        
-        if (result.success) {
-          setLoginSuccess(true);
-          setRedirectTarget('admin');
-          setTimeout(() => {
-            navigate('/admin');
-          }, 1000);
-        } else {
-          setError(result.error || 'Login gagal');
-        }
+      const result = await login(identifier.trim(), password);
+      if (result.success && result.role) {
+        setLoginSuccess(true);
+        setRedirectTarget(result.role);
+        setTimeout(() => {
+          navigate(result.role === 'admin' ? '/admin' : '/dashboard');
+        }, 1000);
       } else {
-        const result = await loginWithCredentials(identifier.trim(), password);
-        
-        if (result.success) {
-          setLoginSuccess(true);
-          setRedirectTarget('student');
-          setTimeout(() => {
-            navigate('/dashboard');
-          }, 1000);
-        } else {
-          setError(result.error || 'Login gagal');
-        }
+        setError(result.error || 'Username/NIM/email atau password salah');
       }
-    } catch (err) {
+    } catch {
       setError('Terjadi kesalahan sistem. Silakan coba lagi.');
     } finally {
       setIsLoading(false);
@@ -93,16 +101,7 @@ export default function ValidasiPage() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !isLoading) {
-      handleLogin();
-    }
-  };
-
-  const handleModeChange = (newMode: string) => {
-    setMode(newMode as LoginMode);
-    setIdentifier('');
-    setPassword('');
-    setError('');
+    if (e.key === 'Enter' && !isLoading) handleLogin();
   };
 
   const handleContactAdmin = () => {
@@ -114,9 +113,9 @@ export default function ValidasiPage() {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <main className="flex-1 flex items-center justify-center py-20">
-          <div className="container mx-auto px-4">
+          <div className="container mx-auto px-3 sm:px-4">
             <div className="max-w-md mx-auto">
-              <div className="glass-card rounded-2xl p-8 text-center animate-scale-in">
+              <div className="glass-card rounded-2xl p-6 text-center animate-scale-in sm:p-8">
                 <div className="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center mx-auto mb-4">
                   <CheckCircle2 className="w-10 h-10 text-success" />
                 </div>
@@ -141,7 +140,7 @@ export default function ValidasiPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <main className="flex-1 flex items-center justify-center py-20">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-3 sm:px-4">
           <div className="max-w-md mx-auto">
             {/* Header */}
             <div className="text-center mb-8">
@@ -157,58 +156,52 @@ export default function ValidasiPage() {
             </div>
 
             {/* Login Form */}
-            <div className="glass-card rounded-2xl p-6 md:p-8 animate-fade-up">
-              {/* Role Tabs */}
-              <Tabs value={mode} onValueChange={handleModeChange} className="mb-6">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="student" className="gap-2">
-                    <GraduationCap className="w-4 h-4" />
-                    Mahasiswa
-                  </TabsTrigger>
-                  <TabsTrigger value="admin" className="gap-2">
-                    <UserCog className="w-4 h-4" />
-                    Admin
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-
+            <div className="glass-card rounded-2xl p-5 md:p-8 animate-fade-up sm:p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                   <LogIn className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <h2 className="font-semibold text-foreground">
-                    {mode === 'student' ? 'Login Mahasiswa' : 'Login Admin'}
-                  </h2>
+                  <h2 className="font-semibold text-foreground">Masuk</h2>
                   <p className="text-sm text-muted-foreground">
-                    {mode === 'student' ? 'Gunakan NIM sebagai username' : 'Masukkan kredensial admin'}
+                    Gunakan username, NIM, atau email login terverifikasi beserta password Anda
                   </p>
                 </div>
               </div>
 
               <div className="space-y-5">
-                {/* Identifier Input */}
+                {isVerifying && (
+                  <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 text-sm text-primary">
+                    Memverifikasi email login...
+                  </div>
+                )}
+                {verificationMessage && (
+                  <div className="p-3 rounded-xl bg-success/10 border border-success/20 text-sm text-success">
+                    {verificationMessage}
+                  </div>
+                )}
+                {verificationError && (
+                  <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-sm text-destructive">
+                    {verificationError}
+                  </div>
+                )}
                 <div>
                   <Label htmlFor="identifier" className="text-foreground font-medium mb-2 block">
-                    {mode === 'student' ? 'NIM (Username)' : 'Username'}
+                    Username / NIM / Email
                   </Label>
                   <Input
                     id="identifier"
-                    placeholder={mode === 'student' ? 'Masukkan NIM Anda (contoh: 4.51.23.0.17)' : 'Masukkan username admin'}
+                    type="text"
+                    placeholder="Masukkan username, NIM, atau email"
                     value={identifier}
                     onChange={(e) => {
-                      if (mode === 'student') {
-                        const raw = e.target.value;
-                        const value = raw.replace(/[^0-9.]/g, '').slice(0, 20);
-                        setIdentifier(value);
-                      } else {
-                        setIdentifier(e.target.value);
-                      }
+                      setIdentifier(e.target.value);
                       setError('');
                     }}
                     onKeyDown={handleKeyDown}
                     className="h-12 rounded-xl"
                     disabled={isLoading}
+                    autoComplete="username"
                   />
                 </div>
 
@@ -285,34 +278,16 @@ export default function ValidasiPage() {
                   Kembali ke Home
                 </Button>
 
-                {/* Help Section (only for students) */}
-                {mode === 'student' && (
-                  <div className="pt-4 border-t border-border">
-                    <button
-                      onClick={handleContactAdmin}
-                      className="w-full flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
-                    >
-                      <HelpCircle className="w-4 h-4" />
-                      Lupa password atau belum punya akun?
-                    </button>
-                  </div>
-                )}
+                <div className="pt-4 border-t border-border">
+                  <button
+                    onClick={handleContactAdmin}
+                    className="w-full flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                    Lupa password atau belum punya akun?
+                  </button>
+                </div>
               </div>
-            </div>
-
-            {/* Demo Info */}
-            <div className="mt-6 p-4 rounded-xl bg-muted/50 border border-border">
-              <p className="text-sm text-center text-muted-foreground">
-                {mode === 'student' ? (
-                  <>
-                    <span className="font-medium text-foreground">Demo Mahasiswa:</span> NIM <code className="px-1.5 py-0.5 rounded bg-muted font-mono text-xs">20210001</code> password <code className="px-1.5 py-0.5 rounded bg-muted font-mono text-xs">password123</code>
-                  </>
-                ) : (
-                  <>
-                    <span className="font-medium text-foreground">Demo Admin:</span> Username <code className="px-1.5 py-0.5 rounded bg-muted font-mono text-xs">admin</code> password <code className="px-1.5 py-0.5 rounded bg-muted font-mono text-xs">admin123</code>
-                  </>
-                )}
-              </p>
             </div>
 
             {/* Back to Home */}

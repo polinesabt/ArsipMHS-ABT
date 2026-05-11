@@ -8,6 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/security.php';
+require_once __DIR__ . '/../students/status_effective_sql.php';
 
 try {
     $input = json_decode(file_get_contents('php://input'), true);
@@ -39,6 +40,22 @@ try {
     // if (!validatePhone($no_hp)) {
     //     throw new Exception('Format nomor HP tidak valid');
     // }
+
+    $statusEffectiveExpr = student_status_effective_expr('s');
+    $studentStmt = $pdo->prepare('SELECT s.id, s.status, s.status_mode, (' . $statusEffectiveExpr . ') AS status_effective FROM students s WHERE s.id = ? AND s.deleted_at IS NULL LIMIT 1');
+    $studentStmt->execute([$student_id]);
+    $studentRow = $studentStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$studentRow) {
+        throw new Exception('student_id tidak valid (akun mahasiswa tidak aktif)');
+    }
+    if (($studentRow['status_effective'] ?? '') !== 'alumni') {
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Mahasiswa belum berstatus Alumni. Akses ditolak.',
+        ]);
+        exit;
+    }
     
     $id = bin2hex(random_bytes(18)); // Generate UUID-like id
     
@@ -78,6 +95,15 @@ try {
         isset($input['bersedia_dihubungi']) ? (bool)$input['bersedia_dihubungi'] : false,
         isset($input['saran_komentar']) ? sanitizeInput($input['saran_komentar'], 'string') : null
     ]);
+
+    // Sinkronkan email ke akun mahasiswa (satu email per akun, dipakai di Pengaturan Login Email)
+    $updateStudent = $pdo->prepare('UPDATE students SET email = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL');
+    $updateStudent->execute([$email, $student_id]);
+
+    // Sync chart Waktu Tunggu dan Cakupan Kerja agar data karir baru langsung muncul di dashboard
+    require_once __DIR__ . '/../insight/sync_helpers.php';
+    syncWaitingTime($pdo);
+    syncWorkCoverage($pdo);
     
     echo json_encode([
         'success' => true,

@@ -2,7 +2,6 @@ import {
   Trophy, 
   GraduationCap, 
   Clock, 
-  Briefcase, 
   Globe, 
   Users, 
   BookOpen, 
@@ -11,8 +10,7 @@ import {
   FlaskConical,
   ChevronLeft,
   ChevronRight,
-  LayoutDashboard,
-  Presentation
+  LayoutDashboard
 } from 'lucide-react';
 import type { MouseEvent } from 'react';
 import { useInsightDashboard } from '@/contexts/InsightDashboardContext';
@@ -23,10 +21,9 @@ const navItems = [
   { id: 'achievements', label: 'Prestasi Mahasiswa', icon: Trophy },
   { id: 'graduation', label: 'Masa Studi', icon: GraduationCap },
   { id: 'waiting-time', label: 'Masa Tunggu', icon: Clock },
-  { id: 'job-relevance', label: 'Kesesuaian Bidang Kerja', icon: Briefcase },
   { id: 'work-coverage', label: 'Cakupan Tempat Kerja', icon: Globe },
   { id: 'satisfaction', label: 'Kepuasan Pengguna', icon: Users },
-  { id: 'publications', label: 'Publikasi', icon: BookOpen },
+  { id: 'publications', label: 'Diseminasi Ilmiah Mahasiswa', icon: BookOpen },
   { id: 'active-students', label: 'Mahasiswa Aktif', icon: UserCheck },
   { id: 'student-products', label: 'Produk Mahasiswa', icon: Lightbulb },
   { id: 'research-outputs', label: 'Luaran Riset', icon: FlaskConical },
@@ -44,7 +41,7 @@ function isModifiedEvent(event: MouseEvent<HTMLAnchorElement>) {
 }
 
 export function Sidebar({ activeSection, onSectionChange, buildSectionHref, topOffset = 0 }: SidebarProps) {
-  const { sidebarCollapsed, setSidebarCollapsed, presentationMode, setPresentationMode } = useInsightDashboard();
+  const { sidebarCollapsed, setSidebarCollapsed, presentationMode } = useInsightDashboard();
 
   if (presentationMode) return null;
 
@@ -109,18 +106,6 @@ export function Sidebar({ activeSection, onSectionChange, buildSectionHref, topO
 
       {/* Footer Actions */}
       <div className="p-2 border-t border-sidebar-border space-y-1">
-        <button
-          onClick={() => setPresentationMode(true)}
-          className={cn(
-            'nav-item w-full',
-            sidebarCollapsed && 'justify-center px-2'
-          )}
-          title={sidebarCollapsed ? 'Mode Presentasi' : undefined}
-        >
-          <Presentation className="w-5 h-5 flex-shrink-0" />
-          {!sidebarCollapsed && <span className="text-sm">Mode Presentasi</span>}
-        </button>
-        
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
           className="nav-item w-full justify-center"

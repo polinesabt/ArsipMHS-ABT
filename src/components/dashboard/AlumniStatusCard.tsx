@@ -36,35 +36,38 @@ export function AlumniStatusCard({
 }: AlumniStatusCardProps) {
   const hasAccess = hasCareerAccess(studentStatus);
   
-  // Non-Alumni: Locked State
+  // Non-Alumni: Panel tetap ditampilkan, disabled (opacity 50%, cursor not-allowed), badge, tanpa tombol
   if (!hasAccess) {
     const lockedMessage = getLockedCareerMessage(studentStatus);
-    
+
     return (
-      <div className={cn('glass-card rounded-2xl p-6 flex flex-col', className)}>
-        {/* Header */}
+      <div
+        className={cn(
+          'glass-card flex flex-col rounded-2xl p-5 opacity-50 cursor-not-allowed pointer-events-none select-none sm:p-6',
+          className
+        )}
+        aria-disabled="true"
+      >
         <div className="flex items-start justify-between mb-4">
           <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
             <Lock className="w-6 h-6 text-muted-foreground" />
           </div>
         </div>
-        
+
         <h3 className="font-semibold text-foreground mb-4">Status Alumni Saat Ini</h3>
-        
-        {/* Locked Message */}
+
         <div className="flex-1 flex flex-col justify-center py-4">
           <div className="text-center space-y-3">
             <div className="w-14 h-14 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto">
               <Briefcase className="w-7 h-7 text-muted-foreground/60" />
             </div>
             <div className="space-y-2 max-w-xs mx-auto">
-              <p className="text-sm font-medium text-foreground">
-                {lockedMessage.title}
-              </p>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {lockedMessage.message}
-              </p>
+              <p className="text-sm font-medium text-foreground">{lockedMessage.title}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed">{lockedMessage.message}</p>
             </div>
+            <p className="text-xs text-muted-foreground mt-3 px-3 py-2 rounded-lg bg-muted/50 border border-border/50">
+              🔒 Fitur ini hanya tersedia untuk mahasiswa dengan status Alumni.
+            </p>
           </div>
         </div>
       </div>
@@ -79,7 +82,7 @@ export function AlumniStatusCard({
     const emptyMessage = getEmptyCareerMessage();
     
     return (
-      <div className={cn('glass-card rounded-2xl p-6 flex flex-col', className)}>
+      <div className={cn('glass-card flex flex-col rounded-2xl p-5 sm:p-6', className)}>
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -119,7 +122,7 @@ export function AlumniStatusCard({
   
   // Alumni with active career data
   return (
-    <div className={cn('glass-card rounded-2xl p-6 flex flex-col', className)}>
+    <div className={cn('glass-card flex flex-col rounded-2xl p-5 sm:p-6', className)}>
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">

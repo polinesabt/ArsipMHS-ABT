@@ -8,9 +8,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { UserPlus, Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
-import type { StudentStatus, StudentAccountInput } from '@/types/student.types';
+import type { StudentStatus, StudentStatusMode, StudentAccountInput } from '@/types/student.types';
 
 interface StudentAccountModalProps {
   open: boolean;
@@ -29,6 +30,19 @@ const statusOptions: { value: StudentStatus; label: string }[] = [
   { value: 'dropout', label: 'Dropout' },
 ];
 
+function computeEffectiveStatus(
+  statusMode: StudentStatusMode,
+  statusManual: StudentStatus,
+  tahunMasuk: number,
+  tahunLulus?: number
+): StudentStatus {
+  if (statusMode === 'manual') return statusManual;
+  const nowYear = new Date().getFullYear();
+  if (tahunLulus && tahunLulus <= nowYear) return 'alumni';
+  if (!tahunLulus && nowYear >= tahunMasuk + 4) return 'alumni';
+  return 'active';
+}
+
 export function StudentAccountModal({ open, onOpenChange, onSubmit, existingNims }: StudentAccountModalProps) {
   const [formData, setFormData] = useState({
     nim: '',
@@ -38,6 +52,7 @@ export function StudentAccountModal({ open, onOpenChange, onSubmit, existingNims
     email: '',
     noHp: '',
     status: 'active' as StudentStatus,
+    statusMode: 'auto' as StudentStatusMode,
     tahunMasuk: currentYear,
     tahunLulus: undefined as number | undefined,
   });
@@ -83,7 +98,7 @@ export function StudentAccountModal({ open, onOpenChange, onSubmit, existingNims
     }
     
     // Year validation
-    if (formData.status === 'alumni' && !formData.tahunLulus) {
+    if (formData.statusMode === 'manual' && formData.status === 'alumni' && !formData.tahunLulus) {
       newErrors.tahunLulus = 'Tahun lulus wajib diisi untuk alumni';
     }
     
@@ -109,6 +124,7 @@ export function StudentAccountModal({ open, onOpenChange, onSubmit, existingNims
         email: formData.email || undefined,
         noHp: formData.noHp || undefined,
         status: formData.status,
+        statusMode: formData.statusMode,
         tahunMasuk: formData.tahunMasuk,
         tahunLulus: formData.tahunLulus,
       });
@@ -139,6 +155,7 @@ export function StudentAccountModal({ open, onOpenChange, onSubmit, existingNims
       email: '',
       noHp: '',
       status: 'active',
+      statusMode: 'auto',
       tahunMasuk: currentYear,
       tahunLulus: undefined,
     });
@@ -158,7 +175,7 @@ export function StudentAccountModal({ open, onOpenChange, onSubmit, existingNims
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -240,7 +257,7 @@ export function StudentAccountModal({ open, onOpenChange, onSubmit, existingNims
           </div>
 
           {/* Email & Phone */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -264,10 +281,41 @@ export function StudentAccountModal({ open, onOpenChange, onSubmit, existingNims
 
           {/* Status */}
           <div className="space-y-2">
-            <Label>Status Mahasiswa *</Label>
+            <div className="flex items-center justify-between">
+              <Label>Status Otomatis</Label>
+              <Switch
+                checked={formData.statusMode === 'auto'}
+                onCheckedChange={(checked) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    statusMode: checked ? 'auto' : 'manual',
+                    status: checked && (prev.status === 'on_leave' || prev.status === 'dropout') ? 'active' : prev.status,
+                  }))
+                }
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Jika aktif, sistem menentukan status efektif (Aktif/Alumni) berdasarkan Tahun Masuk/Lulus (estimasi 4 tahun).
+              Mode manual diperlukan untuk Cuti/Dropout atau override khusus.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Status efektif saat ini:{' '}
+              <span className="font-semibold text-foreground">
+                {computeEffectiveStatus(formData.statusMode, formData.status, formData.tahunMasuk, formData.tahunLulus) === 'alumni'
+                  ? 'Alumni'
+                  : computeEffectiveStatus(formData.statusMode, formData.status, formData.tahunMasuk, formData.tahunLulus) === 'active'
+                    ? 'Mahasiswa Aktif'
+                    : computeEffectiveStatus(formData.statusMode, formData.status, formData.tahunMasuk, formData.tahunLulus) === 'on_leave'
+                      ? 'Cuti'
+                      : 'Dropout'}
+              </span>
+            </p>
+
+            <Label>Status Mahasiswa (Manual) *</Label>
             <Select
               value={formData.status}
               onValueChange={(v) => setFormData({ ...formData, status: v as StudentStatus })}
+              disabled={formData.statusMode === 'auto'}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -283,7 +331,7 @@ export function StudentAccountModal({ open, onOpenChange, onSubmit, existingNims
           </div>
 
           {/* Tahun Masuk & Lulus */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Tahun Masuk *</Label>
               <Select
@@ -303,7 +351,7 @@ export function StudentAccountModal({ open, onOpenChange, onSubmit, existingNims
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Tahun Lulus {formData.status === 'alumni' && '*'}</Label>
+              <Label>Tahun Lulus {formData.statusMode === 'manual' && formData.status === 'alumni' && '*'}</Label>
               <Select
                 value={formData.tahunLulus?.toString() || ''}
                 onValueChange={(v) => setFormData({ ...formData, tahunLulus: v ? parseInt(v) : undefined })}
@@ -340,7 +388,7 @@ export function StudentAccountModal({ open, onOpenChange, onSubmit, existingNims
           )}
 
           {/* Actions */}
-          <div className="flex gap-3 pt-4">
+          <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row">
             <Button
               variant="outline"
               onClick={() => handleOpenChange(false)}

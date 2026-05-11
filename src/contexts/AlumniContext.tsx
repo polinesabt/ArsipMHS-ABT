@@ -6,8 +6,8 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { AlumniMaster, AlumniData } from '@/types';
-import type { StudentProfile, StudentAccountInput, AdminProfile, StudentStatus } from '@/types/student.types';
-import { loginAdmin, loginStudent, logout as apiLogout } from '@/services/api-auth.service';
+import type { StudentProfile, StudentAccountInput, AdminProfile, StudentStatus, StudentStatusMode } from '@/types/student.types';
+import { loginAdmin, loginStudent, login as apiLogin, logout as apiLogout } from '@/services/api-auth.service';
 import {
   getAllStudentsFromAPI,
   getTracerStudyFromAPI,
@@ -57,6 +57,9 @@ interface AlumniContextActions {
   loginAsAdmin: (username: string, password: string) => Promise<AuthResult>;
   logoutAdmin: () => void;
   
+  /** Login satu form: identifier (username/NIM, huruf/angka, case-insensitive), redirect by role */
+  login: (identifier: string, password: string) => Promise<AuthResult>;
+  
   // Student account management (admin)
   addStudentAccount: (data: StudentAccountInput) => Promise<{ success: boolean; error?: string }>;
   deleteStudentAccount: (studentId: string) => Promise<{ success: boolean; error?: string }>;
@@ -70,7 +73,9 @@ interface AlumniContextActions {
   getAlumniDataByMasterId: (masterId: string) => AlumniData[];
   searchAlumni: (nama: string, tahunLulus: number) => AlumniMaster[];
   refreshData: () => Promise<void>;
-  
+  /** Merge updates into the logged-in student (e.g. after email verification) and persist to session */
+  mergeLoggedInStudent: (updates: Partial<StudentProfile>) => void;
+
   // Theme
   toggleDarkMode: () => void;
 }
@@ -127,16 +132,29 @@ function mapCareerStatus(status?: string): AlumniData['status'] {
 }
 
 function mapStudentToProfile(student: ApiStudent): StudentProfile {
+  const statusManual = (student.status || 'active') as StudentStatus;
+  const statusModeRaw = (student.status_mode || 'manual') as string;
+  const statusMode: StudentStatusMode = statusModeRaw === 'auto' ? 'auto' : 'manual';
+  const statusEffectiveRaw = (student.status_effective || student.status || 'active') as string;
+  const statusEffective = statusEffectiveRaw as StudentStatus;
+
   return {
     id: student.id,
     nama: student.nama,
     nim: student.nim,
     jurusan: (student.jurusan || 'Administrasi Bisnis') as StudentProfile['jurusan'],
     prodi: (student.prodi || 'Administrasi Bisnis Terapan') as StudentProfile['prodi'],
-    status: student.status as StudentStatus,
+    status: statusEffective,
+    statusMode,
+    statusManual,
     tahunMasuk: Number(student.tahun_masuk),
     tahunLulus: student.tahun_lulus ? Number(student.tahun_lulus) : undefined,
     email: student.email || undefined,
+    loginEmail: student.login_email || undefined,
+    pendingLoginEmail: student.pending_login_email || undefined,
+    isEmailLoginEnabled: Boolean(student.is_email_login_enabled),
+    emailVerifiedAt: student.email_verified_at ? new Date(student.email_verified_at) : undefined,
+    isFirstLogin: Boolean(student.is_first_login),
     noHp: student.no_hp || undefined,
     alamat: student.alamat || undefined,
     hasCredentials: Boolean(student.has_credentials),
@@ -187,8 +205,10 @@ function mapTracerToAlumniData(tracer: ApiTracerStudy): AlumniData {
       bidangIndustri: employment['bidang_industri'] as string | undefined,
       jabatan: employment['jabatan'] as string | undefined,
       tahunMulaiKerja: employment['tahun_mulai_kerja'] as number | undefined,
+      bulanMulaiKerja: employment['bulan_mulai_kerja'] as number | undefined,
       masihAktifKerja: employment['masih_aktif_kerja'] as boolean | undefined,
       kontakProfesional: employment['kontak_profesional'] as string | undefined,
+      cakupanTempatKerja: employment['work_scope'] as string | undefined,
     };
   }
   
@@ -200,9 +220,11 @@ function mapTracerToAlumniData(tracer: ApiTracerStudy): AlumniData {
       jenisUsaha: entrepreneurship['jenis_usaha'] as string | undefined,
       lokasiUsaha: entrepreneurship['lokasi_usaha'] as string | undefined,
       tahunMulaiUsaha: entrepreneurship['tahun_mulai_usaha'] as number | undefined,
+      bulanMulaiUsaha: entrepreneurship['bulan_mulai_usaha'] as number | undefined,
       punyaKaryawan: entrepreneurship['punya_karyawan'] as boolean | undefined,
       jumlahKaryawan: entrepreneurship['jumlah_karyawan'] as number | undefined,
       usahaAktif: entrepreneurship['usaha_aktif'] as boolean | undefined,
+      cakupanTempatKerja: entrepreneurship['work_scope'] as string | undefined,
       sosialMediaUsaha: Array.isArray(sosial) ? (sosial as string[]) : undefined,
     };
   }
@@ -357,10 +379,12 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     }
   }, []);
 
-  // Load initial data from API
+  // Load initial data (students + tracer) when admin OR student is logged in.
+  // Admin: needed for admin dashboard. Student: needed so riwayat karir appears on dashboard and persists after refresh.
   useEffect(() => {
+    if (!loggedInAdmin && !loggedInStudent) return;
     loadInitialData();
-  }, [loadInitialData]);
+  }, [loggedInAdmin, loggedInStudent, loadInitialData]);
 
   // ============ Student Authentication Functions ============
 
@@ -476,6 +500,61 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     localStorage.removeItem(ADMIN_SESSION_KEY);
   }, []);
 
+  /**
+   * Login satu form: identifier (username atau NIM, huruf/angka, case-insensitive).
+   * Backend mengembalikan role; redirect ditangani di halaman (admin → /admin, student → /dashboard).
+   */
+  const login = useCallback(
+    async (identifier: string, password: string): Promise<AuthResult> => {
+      setIsLoading(true);
+      try {
+        const response = await apiLogin(identifier.trim(), password);
+        if (!response.success || !response.data) {
+          return {
+            success: false,
+            error: response.error || 'Username/NIM atau password salah',
+          };
+        }
+        const user = response.data.user;
+        const role = (user?.role ?? response.data.role) as 'admin' | 'student';
+
+        if (role === 'admin') {
+          const adminProfile: AdminProfile = {
+            id: user.id,
+            username: user.username,
+            nama: user.nama || user.name || user.username,
+            passwordHash: '',
+            role: 'admin',
+            createdAt: new Date(),
+            lastLogin: new Date(),
+          };
+          setLoggedInAdmin(adminProfile);
+          localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(adminProfile));
+          return { success: true, admin: adminProfile, role: 'admin' };
+        }
+
+        if (role === 'student') {
+          const studentData = user?.student as ApiStudent | null | undefined;
+          if (!studentData) {
+            return { success: false, error: 'Data mahasiswa tidak ditemukan' };
+          }
+          const studentProfile = mapStudentToProfile(studentData);
+          const updatedStudent = { ...studentProfile, lastLogin: new Date() };
+          setLoggedInStudent(updatedStudent);
+          localStorage.setItem(STUDENT_SESSION_KEY, JSON.stringify(updatedStudent));
+          const masterMatch = masterData.find(m => m.nim === studentData.nim) || mapStudentToMaster(studentData);
+          setSelectedAlumni(masterMatch);
+          return { success: true, student: updatedStudent, role: 'student' };
+        }
+
+        return { success: false, error: 'Role tidak dikenali' };
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [masterData]
+  );
+
   // ============ Admin Functions ============
 
   /**
@@ -488,6 +567,7 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
         nama: data.nama,
         password: data.password,
         status: data.status,
+        status_mode: data.statusMode,
         tahun_masuk: data.tahunMasuk,
         tahun_lulus: data.tahunLulus,
         email: data.email,
@@ -517,7 +597,7 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     async (studentId: string): Promise<{ success: boolean; error?: string }> => {
       const response = await deleteStudentViaAPI(studentId);
       if (!response.success) {
-        return { success: false, error: response.error || 'Gagal menghapus mahasiswa' };
+        return { success: false, error: response.error || 'Gagal memindahkan mahasiswa ke Recycle Bin' };
       }
       
       setStudentAccounts(prev => prev.filter(s => s.id !== studentId));
@@ -537,10 +617,12 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
    */
   const updateStudentAccount = useCallback(
     async (studentId: string, updates: Partial<StudentProfile>): Promise<{ success: boolean; error?: string }> => {
+      const statusManual = (updates.statusManual ?? updates.status) as unknown as StudentStatus | undefined;
       const payload = {
         nim: updates.nim,
         nama: updates.nama,
-        status: updates.status,
+        status: statusManual,
+        status_mode: updates.statusMode,
         tahun_masuk: updates.tahunMasuk,
         tahun_lulus: updates.tahunLulus,
         email: updates.email,
@@ -614,6 +696,19 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     [alumniData]
   );
 
+  const mergeLoggedInStudent = useCallback((updates: Partial<StudentProfile>) => {
+    setLoggedInStudent((prev) => {
+      if (!prev) return null;
+      const updated = { ...prev, ...updates };
+      try {
+        localStorage.setItem(STUDENT_SESSION_KEY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  }, []);
+
   // Search alumni
   const searchAlumni = useCallback(
     (nama: string, tahunLulus: number): AlumniMaster[] => {
@@ -645,6 +740,7 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     logout,
     loginAsAdmin,
     logoutAdmin,
+    login,
     addStudentAccount,
     deleteStudentAccount,
     updateStudentAccount,
@@ -656,6 +752,7 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     searchAlumni,
     toggleDarkMode,
     refreshData: loadInitialData,
+    mergeLoggedInStudent,
   };
 
   return (

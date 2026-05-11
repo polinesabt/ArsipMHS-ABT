@@ -1,12 +1,15 @@
 import React, { useState, type MouseEvent } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, PanelLeft, PanelLeftClose } from 'lucide-react';
+import { ChevronRight, PanelLeft, PanelLeftClose, Sun, Moon, LogOut } from 'lucide-react';
 import type { AdminNavItem, AdminNavItemLeaf } from '@/components/admin/admin-nav.types';
 import { isNavParent } from '@/components/admin/admin-nav.types';
 import { cn } from '@/lib/utils';
+import { useAlumni } from '@/contexts/AlumniContext';
 
 const DASHBOARD_PARENT_ID = 'admin-dashboard';
+const EVALUASI_LULUSAN_ID = 'evaluasi-lulusan';
+const KUSTOM_FORM_PATH = '/admin/kustom-form-kepuasan';
 const STORAGE_KEY = 'admin-sidebar-dashboard-expanded';
 
 /** Softer easing for all sidebar motion */
@@ -24,10 +27,12 @@ interface SidebarNavProps {
   collapsed: boolean;
   onToggle: () => void;
   canToggle?: boolean;
+  onRequestClose?: () => void;
   onSelect: (item: AdminNavItem) => void;
   title: string;
   collapsedWidth?: number;
   expandedWidth?: number;
+  className?: string;
 }
 
 function isModifiedEvent(event: MouseEvent<HTMLAnchorElement>) {
@@ -73,16 +78,17 @@ export function SidebarNav({
   collapsed,
   onToggle,
   canToggle = true,
+  onRequestClose,
   onSelect,
   title,
   collapsedWidth = 80,
   expandedWidth = 260,
+  className,
 }: SidebarNavProps) {
   const { pathname } = useLocation();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [subHoveredId, setSubHoveredId] = useState<string | null>(null);
-
-  const [dashboardExpanded, setDashboardExpanded] = useState(false);
+  const [dashboardExpanded, setDashboardExpanded] = useState(readStoredDashboardExpanded);
 
   const toggleDashboard = () => {
     setDashboardExpanded((prev) => {
@@ -92,8 +98,12 @@ export function SidebarNav({
     });
   };
 
-  const isParentExpanded = (item: AdminNavItem) =>
-    item.id === DASHBOARD_PARENT_ID && dashboardExpanded;
+  const isParentExpanded = (item: AdminNavItem, parentHasActiveChild: boolean) =>
+    item.id === DASHBOARD_PARENT_ID
+      ? dashboardExpanded
+      : item.id === EVALUASI_LULUSAN_ID
+        ? parentHasActiveChild
+        : false;
 
   const widthTransition = {
     type: 'tween' as const,
@@ -109,10 +119,23 @@ export function SidebarNav({
   };
 
   const currentWidth = collapsed ? collapsedWidth : expandedWidth;
+  const canUseHeaderAction = canToggle || !!onRequestClose;
+  const handleHeaderAction = () => {
+    if (onRequestClose) {
+      onRequestClose();
+      return;
+    }
+    if (canToggle) {
+      onToggle();
+    }
+  };
 
   return (
     <motion.aside
-      className="fixed left-0 top-0 z-30 h-screen flex flex-col overflow-hidden shrink-0"
+      className={cn(
+        "fixed left-0 top-0 z-30 h-screen flex flex-col overflow-hidden shrink-0",
+        className
+      )}
       initial={false}
       animate={{ width: currentWidth }}
       transition={widthSpringTransition}
@@ -136,17 +159,23 @@ export function SidebarNav({
         >
           <motion.button
             type="button"
-            onClick={canToggle ? onToggle : undefined}
-            disabled={!canToggle}
+            onClick={canUseHeaderAction ? handleHeaderAction : undefined}
+            disabled={!canUseHeaderAction}
             className={cn(
-              'flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--sidebar-bg))] cursor-pointer disabled:cursor-default disabled:opacity-90',
+              'flex-shrink-0 w-10 h-10 min-w-10 min-h-10 rounded-lg flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--sidebar-bg))] cursor-pointer disabled:cursor-default disabled:opacity-90 box-border',
               collapsed
                 ? 'bg-emerald-500/15 text-emerald-400/95 hover:bg-emerald-500/25 focus-visible:ring-emerald-500/50'
                 : 'bg-red-500/15 text-red-400/95 hover:bg-red-500/25 focus-visible:ring-red-500/50'
             )}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={
+              onRequestClose
+                ? 'Tutup menu navigasi'
+                : collapsed
+                  ? 'Expand sidebar'
+                  : 'Collapse sidebar'
+            }
           >
-            <span className="relative w-5 h-5 flex items-center justify-center">
+            <span className="relative w-5 h-5 flex-shrink-0 flex items-center justify-center">
               <AnimatePresence mode="wait" initial={false}>
                 {collapsed ? (
                   <motion.span
@@ -202,15 +231,27 @@ export function SidebarNav({
       <nav className="px-2 py-3 overflow-y-auto overflow-x-hidden flex-1 min-h-0">
         <ul className="space-y-1">
           {items.map((item, index) => {
-            if (isNavParent(item)) {
+            const isEvaluasi = item.id === EVALUASI_LULUSAN_ID;
+            const effectiveItem: AdminNavItem =
+              isEvaluasi && isNavParent(item)
+                ? {
+                    ...item,
+                    children: pathname.startsWith(KUSTOM_FORM_PATH)
+                      ? (item as { children: AdminNavItemLeaf[] }).children
+                      : [],
+                  }
+                : item;
+
+            if (isNavParent(effectiveItem) && (effectiveItem as { children: AdminNavItemLeaf[] }).children.length > 0) {
+              const itemWithChildren = effectiveItem as AdminNavItem & { children: AdminNavItemLeaf[] };
               const { activeChild, parentHasActiveChild } = getActiveChildForParent(
                 pathname,
-                item.children
+                itemWithChildren.children
               );
               return (
                 <ParentNavItem
                   key={item.id}
-                  item={item}
+                  item={itemWithChildren}
                   index={index}
                   activeId={activeId}
                   activeChild={activeChild}
@@ -220,7 +261,7 @@ export function SidebarNav({
                   subHoveredId={subHoveredId}
                   setHoveredId={setHoveredId}
                   setSubHoveredId={setSubHoveredId}
-                  isParentExpanded={isParentExpanded(item)}
+                  isParentExpanded={isParentExpanded(item, parentHasActiveChild)}
                   onToggleDashboard={toggleDashboard}
                   pathname={pathname}
                   onSelect={onSelect}
@@ -230,10 +271,13 @@ export function SidebarNav({
                 />
               );
             }
+            const leafItem = (effectiveItem as AdminNavItem & { path?: string })?.path
+              ? (effectiveItem as AdminNavItem & { path: string })
+              : (item as AdminNavItem & { path: string });
             return (
               <LeafNavItem
                 key={item.id}
-                item={item as AdminNavItem & { path: string }}
+                item={leafItem}
                 index={index}
                 activeId={activeId}
                 collapsed={collapsed}
@@ -248,12 +292,203 @@ export function SidebarNav({
           })}
         </ul>
       </nav>
+
+      {/* Sticky footer: theme toggle + logout */}
+      <SidebarFooter
+        collapsed={collapsed}
+        widthTransition={widthTransition}
+        navTransition={navTransition}
+        textRevealDelay={TEXT_REVEAL_DELAY_MS / 1000}
+      />
     </motion.aside>
   );
 }
 
 function isModifiedEventInner(event: MouseEvent<HTMLAnchorElement>) {
   return event.button !== 0 || event.metaKey || event.altKey || event.ctrlKey || event.shiftKey;
+}
+
+function SidebarFooter({
+  collapsed,
+  widthTransition,
+  navTransition,
+  textRevealDelay,
+}: {
+  collapsed: boolean;
+  widthTransition: { type: 'tween'; duration: number; ease: readonly number[] };
+  navTransition: { type: 'tween'; duration: number; ease: readonly number[] };
+  textRevealDelay: number;
+}) {
+  const { darkMode, toggleDarkMode, logoutAdmin } = useAlumni();
+  const [themeHovered, setThemeHovered] = useState(false);
+  const [logoutHovered, setLogoutHovered] = useState(false);
+
+  return (
+    <footer
+      className={cn(
+        'flex-shrink-0 border-t border-[hsl(var(--sidebar-border)/0.5)] px-2 py-2',
+        collapsed ? 'flex flex-col items-center gap-0.5' : 'space-y-0.5'
+      )}
+    >
+      {/* Theme toggle */}
+      <motion.button
+        type="button"
+        onClick={toggleDarkMode}
+        whileTap={{ scale: 0.985 }}
+        onMouseEnter={() => setThemeHovered(true)}
+        onMouseLeave={() => setThemeHovered(false)}
+        className="relative w-full flex items-center rounded-lg py-1.5 overflow-hidden cursor-pointer"
+        aria-label={darkMode ? 'Mode terang' : 'Mode gelap'}
+      >
+        <motion.div
+          className="absolute inset-0 rounded-lg bg-[hsl(var(--sidebar-hover)/0.6)] origin-left"
+          initial={false}
+          animate={{ scaleX: themeHovered ? 1 : 0 }}
+          transition={navTransition}
+          style={{ transformOrigin: 'left' }}
+        />
+        <span
+          className={cn(
+            'relative flex items-center w-full min-w-0',
+            collapsed ? 'justify-center px-0 gap-0' : 'gap-2 px-2'
+          )}
+        >
+          <motion.div
+            className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
+            animate={{
+              scale: themeHovered ? 1.05 : 1,
+              backgroundColor: themeHovered ? 'rgba(255,255,255,0.05)' : 'transparent',
+            }}
+            transition={navTransition}
+          >
+            <span className="flex items-center justify-center text-[hsl(var(--sidebar-fg))]">
+              {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </span>
+          </motion.div>
+          <motion.span
+            className="text-xs font-medium whitespace-nowrap text-[hsl(var(--sidebar-fg))]"
+            animate={{
+              opacity: collapsed ? 0 : 1,
+              width: collapsed ? 0 : 'auto',
+              x: collapsed ? -8 : 0,
+            }}
+            transition={{
+              opacity: {
+                duration: TEXT_REVEAL_DURATION_MS / 1000,
+                ease: EASE_PREMIUM,
+                delay: collapsed ? 0 : textRevealDelay,
+              },
+              width: widthTransition,
+              x: { duration: widthTransition.duration, ease: EASE_PREMIUM },
+            }}
+            style={{
+              overflow: 'hidden',
+              pointerEvents: collapsed ? 'none' : 'auto',
+            }}
+            aria-hidden={collapsed}
+          >
+            {darkMode ? 'Mode terang' : 'Mode gelap'}
+          </motion.span>
+        </span>
+        <AnimatePresence>
+          {collapsed && themeHovered && (
+            <motion.div
+              initial={{ opacity: 0, x: -4 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -4 }}
+              transition={navTransition}
+              className="absolute left-full top-1/2 -translate-y-1/2 ml-2 rounded-md shadow-lg px-2.5 py-1.5 text-xs font-medium z-50 pointer-events-none"
+              style={{
+                backgroundColor: 'hsl(var(--foreground))',
+                color: 'hsl(var(--background))',
+              }}
+            >
+              {darkMode ? 'Mode terang' : 'Mode gelap'}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.button>
+
+      {/* Logout */}
+      <motion.button
+        type="button"
+        onClick={logoutAdmin}
+        whileTap={{ scale: 0.985 }}
+        onMouseEnter={() => setLogoutHovered(true)}
+        onMouseLeave={() => setLogoutHovered(false)}
+        className="relative w-full flex items-center rounded-lg py-1.5 overflow-hidden cursor-pointer"
+        aria-label="Keluar"
+      >
+        <motion.div
+          className="absolute inset-0 rounded-lg bg-[hsl(var(--sidebar-hover)/0.6)] origin-left"
+          initial={false}
+          animate={{ scaleX: logoutHovered ? 1 : 0 }}
+          transition={navTransition}
+          style={{ transformOrigin: 'left' }}
+        />
+        <span
+          className={cn(
+            'relative flex items-center w-full min-w-0',
+            collapsed ? 'justify-center px-0 gap-0' : 'gap-2 px-2'
+          )}
+        >
+          <motion.div
+            className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
+            animate={{
+              scale: logoutHovered ? 1.05 : 1,
+              backgroundColor: logoutHovered ? 'rgba(239,68,68,0.15)' : 'transparent',
+            }}
+            transition={navTransition}
+          >
+            <span className="flex items-center justify-center text-red-400 hover:text-red-300">
+              <LogOut className="w-4 h-4" aria-hidden />
+            </span>
+          </motion.div>
+          <motion.span
+            className="text-xs font-medium whitespace-nowrap text-red-400"
+            animate={{
+              opacity: collapsed ? 0 : 1,
+              width: collapsed ? 0 : 'auto',
+              x: collapsed ? -8 : 0,
+            }}
+            transition={{
+              opacity: {
+                duration: TEXT_REVEAL_DURATION_MS / 1000,
+                ease: EASE_PREMIUM,
+                delay: collapsed ? 0 : textRevealDelay,
+              },
+              width: widthTransition,
+              x: { duration: widthTransition.duration, ease: EASE_PREMIUM },
+            }}
+            style={{
+              overflow: 'hidden',
+              pointerEvents: collapsed ? 'none' : 'auto',
+            }}
+            aria-hidden={collapsed}
+          >
+            Keluar
+          </motion.span>
+        </span>
+        <AnimatePresence>
+          {collapsed && logoutHovered && (
+            <motion.div
+              initial={{ opacity: 0, x: -4 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -4 }}
+              transition={navTransition}
+              className="absolute left-full top-1/2 -translate-y-1/2 ml-2 rounded-md shadow-lg px-2.5 py-1.5 text-xs font-medium z-50 pointer-events-none"
+              style={{
+                backgroundColor: 'hsl(var(--foreground))',
+                color: 'hsl(var(--background))',
+              }}
+            >
+              Keluar
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.button>
+    </footer>
+  );
 }
 
 function LeafNavItem({
@@ -440,8 +675,10 @@ function ParentNavItem({
     e.preventDefault();
     if (collapsed) {
       if (parentPath) onSelect(item as AdminNavItem);
-    } else {
+    } else if (item.id === DASHBOARD_PARENT_ID) {
       onToggleDashboard();
+    } else if (parentPath) {
+      onSelect(item as AdminNavItem);
     }
   };
 
@@ -576,99 +813,146 @@ function ParentNavItem({
         </AnimatePresence>
       </div>
 
-      {/* Expanded: full children list */}
+      {/* Expanded: full children list ketika dropdown terbuka */}
       {!collapsed && (
-        <motion.div
-          initial={false}
-          animate={{
-            height: isParentExpanded ? 'auto' : 0,
-            opacity: isParentExpanded ? 1 : 0,
-          }}
-          transition={{
-            height: { duration: 0.2, ease: EASE_PREMIUM },
-            opacity: { duration: 0.18, ease: EASE_PREMIUM },
-          }}
-          className="overflow-hidden"
-        >
-          <motion.ul
+        <>
+          <motion.div
             initial={false}
-            animate={{ y: isParentExpanded ? 0 : -4 }}
-            transition={{ duration: 0.18, ease: EASE_PREMIUM }}
-            className="space-y-0.5 pt-0.5"
+            animate={{
+              height: isParentExpanded ? 'auto' : 0,
+              opacity: isParentExpanded ? 1 : 0,
+            }}
+            transition={{
+              height: { duration: 0.2, ease: EASE_PREMIUM },
+              opacity: { duration: 0.18, ease: EASE_PREMIUM },
+            }}
+            className="overflow-hidden"
           >
-            {item.children.map((child) => {
-              const isChildActive =
-                pathname === child.path ||
-                (child.path !== '/admin' && pathname.startsWith(child.path));
-              const isChildHovered = subHoveredId === child.id;
-              const subBg = isChildActive
-                ? 'hsl(var(--sidebar-active) / 0.9)'
-                : isChildHovered
-                  ? 'hsl(var(--sidebar-hover) / 0.5)'
-                  : 'transparent';
-              const subFg = isChildActive ? 'hsl(0 0% 100%)' : 'hsl(var(--sidebar-fg))';
-              const ChildIconComponent = child.icon ?? item.icon;
+            <motion.ul
+              initial={false}
+              animate={{ y: isParentExpanded ? 0 : -4 }}
+              transition={{ duration: 0.18, ease: EASE_PREMIUM }}
+              className="space-y-0.5 pt-0.5"
+            >
+              {item.children.map((child) => {
+                const isChildActive =
+                  pathname === child.path ||
+                  (child.path !== '/admin' && pathname.startsWith(child.path));
+                const isChildHovered = subHoveredId === child.id;
+                const subBg = isChildActive
+                  ? 'hsl(var(--sidebar-active) / 0.9)'
+                  : isChildHovered
+                    ? 'hsl(var(--sidebar-hover) / 0.5)'
+                    : 'transparent';
+                const subFg = isChildActive ? 'hsl(0 0% 100%)' : 'hsl(var(--sidebar-fg))';
+                const ChildIconComponent = child.icon ?? item.icon;
 
-              return (
-                <li key={child.id}>
-                  <motion.a
-                    href={child.path}
-                    onClick={(e) => {
-                      if (isModifiedEventInner(e.nativeEvent as MouseEvent<HTMLAnchorElement>)) return;
-                      e.preventDefault();
-                      onSelect(child as AdminNavItem);
-                    }}
-                    whileTap={{ scale: 0.985 }}
-                    onMouseEnter={() => setSubHoveredId(child.id)}
-                    onMouseLeave={() => setSubHoveredId(null)}
-                    animate={{ backgroundColor: subBg, color: subFg }}
-                    transition={navTransition}
-                    className="relative flex items-center gap-3 rounded-lg py-2 pl-9 pr-3 text-sm w-full overflow-hidden cursor-pointer"
-                  >
-                    {/* Hover background (scaleX left → right), sama seperti tombol lain */}
-                    <motion.div
-                      className="absolute inset-0 rounded-lg bg-[hsl(var(--sidebar-hover)/0.6)] origin-left"
-                      initial={false}
-                      animate={{ scaleX: isChildHovered && !isChildActive ? 1 : 0 }}
-                      transition={navTransition}
-                      style={{ transformOrigin: 'left' }}
-                    />
-                    {isChildActive && (
-                      <span
-                        className="absolute left-0 top-[18%] bottom-[18%] w-[3px] rounded-r-full bg-[hsl(var(--sidebar-primary))]"
-                        aria-hidden
-                      />
-                    )}
-                    <motion.span
-                      className="relative flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
-                      animate={{
-                        scale: isChildHovered || isChildActive ? 1.05 : 1,
-                        backgroundColor: isChildActive
-                          ? 'hsl(var(--sidebar-primary) / 0.3)'
-                          : isChildHovered
-                            ? 'rgba(255,255,255,0.05)'
-                            : 'hsl(var(--sidebar-hover) / 0.3)',
+                return (
+                  <li key={child.id}>
+                    <motion.a
+                      href={child.path}
+                      onClick={(e) => {
+                        if (isModifiedEventInner(e.nativeEvent as MouseEvent<HTMLAnchorElement>)) return;
+                        e.preventDefault();
+                        onSelect(child as AdminNavItem);
                       }}
+                      whileTap={{ scale: 0.985 }}
+                      onMouseEnter={() => setSubHoveredId(child.id)}
+                      onMouseLeave={() => setSubHoveredId(null)}
+                      animate={{ backgroundColor: subBg, color: subFg }}
                       transition={navTransition}
+                      className="relative flex items-center gap-3 rounded-lg py-2 pl-9 pr-3 text-sm w-full overflow-hidden cursor-pointer"
                     >
+                      {/* Hover background (scaleX left → right), sama seperti tombol lain */}
                       <motion.div
-                        className="flex items-center justify-center"
+                        className="absolute inset-0 rounded-lg bg-[hsl(var(--sidebar-hover)/0.6)] origin-left"
+                        initial={false}
+                        animate={{ scaleX: isChildHovered && !isChildActive ? 1 : 0 }}
+                        transition={navTransition}
+                        style={{ transformOrigin: 'left' }}
+                      />
+                      {isChildActive && (
+                        <span
+                          className="absolute left-0 top-[18%] bottom-[18%] w-[3px] rounded-r-full bg-[hsl(var(--sidebar-primary))]"
+                          aria-hidden
+                        />
+                      )}
+                      <motion.span
+                        className="relative flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
                         animate={{
-                          x: isChildHovered && !isChildActive ? 4 : 0,
-                          color: isChildActive ? 'hsl(0 0% 100%)' : 'hsl(var(--sidebar-fg))',
+                          scale: isChildHovered || isChildActive ? 1.05 : 1,
+                          backgroundColor: isChildActive
+                            ? 'hsl(var(--sidebar-primary) / 0.3)'
+                            : isChildHovered
+                              ? 'rgba(255,255,255,0.05)'
+                              : 'hsl(var(--sidebar-hover) / 0.3)',
                         }}
                         transition={navTransition}
                       >
-                        <ChildIconComponent className="w-4 h-4" />
-                      </motion.div>
-                    </motion.span>
-                    <span className="relative font-medium truncate">{child.label}</span>
-                  </motion.a>
-                </li>
-              );
-            })}
-          </motion.ul>
-        </motion.div>
+                        <motion.div
+                          className="flex items-center justify-center"
+                          animate={{
+                            x: isChildHovered && !isChildActive ? 4 : 0,
+                            color: isChildActive ? 'hsl(0 0% 100%)' : 'hsl(var(--sidebar-fg))',
+                          }}
+                          transition={navTransition}
+                        >
+                          <ChildIconComponent className="w-4 h-4" />
+                        </motion.div>
+                      </motion.span>
+                      <span className="relative font-medium truncate">{child.label}</span>
+                    </motion.a>
+                  </li>
+                );
+              })}
+            </motion.ul>
+          </motion.div>
+
+          {/* Saat dropdown parent ditutup: tampilkan hanya child yang aktif (indent, tetap active) */}
+          {!isParentExpanded && activeChild && (
+            <motion.div
+              initial={{ opacity: 0, y: -2 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.18, ease: EASE_PREMIUM }}
+              className="pt-0.5"
+            >
+              <motion.a
+                href={activeChild.path}
+                onClick={(e) => {
+                  if (isModifiedEventInner(e.nativeEvent as MouseEvent<HTMLAnchorElement>)) return;
+                  e.preventDefault();
+                  onSelect(activeChild as AdminNavItem);
+                }}
+                whileTap={{ scale: 0.985 }}
+                onMouseEnter={() => setSubHoveredId(activeChild.id)}
+                onMouseLeave={() => setSubHoveredId(null)}
+                className="relative flex items-center gap-3 rounded-lg py-2 pl-9 pr-3 text-sm w-full overflow-hidden cursor-pointer bg-[hsl(var(--sidebar-active)/0.9)] text-[hsl(0_0%_100%)]"
+              >
+                <motion.div
+                  className="absolute inset-0 rounded-lg bg-[hsl(var(--sidebar-hover)/0.6)] origin-left"
+                  initial={false}
+                  animate={{ scaleX: subHoveredId === activeChild.id ? 1 : 0 }}
+                  transition={navTransition}
+                  style={{ transformOrigin: 'left' }}
+                />
+                <span
+                  className="absolute left-0 top-[18%] bottom-[18%] w-[3px] rounded-r-full bg-[hsl(var(--sidebar-primary))]"
+                  aria-hidden
+                />
+                <motion.span
+                  className="relative flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center bg-[hsl(var(--sidebar-primary)/0.3)]"
+                  animate={{
+                    scale: subHoveredId === activeChild.id ? 1.05 : 1,
+                  }}
+                  transition={navTransition}
+                >
+                  <ChildIcon className="w-4 h-4" />
+                </motion.span>
+                <span className="relative font-medium truncate">{activeChild.label}</span>
+              </motion.a>
+            </motion.div>
+          )}
+        </>
       )}
 
       {/* Collapsed: only active child, icon-only, indented */}

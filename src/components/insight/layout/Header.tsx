@@ -1,16 +1,23 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
 import { useInsightDashboard } from '@/contexts/InsightDashboardContext';
+import { useActiveStudentsInput } from '@/contexts/ActiveStudentsInputContext';
 import { INSIGHT_YEARS, type Year } from '@/types/insight';
-import { X, Calendar, Presentation } from 'lucide-react';
+import { Calendar, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import type { DashboardSectionId } from '@/components/insight/InsightDashboardEmbedded';
 
 interface HeaderProps {
   topOffset?: number;
+  section?: DashboardSectionId | null;
 }
 
-export function Header({ topOffset = 0 }: HeaderProps) {
-  const { selectedYear, setSelectedYear, presentationMode, setPresentationMode, sidebarCollapsed } = useInsightDashboard();
+const SHOW_ACTIVE_STUDENTS_INPUT = (s: DashboardSectionId | null | undefined) =>
+  s === 'active-students';
+
+export function Header({ topOffset = 0, section }: HeaderProps) {
+  const { selectedYear, setSelectedYear, presentationMode, sidebarCollapsed } = useInsightDashboard();
+  const activeStudentsInput = useActiveStudentsInput();
 
   return (
     <header
@@ -41,6 +48,12 @@ export function Header({ topOffset = 0 }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-3">
+          {SHOW_ACTIVE_STUDENTS_INPUT(section) && activeStudentsInput && (
+            <Button type="button" variant="outline" size="sm" onClick={() => activeStudentsInput.setOpen(true)}>
+              <Pencil className="h-4 w-4 mr-1.5" />
+              Input data manual
+            </Button>
+          )}
           {/* Year Filter */}
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-muted-foreground" />
@@ -61,29 +74,6 @@ export function Header({ topOffset = 0 }: HeaderProps) {
               </SelectContent>
             </Select>
           </div>
-
-          {/* Presentation Mode Toggle */}
-          {presentationMode ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPresentationMode(false)}
-              className="gap-2"
-            >
-              <X className="w-4 h-4" />
-              Keluar Presentasi
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPresentationMode(true)}
-              className="gap-2"
-            >
-              <Presentation className="w-4 h-4" />
-              Presentasi
-            </Button>
-          )}
         </div>
       </div>
     </header>

@@ -61,10 +61,11 @@ function validateEmail($email) {
 }
 
 /**
- * Validate NIM format (8 digits)
+ * Validate NIM format (4-20 chars, digits and dots only)
  */
 function validateNIM($nim) {
-    return preg_match('/^\d{8}$/', $nim) === 1;
+    $nim = trim((string)$nim);
+    return preg_match('/^(?=.{4,20}$)[0-9.]+$/', $nim) === 1;
 }
 
 /**

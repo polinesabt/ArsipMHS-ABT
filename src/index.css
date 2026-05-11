@@ -1,8 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
 @layer base {
   :root {
@@ -59,25 +58,32 @@
     --motion-duration-fast: 180ms;
     --motion-duration-enter: 280ms;
 
-    /* Chart palette */
-    --chart-academic: 215 70% 45%;
-    --chart-academic-light: 205 75% 55%;
-    --chart-academic-dark: 215 75% 30%;
-    --chart-nonacademic: 270 45% 60%;
-    --chart-nonacademic-light: 270 40% 75%;
-    --chart-nonacademic-dark: 270 50% 45%;
-    --chart-success: 145 60% 45%;
-    --chart-warning: 35 90% 55%;
-    --chart-neutral: 215 15% 60%;
+    /* Chart palette – kontras jelas agar perbedaan data terbaca di web */
+    --chart-academic: 215 75% 44%;
+    --chart-academic-light: 205 78% 54%;
+    --chart-academic-dark: 215 78% 32%;
+    --chart-nonacademic: 270 52% 56%;
+    --chart-nonacademic-light: 270 48% 70%;
+    --chart-nonacademic-dark: 270 55% 44%;
+    --chart-success: 145 62% 42%;
+    --chart-success-light: 145 62% 55%;
+    --chart-warning: 35 92% 52%;
+    --chart-warning-light: 35 92% 65%;
+    --chart-neutral: 215 22% 55%;
+    --chart-neutral-light: 215 20% 70%;
+    --chart-active-genap: 142 75% 40%;
+    --chart-active-ganjil: 32 100% 48%;
+    --chart-pd-dikti: 198 88% 46%;
+    --chart-pd-dikti-ganjil: 205 72% 48%;
 
-    --level-local: 205 65% 60%;
-    --level-national: 215 70% 45%;
-    --level-international: 220 80% 35%;
+    --level-local: 205 68% 56%;
+    --level-national: 215 75% 44%;
+    --level-international: 220 82% 38%;
 
-    --satisfaction-very-good: 145 60% 45%;
-    --satisfaction-good: 175 55% 45%;
-    --satisfaction-fair: 45 80% 55%;
-    --satisfaction-poor: 0 65% 55%;
+    --satisfaction-very-good: 145 62% 42%;
+    --satisfaction-good: 175 58% 42%;
+    --satisfaction-fair: 45 82% 52%;
+    --satisfaction-poor: 0 68% 52%;
 
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(222 60% 35%) 0%, hsl(210 80% 55%) 100%);
@@ -153,24 +159,32 @@
     --motion-duration-fast: 180ms;
     --motion-duration-enter: 280ms;
 
-    --chart-academic: 215 70% 45%;
-    --chart-academic-light: 205 75% 55%;
-    --chart-academic-dark: 215 75% 30%;
-    --chart-nonacademic: 270 45% 60%;
-    --chart-nonacademic-light: 270 40% 75%;
-    --chart-nonacademic-dark: 270 50% 45%;
-    --chart-success: 145 60% 45%;
-    --chart-warning: 35 90% 55%;
-    --chart-neutral: 215 15% 60%;
+    /* Chart – tone lebih terang di dark theme agar data terbaca dan kontras jelas */
+    --chart-academic: 215 70% 52%;
+    --chart-academic-light: 205 75% 62%;
+    --chart-academic-dark: 215 75% 38%;
+    --chart-nonacademic: 270 50% 65%;
+    --chart-nonacademic-light: 270 45% 78%;
+    --chart-nonacademic-dark: 270 55% 52%;
+    --chart-success: 145 55% 50%;
+    --chart-success-light: 145 55% 62%;
+    --chart-warning: 35 90% 58%;
+    --chart-warning-light: 35 90% 72%;
+    --chart-neutral: 215 20% 65%;
+    --chart-neutral-light: 215 20% 78%;
+    --chart-active-genap: 142 72% 52%;
+    --chart-active-ganjil: 32 100% 58%;
+    --chart-pd-dikti: 198 85% 58%;
+    --chart-pd-dikti-ganjil: 205 68% 55%;
 
-    --level-local: 205 65% 60%;
-    --level-national: 215 70% 45%;
-    --level-international: 220 80% 35%;
+    --level-local: 205 65% 62%;
+    --level-national: 215 70% 52%;
+    --level-international: 220 80% 48%;
 
-    --satisfaction-very-good: 145 60% 45%;
-    --satisfaction-good: 175 55% 45%;
-    --satisfaction-fair: 45 80% 55%;
-    --satisfaction-poor: 0 65% 55%;
+    --satisfaction-very-good: 145 60% 50%;
+    --satisfaction-good: 175 55% 50%;
+    --satisfaction-fair: 45 80% 58%;
+    --satisfaction-poor: 0 65% 58%;
 
     --gradient-primary: linear-gradient(135deg, hsl(210 80% 55%) 0%, hsl(222 50% 60%) 100%);
     --gradient-hero: linear-gradient(180deg, hsl(222 47% 8%) 0%, hsl(222 40% 12%) 50%, hsl(222 47% 8%) 100%);
@@ -198,15 +212,25 @@
     @apply border-border;
   }
 
+  /* Hindari teks buram saat elemen punya transform/animasi — render teks di layer tajam */
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    /* Kejernihan teks di seluruh halaman — kurangi efek buram */
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Kejernihan teks di tema gelap (dashboard admin) */
+  /* Konsisten di tema gelap */
   .dark,
   .dark body {
-    text-rendering: geometricPrecision;
+    text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -304,12 +328,12 @@
 
   /* Stat card */
   .stat-card {
-    @apply glass-card rounded-2xl p-6 transition-all duration-300 hover:shadow-elevated;
+    @apply glass-card rounded-2xl p-4 sm:p-6 transition-all duration-300 hover:shadow-elevated;
   }
 
   /* Chart container */
   .chart-container {
-    @apply glass-card rounded-2xl p-6;
+    @apply glass-card rounded-2xl p-4 sm:p-6;
   }
 
   /* Data table */
@@ -319,29 +343,30 @@
 
   /* Insight dashboard cards */
   .dashboard-card {
-    @apply bg-card rounded-xl p-6 border border-border;
+    @apply bg-card rounded-xl border border-border p-3.5 sm:p-5 lg:p-6;
     box-shadow: var(--shadow-card);
   }
 
   .dashboard-card-header {
-    @apply flex items-center justify-between mb-4;
+    @apply mb-3 flex flex-col gap-2.5 sm:mb-4 sm:flex-row sm:items-start sm:justify-between;
   }
 
   .dashboard-card-title {
-    @apply text-lg font-semibold text-foreground;
+    @apply text-base sm:text-lg leading-tight font-semibold text-foreground;
   }
 
   .dashboard-card-description {
-    @apply text-sm text-muted-foreground mt-1;
+    @apply text-sm leading-relaxed text-muted-foreground mt-1 max-w-4xl;
   }
 
   .interpretation-text {
-    @apply text-sm text-muted-foreground mt-4 p-4 bg-muted/50 rounded-lg border-l-4 border-primary/30;
+    @apply mt-3 rounded-lg border-l-4 border-primary/30 bg-muted/50 p-3 text-sm leading-relaxed text-muted-foreground sm:mt-4 sm:p-4;
   }
 
   .chart-tooltip {
     @apply bg-card border border-border rounded-lg p-3;
     box-shadow: var(--shadow-elevated);
+    transition: opacity 0.15s ease-out;
   }
 
   .filter-badge {
@@ -365,20 +390,20 @@
   }
 
   .section-divider {
-    @apply my-8 border-t border-border;
+    @apply my-6 border-t border-border sm:my-8;
   }
 
   /* Presentation mode */
   .presentation-mode .dashboard-card {
-    @apply p-8;
+    @apply p-4 sm:p-6 lg:p-8;
   }
 
   .presentation-mode .dashboard-card-title {
-    @apply text-xl;
+    @apply text-lg sm:text-xl;
   }
 
   .presentation-mode .interpretation-text {
-    @apply text-base p-5;
+    @apply p-4 text-sm sm:p-5 sm:text-base;
   }
 }
 
@@ -386,6 +411,11 @@
   /* Animations */
   .animate-fade-up {
     animation: fadeUp var(--motion-duration-enter) var(--motion-ease-standard) both;
+    will-change: transform, opacity;
+  }
+
+  .animate-fade-up-smooth {
+    animation: fadeUpSmooth 550ms cubic-bezier(0.16, 1, 0.3, 1) both;
     will-change: transform, opacity;
   }
 
@@ -478,6 +508,17 @@
   }
 }
 
+@keyframes fadeUpSmooth {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -511,6 +552,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-up,
+  .animate-fade-up-smooth,
   .animate-fade-in,
   .animate-scale-in,
   .animate-slide-in-right,
@@ -560,6 +602,50 @@
   }
 }
 
+/* Tombol Akun: pop dari air (muncul halus + hijau) */
+@keyframes account-button-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.85) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Partikel keluar dari air di sekitar tombol Akun */
+@keyframes account-particle-out {
+  from {
+    opacity: 0.8;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+  to {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1.1);
+  }
+}
+
+/* Recharts hover cursor: remove area highlight; use active-bar outline instead */
+.recharts-rectangle.recharts-tooltip-cursor {
+  fill: transparent !important;
+  stroke: transparent !important;
+}
+
+.recharts-curve.recharts-tooltip-cursor {
+  fill: transparent !important;
+  stroke: transparent !important;
+}
+
+.recharts-active-bar .recharts-rectangle {
+  stroke: hsl(var(--border) / 0.95) !important;
+  stroke-width: 1.5 !important;
+}
+
+.dark .recharts-active-bar .recharts-rectangle {
+  stroke: hsl(var(--primary) / 0.8) !important;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -582,4 +668,27 @@
 /* Focus visible */
 :focus-visible {
   @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+}
+
+/* Liquid selection (template form kepuasan) */
+@keyframes liquidSelect {
+  0% {
+    box-shadow: 0 0 0 0 hsl(var(--primary));
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
+  50% {
+    box-shadow: 0 0 0 4px hsl(var(--primary)), 0 0 20px hsl(var(--primary) / 0.4);
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
+  100% {
+    box-shadow: 0 0 0 2px hsl(var(--primary));
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
+}
+
+.liquid-select {
+  animation: liquidSelect 0.8s ease-out forwards;
 }

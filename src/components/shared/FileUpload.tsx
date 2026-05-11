@@ -1,5 +1,15 @@
-import { useState, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Upload, X, FileText, Image, File, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AchievementAttachment } from '@/types/achievement.types';
@@ -17,15 +27,33 @@ export function FileUpload({
   value = [],
   onChange,
   maxFiles = 5,
-  maxSizeInMB = 5,
+  maxSizeInMB = 2,
   accept = 'image/*,.pdf,.doc,.docx',
   className,
 }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<AchievementAttachment | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const previewUrlsRef = useRef<Record<string, string>>({});
 
-  const generateId = () => `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const generateId = () => `file_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+
+  useEffect(() => {
+    return () => {
+      Object.values(previewUrlsRef.current).forEach((url) => URL.revokeObjectURL(url));
+      previewUrlsRef.current = {};
+    };
+  }, []);
+
+  useEffect(() => {
+    const activeIds = new Set(value.map((item) => item.id));
+    Object.entries(previewUrlsRef.current).forEach(([id, url]) => {
+      if (activeIds.has(id)) return;
+      URL.revokeObjectURL(url);
+      delete previewUrlsRef.current[id];
+    });
+  }, [value]);
 
   const getFileIcon = (fileType: string) => {
     if (fileType.startsWith('image/')) return Image;
@@ -57,21 +85,27 @@ export function FileUpload({
         return;
       }
 
-      // Convert to base64 for local storage (will use blob storage with backend)
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const attachment: AchievementAttachment = {
-          id: generateId(),
-          fileName: file.name,
-          fileType: file.type,
-          fileSize: file.size,
-          fileUrl: e.target?.result as string,
-          uploadedAt: new Date().toISOString(),
-        };
-        onChange([...value, attachment]);
+      const attachmentId = generateId();
+      const fileUrl = URL.createObjectURL(file);
+      previewUrlsRef.current[attachmentId] = fileUrl;
+
+      const attachment: AchievementAttachment = {
+        id: attachmentId,
+        attachmentId,
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        fileUrl,
+        uploadedAt: new Date().toISOString(),
+        file,
+        isPersisted: false,
       };
-      reader.readAsDataURL(file);
+      newFiles.push(attachment);
     });
+
+    if (newFiles.length > 0) {
+      onChange([...value, ...newFiles]);
+    }
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -91,7 +125,18 @@ export function FileUpload({
   };
 
   const handleRemove = (id: string) => {
+    const trackedUrl = previewUrlsRef.current[id];
+    if (trackedUrl) {
+      URL.revokeObjectURL(trackedUrl);
+      delete previewUrlsRef.current[id];
+    }
     onChange(value.filter((f) => f.id !== id));
+  };
+
+  const confirmRemove = () => {
+    if (!removeTarget) return;
+    handleRemove(removeTarget.id);
+    setRemoveTarget(null);
   };
 
   return (
@@ -171,7 +216,7 @@ export function FileUpload({
                     size="icon"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleRemove(file.id);
+                      setRemoveTarget(file);
                     }}
                     className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 text-destructive hover:text-destructive"
                   >
@@ -188,6 +233,33 @@ export function FileUpload({
       <p className="text-xs text-muted-foreground text-right">
         {value.length} / {maxFiles} file
       </p>
+
+      <AlertDialog
+        open={removeTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setRemoveTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus lampiran?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {removeTarget
+                ? `Lampiran "${removeTarget.fileName}" akan dihapus dari form. Jika ini lampiran lama, penghapusan permanen diproses saat klik Simpan.`
+                : 'Lampiran akan dihapus dari form.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={confirmRemove}
+            >
+              Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -15,6 +15,10 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AIInsightPage from "./pages/AIInsightPage";
 import AdminInsightDashboard from "./pages/AdminInsightDashboard";
 import AdminEvaluasiLulusanPage from "./pages/AdminEvaluasiLulusanPage";
+import AdminHistoryLogbookPage from "./pages/AdminHistoryLogbookPage";
+import AdminKustomFormKepuasanPage from "./pages/AdminKustomFormKepuasanPage";
+import AdminKustomFormBuilderPage from "./pages/AdminKustomFormBuilderPage";
+import AdminKustomFormPreviewPage from "./pages/AdminKustomFormPreviewPage";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import NotFound from "./pages/NotFound";
 
@@ -22,13 +26,14 @@ function App() {
   return (
     <AlumniProvider>
       <TooltipProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={(import.meta.env.BASE_URL || "/").replace(/\/+$/, "")}>
           <Toaster />
           <Sonner />
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<Index />} />
             <Route path="/validasi" element={<ValidasiPage />} />
+            <Route path="/evaluasi" element={<EvaluationSurveyPage />} />
             
             {/* Student protected routes */}
             <Route path="/dashboard" element={
@@ -51,11 +56,7 @@ function App() {
                 <CareerHistoryPage />
               </ProtectedRoute>
             } />
-            <Route path="/evaluasi-lulusan/survey/:token" element={
-              <ProtectedRoute requiredRole="student">
-                <EvaluationSurveyPage />
-              </ProtectedRoute>
-            } />
+            <Route path="/evaluasi-lulusan/survey/:token" element={<EvaluationSurveyPage />} />
             
             {/* Admin protected routes */}
             <Route path="/admin" element={
@@ -63,11 +64,18 @@ function App() {
                 <AdminLayout />
               </ProtectedRoute>
             }>
-              <Route index element={<AdminInsightDashboard />} />
+              <Route index element={<Navigate to="/admin/dashboard/all" replace />} />
               <Route path="dashboard/:section" element={<AdminInsightDashboard />} />
               <Route path="pengelola-mahasiswa" element={<AdminDashboard />} />
               <Route path="ai-insight" element={<AIInsightPage />} />
               <Route path="evaluasi-lulusan" element={<AdminEvaluasiLulusanPage />} />
+              <Route path="kustom-form-kepuasan/preview/:id" element={<AdminKustomFormPreviewPage />} />
+              <Route path="kustom-form-kepuasan/preview" element={<AdminKustomFormPreviewPage />} />
+              <Route path="kustom-form-kepuasan/edit/:id" element={<AdminKustomFormBuilderPage />} />
+              <Route path="kustom-form-kepuasan/new" element={<AdminKustomFormBuilderPage />} />
+              <Route path="kustom-form-kepuasan" element={<AdminKustomFormKepuasanPage />} />
+              <Route path="history-logbook" element={<AdminHistoryLogbookPage />} />
+              <Route path="import-prestasi" element={<Navigate to="/admin/dashboard/student-achievements" replace />} />
               <Route path="insight-dashboard" element={<Navigate to="/admin/pengelola-mahasiswa" replace />} />
             </Route>
             

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Moon, Sun, LogIn } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAlumni } from '@/contexts/AlumniContext';
 
@@ -34,12 +34,6 @@ export function Navbar() {
               className="rounded-xl"
             >
               {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </Button>
-            <Button asChild variant="default" size="sm">
-              <Link to="/validasi">
-                <LogIn className="w-4 h-4 mr-2" />
-                Masuk
-              </Link>
             </Button>
           </div>
         </div>

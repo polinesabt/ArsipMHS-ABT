@@ -17,6 +17,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { isCareerHistoryVisible } from '@/lib/student-utils';
 import type { StudentStatus } from '@/types/student.types';
+import type { AlumniData } from '@/types/alumni.types';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -144,6 +145,20 @@ interface CareerItem {
   isActive?: boolean;
 }
 
+const WORK_SCOPE_OPTIONS_BEKERJA: { value: string; label: string }[] = [
+  { value: '', label: 'Pilih cakupan' },
+  { value: 'local', label: 'Lokal/Wilayah' },
+  { value: 'national', label: 'Nasional' },
+  { value: 'multinational', label: 'Multinasional/ Internasional' },
+];
+
+const WORK_SCOPE_OPTIONS_WIRAUSAHA: { value: string; label: string }[] = [
+  { value: '', label: 'Pilih level wirausaha' },
+  { value: 'local', label: 'Lokal/Wilayah/ Berwirausaha tidak Berizin' },
+  { value: 'national', label: 'Nasional/ Berwirausaha Berizin' },
+  { value: 'multinational', label: 'Multinasional/ Internasional' },
+];
+
 interface EditFormData {
   status: 'bekerja' | 'wirausaha' | 'studi' | 'mencari';
   title: string;
@@ -152,6 +167,7 @@ interface EditFormData {
   industry: string;
   year: number;
   isActive: boolean;
+  workScope: string;
 }
 
 export default function CareerHistoryPage() {
@@ -186,6 +202,7 @@ export default function CareerHistoryPage() {
     industry: '',
     year: new Date().getFullYear(),
     isActive: true,
+    workScope: '',
   });
 
   useEffect(() => {
@@ -210,7 +227,8 @@ export default function CareerHistoryPage() {
       editFormData.location !== originalFormData.location ||
       editFormData.industry !== originalFormData.industry ||
       editFormData.year !== originalFormData.year ||
-      editFormData.isActive !== originalFormData.isActive
+      editFormData.isActive !== originalFormData.isActive ||
+      editFormData.workScope !== originalFormData.workScope
     );
   }, [editFormData, originalFormData]);
 
@@ -349,6 +367,7 @@ export default function CareerHistoryPage() {
     e.stopPropagation();
     setSelectedItemId(item.id);
     setFormErrors({});
+    const data = alumniHistory.find((d) => d.id === item.id) as AlumniData | undefined;
     const formData = {
       status: item.status,
       title: item.title,
@@ -357,6 +376,7 @@ export default function CareerHistoryPage() {
       industry: item.industry || '',
       year: item.year,
       isActive: item.isActive ?? true,
+      workScope: data?.cakupanTempatKerja || '',
     };
     setEditFormData(formData);
     setOriginalFormData(formData); // Store original for comparison
@@ -436,9 +456,11 @@ export default function CareerHistoryPage() {
             lokasi_perusahaan: editFormData.location.trim(),
             bidang_industri: editFormData.industry.trim(),
             tahun_mulai_kerja: existing?.tahunMulaiKerja,
+            bulan_mulai_kerja: existing?.bulanMulaiKerja,
             tahun_selesai_kerja: existing?.tahunSelesaiKerja,
             masih_aktif_kerja: editFormData.isActive,
             kontak_profesional: existing?.kontakProfesional,
+            work_scope: editFormData.workScope || undefined,
           };
         } else if (editFormData.status === 'wirausaha') {
           payload.entrepreneurship_data = {
@@ -446,10 +468,12 @@ export default function CareerHistoryPage() {
             jenis_usaha: editFormData.subtitle.trim(),
             lokasi_usaha: editFormData.location.trim(),
             tahun_mulai_usaha: existing?.tahunMulaiUsaha,
+            bulan_mulai_usaha: existing?.bulanMulaiUsaha,
             usaha_aktif: editFormData.isActive,
             punya_karyawan: existing?.punyaKaryawan,
             jumlah_karyawan: existing?.jumlahKaryawan,
             sosial_media_usaha: existing?.sosialMediaUsaha,
+            work_scope: editFormData.workScope || undefined,
           };
         } else if (editFormData.status === 'studi') {
           payload.further_study_data = {
@@ -517,12 +541,16 @@ export default function CareerHistoryPage() {
 
   const selectedItem = careerItems.find(item => item.id === selectedItemId);
   const fieldLabels = getFieldLabels(editFormData.status);
+  const workScopeOptions =
+    editFormData.status === 'wirausaha'
+      ? WORK_SCOPE_OPTIONS_WIRAUSAHA
+      : WORK_SCOPE_OPTIONS_BEKERJA;
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="pt-24 pb-20">
-        <div className="container mx-auto px-4">
+        <div className="container mx-auto px-3 sm:px-4">
           <div className="max-w-6xl mx-auto">
             {/* Back Button */}
             <Button 
@@ -668,7 +696,7 @@ export default function CareerHistoryPage() {
 
                   {/* Active Filters Display */}
                   {hasActiveFilters && (
-                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+                    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
                       <span className="text-xs text-muted-foreground">Filter aktif:</span>
                       {statusFilter !== 'all' && (
                         <Badge variant="secondary" className="text-xs">
@@ -991,6 +1019,34 @@ export default function CareerHistoryPage() {
                 <p className="text-xs text-destructive">{formErrors.location}</p>
               )}
             </div>
+
+            {(editFormData.status === 'bekerja' || editFormData.status === 'wirausaha') && (
+              <div className="grid gap-2">
+                <Label htmlFor="workScope">
+                  {editFormData.status === 'wirausaha' ? 'Level Wirausaha' : 'Cakupan tempat kerja'}
+                </Label>
+                <Select
+                  value={editFormData.workScope || ''}
+                  onValueChange={(value) => handleFormChange('workScope', value)}
+                >
+                  <SelectTrigger id="workScope">
+                    <SelectValue placeholder="Pilih cakupan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workScopeOptions.filter((o) => o.value !== '').map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {editFormData.status === 'wirausaha'
+                    ? 'Lokal/Wilayah/Berwirausaha tidak berizin; Nasional/Berwirausaha berizin; atau Multinasional/Internasional (untuk statistik Cakupan Kerja tab Wirausaha)'
+                    : 'Lokal/Wilayah; Nasional; atau Multinasional/Internasional (untuk statistik Cakupan Kerja tab Bekerja)'}
+                </p>
+              </div>
+            )}
 
             {fieldLabels.industry && (
               <div className="grid gap-2">

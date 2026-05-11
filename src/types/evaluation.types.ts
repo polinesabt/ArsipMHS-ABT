@@ -71,6 +71,8 @@ export interface SurveyFormPayload {
   current_work_division: string;
   major_job_match: MajorJobMatch;
   ratings: Record<string, SurveyRatingScore>;
+  /** Path dari upload lampiran (form bertanda tangan) - opsional */
+  attachment_path?: string | null;
 }
 
 export interface SurveyDataResponse {
@@ -99,6 +101,15 @@ export interface SurveyDataResponse {
   response?: Record<string, unknown> | null;
   ratings: Record<string, number>;
   aspects: EvaluationAspect[];
+  /** When set, survey uses custom satisfaction form instead of legacy form */
+  active_template?: {
+    id: string;
+    title: string;
+    definition: { sections: Array<Record<string, unknown>> };
+  } | null;
+  active_template_id?: string | null;
+  active_template_updated_at?: string | null;
+  active_template_resolved_via?: 'active' | 'default_auto_activated' | 'self_healed_active' | string;
 }
 
 export interface EvaluationResultRow {
@@ -110,11 +121,22 @@ export interface EvaluationResultRow {
   nama: string;
   company_name: string;
   employee_name: string;
-  major_job_match: MajorJobMatch;
+  major_job_match: MajorJobMatch | string;
   submitted_at: string;
+  /** 'custom' = from satisfaction_form_responses; omitted or 'legacy' = from evaluation_responses */
+  response_type?: 'legacy' | 'custom';
+}
+
+/** Satu section dari template form kepuasan (untuk resolve label di preview) */
+export interface SatisfactionTemplateSection {
+  id?: string;
+  title?: string;
+  type?: string;
+  questions?: Array<{ id?: string; title?: string }>;
 }
 
 export interface EvaluationResultDetail {
+  response_type?: 'legacy' | 'custom';
   header: Record<string, unknown>;
   ratings: Array<{
     aspect_id: string;
@@ -123,6 +145,10 @@ export interface EvaluationResultDetail {
     sort_order: number;
     score: number;
   }>;
+  /** Present when response_type === 'custom': section/id -> value or nested object */
+  answers?: Record<string, unknown>;
+  /** Definisi template form kepuasan (sections dengan id, title, type, questions) untuk menampilkan label di preview */
+  template_definition?: { sections?: SatisfactionTemplateSection[] };
 }
 
 export interface EvaluationChartProgress {

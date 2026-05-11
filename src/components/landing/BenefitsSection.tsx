@@ -21,14 +21,14 @@ const benefits = [
   },
   {
     icon: Brain,
-    title: 'AI Insight',
+    title: 'Insight',
     description: 'Analisis cerdas menghasilkan laporan naratif otomatis untuk kebutuhan akreditasi.',
     color: 'success',
   },
   {
     icon: Award,
     title: 'Rekam Prestasi',
-    description: 'Pencatatan prestasi non-akademik lengkap: lomba, publikasi, HAKI, magang, dan lainnya.',
+    description: 'Pencatatan prestasi akademik dan non-akademik: lomba, publikasi, HAKI, magang, dan lainnya.',
     color: 'destructive',
   },
   {

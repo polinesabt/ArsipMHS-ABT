@@ -38,6 +38,20 @@ export interface SendEvaluationNotificationsPayload {
   message?: string;
 }
 
+export interface EvaluationRecycleRecord extends Evaluation {
+  deleted_at: string;
+  deleted_by?: string | null;
+  deleted_by_name?: string | null;
+  created_by_name?: string | null;
+}
+
+export interface EvaluationRecyclePayload {
+  records: EvaluationRecycleRecord[];
+  total: number;
+  page: number;
+  per_page: number;
+}
+
 export async function getEvaluations(
   status?: EvaluationStatus
 ): Promise<ApiResponse<Evaluation[]>> {
@@ -57,6 +71,36 @@ export async function closeEvaluation(
   return apiClient.post<{ success: boolean }>('evaluations/close.php', { id });
 }
 
+export async function deleteEvaluation(
+  id: string
+): Promise<ApiResponse<{ success: boolean }>> {
+  return apiClient.post<{ success: boolean }>('evaluations/delete.php', { id });
+}
+
+export async function getEvaluationRecycleBin(opts?: {
+  search?: string;
+  page?: number;
+  per_page?: number;
+}): Promise<ApiResponse<EvaluationRecyclePayload>> {
+  const params: Record<string, string> = {};
+  if (opts?.search) params.search = opts.search;
+  if (opts?.page != null) params.page = String(opts.page);
+  if (opts?.per_page != null) params.per_page = String(opts.per_page);
+  return apiClient.get<EvaluationRecyclePayload>('evaluations/recycle_bin.php', { params });
+}
+
+export async function recoverEvaluation(
+  id: string
+): Promise<ApiResponse<EvaluationRecycleRecord>> {
+  return apiClient.post<EvaluationRecycleRecord>('evaluations/recover.php', { id });
+}
+
+export async function permanentDeleteEvaluation(
+  id: string
+): Promise<ApiResponse<{ evaluation_id: string }>> {
+  return apiClient.post<{ evaluation_id: string }>('evaluations/permanent_delete.php', { id });
+}
+
 export async function getEvaluationStudents(
   filters: EvaluationStudentsFilter
 ): Promise<ApiResponse<EvaluationStudentTarget[]>> {
@@ -72,10 +116,23 @@ export async function getEvaluationStudents(
 
 export async function sendEvaluationNotifications(
   payload: SendEvaluationNotificationsPayload
-): Promise<ApiResponse<{ sent_count: number; skipped_count: number }>> {
-  return apiClient.post<{ sent_count: number; skipped_count: number }>(
+): Promise<ApiResponse<{
+  sent_count: number;
+  skipped_count: number;
+  email_sent_count?: number;
+  resolved_template_id?: string | null;
+  resolved_template_updated_at?: string | null;
+}>> {
+  return apiClient.post<{
+    sent_count: number;
+    skipped_count: number;
+    email_sent_count?: number;
+    resolved_template_id?: string | null;
+    resolved_template_updated_at?: string | null;
+  }>(
     'evaluations/send_notifications.php',
-    payload
+    payload,
+    { timeout: 120000 }
   );
 }
 
@@ -109,7 +166,7 @@ export async function getSurveyByToken(
   token: string
 ): Promise<ApiResponse<SurveyDataResponse>> {
   return apiClient.get<SurveyDataResponse>('evaluations/survey.php', {
-    params: { token },
+    params: { token, _t: Date.now() },
   });
 }
 
@@ -120,4 +177,70 @@ export async function submitSurvey(
     'evaluations/submit.php',
     payload
   );
+}
+
+export async function submitCustomSurvey(payload: {
+  token: string;
+  answers: Record<string, string | string[] | Record<string, string>>;
+  attachment_path?: string | null;
+}): Promise<ApiResponse<{ response_id: string; submitted_at: string }>> {
+  return apiClient.post<{ response_id: string; submitted_at: string }>(
+    'evaluations/submit_custom.php',
+    payload
+  );
+}
+
+export interface SatisfactionAttachmentItem {
+  response_id: string;
+  type: 'legacy' | 'custom';
+  evaluation_id: string;
+  evaluation_title: string;
+  student_id: string;
+  nim: string;
+  nama: string;
+  submitted_at: string;
+  attachment_path: string;
+  file_name: string;
+}
+
+export async function getSatisfactionAttachments(
+  evaluationId?: string
+): Promise<ApiResponse<SatisfactionAttachmentItem[]>> {
+  const params: Record<string, string> = {};
+  if (evaluationId) params.evaluation_id = evaluationId;
+  return apiClient.get<SatisfactionAttachmentItem[]>(
+    'evaluations/satisfaction_attachments_list.php',
+    { params: Object.keys(params).length ? params : undefined }
+  );
+}
+
+/** Upload lampiran form kepuasan (PDF/PNG). Token = survey token. */
+export async function uploadSurveyAttachment(
+  token: string,
+  file: File
+): Promise<ApiResponse<{ path: string; file_name: string; file_type: string }>> {
+  const baseUrl = (await import('@/lib/api-client')).getApiBaseUrl();
+  const form = new FormData();
+  form.append('token', token);
+  form.append('file', file);
+  const res = await fetch(`${baseUrl}/evaluations/upload_attachment.php`, {
+    method: 'POST',
+    body: form,
+    headers: {},
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    return { success: false, error: data?.error ?? 'Gagal mengunggah lampiran' };
+  }
+  if (!data?.success || !data?.path) {
+    return { success: false, error: data?.error ?? 'Respons tidak valid' };
+  }
+  return {
+    success: true,
+    data: {
+      path: data.path,
+      file_name: data.file_name ?? file.name,
+      file_type: data.file_type ?? file.type,
+    },
+  };
 }

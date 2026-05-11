@@ -1,0 +1,4 @@
+# Prevent script execution; allow only static file serving via API
+<Files "*">
+    Require all denied
+</Files>

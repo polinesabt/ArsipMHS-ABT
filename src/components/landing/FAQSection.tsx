@@ -13,7 +13,7 @@ const faqs = [
   },
   {
     question: 'Apa saja data yang dicatat di Arsip Mahasiswa Prodi ABT?',
-    answer: 'Arsip Mahasiswa Prodi ABT mencakup profil mahasiswa, riwayat karir (khusus alumni), dan prestasi non-akademik seperti partisipasi kegiatan, karya ilmiah, HAKI, pengalaman magang, wirausaha, dan program pengembangan diri.',
+    answer: 'Arsip Mahasiswa Prodi ABT mencakup profil mahasiswa, riwayat karir (khusus alumni), dan prestasi akademik maupun non-akademik seperti partisipasi kegiatan, karya ilmiah, HAKI, pengalaman magang, wirausaha, dan program pengembangan diri.',
   },
   {
     question: 'Apakah data saya aman?',
@@ -25,15 +25,15 @@ const faqs = [
   },
   {
     question: 'Berapa lama waktu yang dibutuhkan untuk mengisi form?',
-    answer: 'Form dirancang dengan konsep kuesioner interaktif yang engaging. Pengisian data dasar hanya membutuhkan 3-5 menit. Untuk prestasi non-akademik, waktu tergantung jumlah data yang diinput.',
+    answer: 'Form dirancang dengan konsep kuesioner interaktif yang engaging. Pengisian data dasar hanya membutuhkan 3-5 menit. Untuk data prestasi, waktu tergantung jumlah data yang diinput.',
   },
   {
     question: 'Apakah saya bisa mengupdate data di kemudian hari?',
     answer: 'Tentu! Anda dapat mengupdate data status karir dan menambah prestasi kapan saja. Sistem menyimpan timeline riwayat untuk tracking perkembangan karir Anda.',
   },
   {
-    question: 'Apa kegunaan AI Insight?',
-    answer: 'AI Insight adalah fitur analisis cerdas yang menghasilkan laporan naratif otomatis berdasarkan data alumni. Fitur ini membantu admin dalam pembuatan laporan akreditasi dan pengambilan keputusan strategis.',
+    question: 'Apa kegunaan Insight?',
+    answer: 'Insight adalah fitur analisis cerdas yang menghasilkan laporan naratif otomatis berdasarkan data alumni. Fitur ini membantu admin dalam pembuatan laporan akreditasi dan pengambilan keputusan strategis.',
   },
 ];
 

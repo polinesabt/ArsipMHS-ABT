@@ -1,13 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { Loader2, Send, ShieldCheck } from 'lucide-react';
-import { getSurveyByToken, submitSurvey } from '@/repositories/evaluation.repository';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Download, FileUp, Loader2, Send, ShieldCheck, Upload } from 'lucide-react';
+import {
+  getSurveyByToken,
+  submitSurvey,
+  submitCustomSurvey,
+  uploadSurveyAttachment,
+} from '@/repositories/evaluation.repository';
+import { downloadLegacyFormPdf, downloadCustomFormPdf } from '@/lib/survey-form-pdf';
 import type {
+  EvaluationAspect,
   SurveyDataResponse,
   SurveyFormPayload,
   SurveyRatingScore,
 } from '@/types/evaluation.types';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -38,6 +46,24 @@ type FormState = {
   current_work_division: string;
   major_job_match: 'ya' | 'tidak' | '';
   ratings: Record<string, string>;
+};
+
+type CustomAnswerValue = string | string[] | Record<string, string>;
+
+type CustomSection = {
+  id: string;
+  title?: string;
+  required?: boolean;
+  type?: string;
+  placeholder?: string;
+  options?: string[];
+  allowMultiple?: boolean;
+  scaleMin?: number;
+  scaleMax?: number;
+  questions?: Array<{ id: string; title?: string }>;
+  questionSource?: 'template' | 'evaluation_aspects' | string;
+  prefillFrom?: 'student.nama' | 'student.tahun_lulus' | 'student.prodi' | string;
+  inputType?: 'text' | 'number' | string;
 };
 
 const ratingOptions: Array<{ value: SurveyRatingScore; label: string }> = [
@@ -75,8 +101,145 @@ function buildInitialForm(data: SurveyDataResponse): FormState {
   };
 }
 
+function getScaleBounds(section: CustomSection): { min: number; max: number } {
+  const rawMin = Number(section.scaleMin ?? 1);
+  const rawMax = Number(section.scaleMax ?? 5);
+  return {
+    min: Math.min(rawMin, rawMax),
+    max: Math.max(rawMin, rawMax),
+  };
+}
+
+function buildScaleColumns(min: number, max: number): Array<{ value: number; label: string }> {
+  const values = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  const orderedValues = min === 1 && max === 5 ? [...values].reverse() : values;
+  return orderedValues.map((value) => ({
+    value,
+    label: scoreToLabel[value] ?? `Skor ${value}`,
+  }));
+}
+
+function resolveScaleQuestions(
+  section: CustomSection,
+  activeAspects: EvaluationAspect[]
+): Array<{ id: string; title: string }> {
+  if (section.questionSource === 'evaluation_aspects') {
+    return activeAspects.map((aspect) => ({ id: aspect.id, title: aspect.name }));
+  }
+
+  return (section.questions ?? [])
+    .map((question) => ({
+      id: String(question.id ?? '').trim(),
+      title: String(question.title ?? '').trim(),
+    }))
+    .filter((question) => question.id !== '');
+}
+
+function isEmptyCustomAnswer(value: CustomAnswerValue | undefined): boolean {
+  if (value === undefined) return true;
+  if (typeof value === 'string') return value.trim() === '';
+  if (Array.isArray(value)) return value.length === 0;
+  return Object.keys(value).length === 0;
+}
+
+function normalizeScaleAnswerValue(
+  value: unknown,
+  min: number,
+  max: number
+): string | null {
+  const text = String(value ?? '').trim();
+  if (text === '') return null;
+  const score = Number(text);
+  if (!Number.isFinite(score) || score < min || score > max) return null;
+  return String(score);
+}
+
+function sanitizeCustomAnswers(
+  answers: Record<string, CustomAnswerValue>,
+  sections: CustomSection[],
+  activeAspects: EvaluationAspect[]
+): Record<string, CustomAnswerValue> {
+  const next: Record<string, CustomAnswerValue> = {};
+
+  for (const section of sections) {
+    const sectionId = String(section.id ?? '').trim();
+    if (!sectionId) continue;
+
+    const value = answers[sectionId];
+    if (value === undefined) continue;
+
+    const sectionType = String(section.type ?? 'open');
+
+    if (sectionType === 'open') {
+      if (typeof value === 'string') next[sectionId] = value;
+      continue;
+    }
+
+    if (sectionType === 'multiple_choice') {
+      const options = section.options ?? [];
+      const allowOther = Boolean(section.allowOther);
+      const allowMultiple = Boolean(section.allowMultiple);
+
+      if (allowMultiple) {
+        if (!Array.isArray(value)) continue;
+        const filtered = value.filter(
+          (item): item is string =>
+            typeof item === 'string' && (allowOther || options.includes(item))
+        );
+        if (filtered.length > 0) next[sectionId] = filtered;
+        continue;
+      }
+
+      if (
+        typeof value === 'string' &&
+        (allowOther || options.includes(value))
+      ) {
+        next[sectionId] = value;
+      }
+      continue;
+    }
+
+    if (sectionType === 'scale') {
+      if (typeof value !== 'object' || value === null || Array.isArray(value)) continue;
+      const source = value as Record<string, unknown>;
+      const questions = resolveScaleQuestions(section, activeAspects);
+      const { min, max } = getScaleBounds(section);
+      const normalized: Record<string, string> = {};
+      for (const question of questions) {
+        const n = normalizeScaleAnswerValue(source[question.id], min, max);
+        if (n !== null) normalized[question.id] = n;
+      }
+      if (Object.keys(normalized).length > 0) next[sectionId] = normalized;
+      continue;
+    }
+
+    if (sectionType === 'file_upload') {
+      if (typeof value === 'string') next[sectionId] = value;
+    }
+  }
+
+  return next;
+}
+
+function areCustomAnswersEqual(
+  left: Record<string, CustomAnswerValue>,
+  right: Record<string, CustomAnswerValue>
+): boolean {
+  const leftKeys = Object.keys(left).sort();
+  const rightKeys = Object.keys(right).sort();
+  if (leftKeys.length !== rightKeys.length) return false;
+  for (let i = 0; i < leftKeys.length; i++) {
+    if (leftKeys[i] !== rightKeys[i]) return false;
+    if (JSON.stringify(left[leftKeys[i]]) !== JSON.stringify(right[rightKeys[i]])) return false;
+  }
+  return true;
+}
+
 export default function EvaluationSurveyPage() {
-  const { token = '' } = useParams();
+  const [searchParams] = useSearchParams();
+  const tokenFromQuery = searchParams.get('token') ?? '';
+  const tokenFromParams = useParams().token ?? '';
+  const token = tokenFromQuery || tokenFromParams || '';
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -94,15 +257,33 @@ export default function EvaluationSurveyPage() {
     major_job_match: '',
     ratings: {},
   });
+  const [customAnswers, setCustomAnswers] = useState<Record<string, CustomAnswerValue>>({});
+  const [legacyAttachmentPath, setLegacyAttachmentPath] = useState<string | null>(null);
+  const [customFormAttachmentPath, setCustomFormAttachmentPath] = useState<string | null>(null);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [isDraggingAttachment, setIsDraggingAttachment] = useState(false);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   const isSubmitted = surveyData?.status === 'submitted';
-  const activeAspects = surveyData?.aspects || [];
+  const activeAspects = useMemo(() => surveyData?.aspects ?? [], [surveyData?.aspects]);
+  const activeTemplate = surveyData?.active_template ?? null;
+  const customSections = useMemo(
+    () => ((activeTemplate?.definition?.sections ?? []) as CustomSection[]),
+    [activeTemplate?.definition?.sections]
+  );
+  const useCustomForm = customSections.length > 0;
+  const activeTemplateVersion = useMemo(() => {
+    const idPart = surveyData?.active_template_id ?? activeTemplate?.id ?? '';
+    const updatedPart = surveyData?.active_template_updated_at ?? '';
+    return `${idPart}|${updatedPart}`;
+  }, [activeTemplate?.id, surveyData?.active_template_id, surveyData?.active_template_updated_at]);
 
   const totalRated = useMemo(() => {
     return activeAspects.filter((aspect) => form.ratings[aspect.id]).length;
   }, [activeAspects, form.ratings]);
 
-  const loadSurvey = async () => {
+  const loadSurvey = useCallback(async () => {
     if (!token) {
       setError('Token survey tidak ditemukan');
       setIsLoading(false);
@@ -125,11 +306,78 @@ export default function EvaluationSurveyPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [token]);
 
   useEffect(() => {
     void loadSurvey();
-  }, [token]);
+  }, [loadSurvey]);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (surveyData?.status === 'submitted') return;
+      void loadSurvey();
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [loadSurvey, surveyData?.status]);
+
+  useEffect(() => {
+    if (!surveyData?.student?.nama) return;
+    const previousTitle = document.title;
+    const name = surveyData.student.nama.trim() || 'Anda';
+    document.title = `Survey Kepuasan Pengguna — ${name}`;
+    return () => {
+      document.title = previousTitle;
+    };
+  }, [surveyData?.student?.nama]);
+
+  useEffect(() => {
+    if (!useCustomForm || !surveyData?.student) return;
+
+    setCustomAnswers((prev) => {
+      let changed = false;
+      const next: Record<string, CustomAnswerValue> = { ...prev };
+
+      for (const section of customSections) {
+        if (section.type !== 'open') continue;
+        const sectionId = String(section.id ?? '').trim();
+        if (!sectionId) continue;
+
+        const current = next[sectionId];
+        if (typeof current === 'string' && current.trim() !== '') continue;
+        if (current !== undefined && typeof current !== 'string') continue;
+
+        let prefillValue = '';
+        if (section.prefillFrom === 'student.nama') {
+          prefillValue = String(surveyData.student.nama ?? '').trim();
+        } else if (section.prefillFrom === 'student.tahun_lulus') {
+          prefillValue =
+            surveyData.student.tahun_lulus != null ? String(surveyData.student.tahun_lulus) : '';
+        } else if (section.prefillFrom === 'student.prodi') {
+          prefillValue = String(surveyData.student.prodi ?? '').trim();
+        }
+
+        if (prefillValue !== '') {
+          next[sectionId] = prefillValue;
+          changed = true;
+        }
+      }
+
+      return changed ? next : prev;
+    });
+  }, [customSections, surveyData?.student, useCustomForm]);
+
+  useEffect(() => {
+    if (!useCustomForm) return;
+    setCustomAnswers((prev) => {
+      const sanitized = sanitizeCustomAnswers(prev, customSections, activeAspects);
+      return areCustomAnswersEqual(prev, sanitized) ? prev : sanitized;
+    });
+  }, [activeAspects, activeTemplateVersion, customSections, useCustomForm]);
 
   const handleSubmit = async () => {
     if (!surveyData) return;
@@ -175,6 +423,7 @@ export default function EvaluationSurveyPage() {
       current_work_division: form.current_work_division.trim(),
       major_job_match: form.major_job_match,
       ratings: ratingsPayload,
+      ...(legacyAttachmentPath ? { attachment_path: legacyAttachmentPath } : {}),
     };
 
     setIsSubmitting(true);
@@ -189,6 +438,136 @@ export default function EvaluationSurveyPage() {
         description: 'Data tersimpan dan tidak dapat diubah lagi.',
       });
 
+      await loadSurvey();
+    } catch (err) {
+      toast({
+        title: 'Gagal mengirim survey',
+        description: err instanceof Error ? err.message : 'Terjadi kesalahan',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAttachmentFile = useCallback(
+    async (file: File) => {
+      if (!token) return;
+      if (!['application/pdf', 'image/png'].includes(file.type)) {
+        toast({
+          title: 'Tipe file tidak diizinkan',
+          description: 'Gunakan PDF atau PNG.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: 'File terlalu besar',
+          description: 'Maksimal 5MB.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setUploadingAttachment(true);
+      try {
+        const res = await uploadSurveyAttachment(token, file);
+        if (res.success && res.data?.path) {
+          if (useCustomForm) {
+            setCustomFormAttachmentPath(res.data.path);
+          } else {
+            setLegacyAttachmentPath(res.data.path);
+          }
+          toast({ title: 'Lampiran berhasil diunggah' });
+        } else {
+          toast({
+            title: 'Gagal mengunggah lampiran',
+            description: res.error,
+            variant: 'destructive',
+          });
+        }
+      } finally {
+        setUploadingAttachment(false);
+      }
+    },
+    [token, useCustomForm, toast]
+  );
+
+  const handleSubmitCustom = async () => {
+    if (!surveyData || customSections.length === 0) return;
+
+    for (const section of customSections) {
+      const sectionId = String(section.id ?? '').trim();
+      if (!sectionId) continue;
+
+      const sectionTitle = section.title || sectionId;
+      const isRequired = Boolean(section.required);
+      const sectionType = String(section.type ?? 'open');
+      const value = customAnswers[sectionId];
+
+      if (sectionType !== 'scale') {
+        if (isRequired && isEmptyCustomAnswer(value)) {
+          toast({
+            title: 'Form belum lengkap',
+            description: `Pertanyaan wajib: ${sectionTitle}`,
+            variant: 'destructive',
+          });
+          return;
+        }
+        continue;
+      }
+
+      const questions = resolveScaleQuestions(section, activeAspects);
+      const scaleValue =
+        typeof value === 'object' && value !== null && !Array.isArray(value)
+          ? (value as Record<string, string>)
+          : {};
+      const { min, max } = getScaleBounds(section);
+
+      if (isRequired && questions.length === 0) {
+        toast({
+          title: 'Konfigurasi pertanyaan tidak valid',
+          description: `Bagian skala "${sectionTitle}" belum memiliki aspek penilaian.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      for (const question of questions) {
+        const answerRaw = scaleValue[question.id];
+        if (answerRaw === undefined || answerRaw === '') {
+          if (isRequired) {
+            toast({
+              title: 'Form belum lengkap',
+              description: `Pertanyaan wajib: ${sectionTitle} - ${question.title}`,
+              variant: 'destructive',
+            });
+            return;
+          }
+          continue;
+        }
+
+        const score = Number(answerRaw);
+        if (!Number.isFinite(score) || score < min || score > max) {
+          toast({
+            title: 'Nilai skala tidak valid',
+            description: `Rentang nilai ${sectionTitle} harus antara ${min} sampai ${max}.`,
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await submitCustomSurvey({
+        token,
+        answers: customAnswers,
+        attachment_path: customFormAttachmentPath ?? undefined,
+      });
+      if (!response.success) throw new Error(response.error || 'Gagal mengirim survey');
+      toast({ title: 'Survey berhasil dikirim', description: 'Data tersimpan dan tidak dapat diubah lagi.' });
       await loadSurvey();
     } catch (err) {
       toast({
@@ -233,17 +612,68 @@ export default function EvaluationSurveyPage() {
   return (
     <div className="min-h-screen bg-background p-4 md:p-8">
       <div className="max-w-5xl mx-auto space-y-6">
+        {isSubmitted && (
+          <Card className="border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/20">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <ShieldCheck className="h-8 w-8 shrink-0 text-green-600 dark:text-green-500" />
+                <div>
+                  <CardTitle className="text-lg">Evaluasi telah diselesaikan sebelumnya</CardTitle>
+                  <CardDescription>
+                    Survey untuk periode ini sudah pernah Anda kirim. Data di bawah hanya untuk referensi dan tidak dapat diubah.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <CardTitle className="text-2xl">{surveyData.evaluation.title}</CardTitle>
-                <CardDescription>
-                  Survey Kepuasan Pengguna Lulusan - hanya bisa diisi satu kali.
-                </CardDescription>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="space-y-1">
+                <p className="text-2xl font-semibold uppercase tracking-wide text-foreground">
+                  {surveyData.student?.nama?.trim() || 'Anda'}
+                </p>
+                <CardTitle className="text-lg font-normal text-muted-foreground">
+                  {surveyData.evaluation.title}
+                </CardTitle>
               </div>
+              {!isSubmitted && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  disabled={downloadingPdf}
+                  onClick={async () => {
+                    setDownloadingPdf(true);
+                    try {
+                      if (useCustomForm) {
+                        downloadCustomFormPdf(
+                          surveyData,
+                          customSections,
+                          customAnswers,
+                          activeAspects
+                        );
+                      } else {
+                        downloadLegacyFormPdf(surveyData, form);
+                      }
+                    } finally {
+                      setDownloadingPdf(false);
+                    }
+                  }}
+                >
+                  {downloadingPdf ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  Download Form (PDF)
+                </Button>
+              )}
               {isSubmitted && (
-                <span className="inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1 text-sm text-green-700">
+                <span className="inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1 text-sm text-green-700 dark:bg-green-900/30 dark:text-green-400">
                   <ShieldCheck className="w-4 h-4" />
                   Sudah terkirim (read-only)
                 </span>
@@ -252,6 +682,304 @@ export default function EvaluationSurveyPage() {
           </CardHeader>
         </Card>
 
+        {useCustomForm ? (
+          <>
+            {customSections.map((section) => {
+              const secId = String(section.id ?? '');
+              const title = String(section.title ?? '');
+              const required = Boolean(section.required);
+              const type = String(section.type ?? 'open');
+              const value = customAnswers[secId];
+              return (
+                <Card key={secId}>
+                  <CardHeader>
+                    <CardTitle className="text-lg">
+                      {title}
+                      {required && <span className="text-destructive ml-1">*</span>}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {type === 'open' && (
+                      <Input
+                        type={section.inputType === 'number' ? 'number' : 'text'}
+                        placeholder={String(section.placeholder ?? '')}
+                        value={typeof value === 'string' ? value : ''}
+                        disabled={isSubmitted}
+                        onChange={(e) =>
+                          setCustomAnswers((prev) => ({ ...prev, [secId]: e.target.value }))
+                        }
+                      />
+                    )}
+                    {type === 'multiple_choice' && (
+                      <div className="space-y-2">
+                        {(section.options ?? []).map((opt, i) => {
+                          const isMulti = Boolean(section.allowMultiple);
+                          const selected = isMulti
+                            ? (Array.isArray(value) ? value : [])
+                            : (typeof value === 'string' ? value : '');
+                          const checked = isMulti
+                            ? (selected as string[]).includes(opt)
+                            : selected === opt;
+                          return (
+                            <label key={i} className="flex items-center gap-2">
+                              <input
+                                type={isMulti ? 'checkbox' : 'radio'}
+                                name={secId}
+                                checked={checked}
+                                disabled={isSubmitted}
+                                onChange={() => {
+                                  if (isMulti) {
+                                    const arr = Array.isArray(value) ? value : [];
+                                    const next = arr.includes(opt)
+                                      ? arr.filter((x) => x !== opt)
+                                      : [...arr, opt];
+                                    setCustomAnswers((prev) => ({ ...prev, [secId]: next }));
+                                  } else {
+                                    setCustomAnswers((prev) => ({ ...prev, [secId]: opt }));
+                                  }
+                                }}
+                              />
+                              {opt}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {type === 'scale' && (
+                      <div className="space-y-3">
+                        <p className="text-xs text-muted-foreground">
+                          Setiap aspek wajib memilih satu nilai.
+                        </p>
+                        {(() => {
+                          const questions = resolveScaleQuestions(section, activeAspects);
+                          const { min, max } = getScaleBounds(section);
+                          const columns = buildScaleColumns(min, max);
+                          const scaleObj =
+                            typeof value === 'object' && value && !Array.isArray(value)
+                              ? (value as Record<string, string>)
+                              : {};
+
+                          if (questions.length === 0) {
+                            return (
+                              <p className="text-sm text-muted-foreground">
+                                Belum ada aspek penilaian untuk bagian skala ini.
+                              </p>
+                            );
+                          }
+
+                          return (
+                            <div className="overflow-x-auto rounded-md border">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead className="w-14">No</TableHead>
+                                    <TableHead>Aspek Penilaian</TableHead>
+                                    {columns.map((column) => (
+                                      <TableHead
+                                        key={`${secId}-head-${column.value}`}
+                                        className="min-w-[110px] text-center"
+                                      >
+                                        {column.label}
+                                      </TableHead>
+                                    ))}
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {questions.map((q, qIndex) => (
+                                    <TableRow key={q.id}>
+                                      <TableCell>{qIndex + 1}</TableCell>
+                                      <TableCell>{q.title || `Aspek ${qIndex + 1}`}</TableCell>
+                                      {columns.map((column) => (
+                                        <TableCell
+                                          key={`${q.id}-${column.value}`}
+                                          className="text-center"
+                                        >
+                                          <input
+                                            type="radio"
+                                            name={`${secId}-${q.id}`}
+                                            checked={scaleObj[q.id] === String(column.value)}
+                                            disabled={isSubmitted}
+                                            onChange={() =>
+                                              setCustomAnswers((prev) => {
+                                                const prevObj =
+                                                  typeof prev[secId] === 'object' &&
+                                                  prev[secId] &&
+                                                  !Array.isArray(prev[secId])
+                                                    ? (prev[secId] as Record<string, string>)
+                                                    : {};
+                                                return {
+                                                  ...prev,
+                                                  [secId]: {
+                                                    ...prevObj,
+                                                    [q.id]: String(column.value),
+                                                  },
+                                                };
+                                              })
+                                            }
+                                          />
+                                        </TableCell>
+                                      ))}
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
+                    {type === 'file_upload' && (
+                      <div className="space-y-2">
+                        <Input
+                          type="file"
+                          accept=".pdf,.png,application/pdf,image/png"
+                          disabled={isSubmitted || uploadingAttachment}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file || !token) return;
+                            const allowed = ['application/pdf', 'image/png'];
+                            if (!allowed.includes(file.type)) {
+                              toast({
+                                title: 'Tipe file tidak diizinkan',
+                                description: 'Gunakan PDF atau PNG.',
+                                variant: 'destructive',
+                              });
+                              return;
+                            }
+                            if (file.size > 5 * 1024 * 1024) {
+                              toast({
+                                title: 'File terlalu besar',
+                                description: 'Maksimal 5MB.',
+                                variant: 'destructive',
+                              });
+                              return;
+                            }
+                            setUploadingAttachment(true);
+                            try {
+                              const res = await uploadSurveyAttachment(token, file);
+                              if (res.success && res.data?.path) {
+                                setCustomAnswers((prev) => ({ ...prev, [secId]: res.data!.path }));
+                                toast({ title: 'Lampiran berhasil diunggah' });
+                              } else {
+                                toast({
+                                  title: 'Gagal mengunggah lampiran',
+                                  description: res.error,
+                                  variant: 'destructive',
+                                });
+                              }
+                            } finally {
+                              setUploadingAttachment(false);
+                              e.target.value = '';
+                            }
+                          }}
+                        />
+                        {typeof value === 'string' && value.trim() !== '' && (
+                          <p className="text-sm text-muted-foreground flex items-center gap-2">
+                            <FileUp className="h-4 w-4" />
+                            Lampiran: {value.split('/').pop()}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+            <Card id="unggah-lampiran-custom" className="mt-4 border-2 border-dashed border-muted-foreground/30">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Upload className="h-5 w-5" />
+                  Unggah Lampiran Form Bertanda Tangan
+                </CardTitle>
+                <CardDescription>
+                  {isSubmitted
+                    ? 'Survey sudah dikirim. Lampiran tidak dapat diubah.'
+                    : 'Seret file PDF/PNG ke kotak di bawah atau klik untuk memilih. Maks. 5MB.'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <input
+                  ref={attachmentInputRef}
+                  type="file"
+                  accept=".pdf,.png,application/pdf,image/png"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleAttachmentFile(file);
+                    e.target.value = '';
+                  }}
+                />
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onDragOver={(e) => {
+                    if (isSubmitted) return;
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDraggingAttachment(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDraggingAttachment(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDraggingAttachment(false);
+                    if (isSubmitted) return;
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) void handleAttachmentFile(file);
+                  }}
+                  onClick={() => !isSubmitted && attachmentInputRef.current?.click()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      if (!isSubmitted) attachmentInputRef.current?.click();
+                    }
+                  }}
+                  className={cn(
+                    'flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 transition-colors min-h-[160px]',
+                    isSubmitted
+                      ? 'cursor-not-allowed opacity-60 bg-muted/30'
+                      : 'cursor-pointer hover:border-primary/50 hover:bg-muted/50',
+                    isDraggingAttachment && !isSubmitted && 'border-primary bg-primary/10',
+                    !isDraggingAttachment && !isSubmitted && 'border-muted-foreground/25',
+                    customFormAttachmentPath && 'border-green-500/50 bg-green-500/5'
+                  )}
+                  aria-label="Unggah lampiran PDF atau PNG"
+                >
+                  {uploadingAttachment ? (
+                    <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+                  ) : (
+                    <Upload className="h-10 w-10 text-muted-foreground" />
+                  )}
+                  <span className="text-sm font-medium text-center text-muted-foreground">
+                    {customFormAttachmentPath
+                      ? 'Lampiran terunggah: ' + customFormAttachmentPath.split('/').pop()
+                      : isSubmitted
+                        ? 'Lampiran terkunci setelah survey dikirim'
+                        : isDraggingAttachment
+                          ? 'Lepaskan file di sini'
+                          : 'Seret file ke sini atau klik untuk memilih'}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+            {!isSubmitted && (
+              <div className="flex flex-wrap items-center gap-3 mt-4">
+                <Button onClick={handleSubmitCustom} disabled={isSubmitting} className="gap-2">
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  Kirim Survey Evaluasi
+                </Button>
+                <Button variant="outline" onClick={() => navigate('/dashboard')}>
+                  Kembali ke Dashboard
+                </Button>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Bagian 1 - Identitas Karyawan yang Dinilai</CardTitle>
@@ -413,8 +1141,92 @@ export default function EvaluationSurveyPage() {
               ))}
             </CardContent>
           </Card>
-        ) : (
-          <div className="flex flex-wrap items-center gap-3">
+        ) : null}
+
+        <Card id="unggah-lampiran-legacy" className="mt-4 border-2 border-dashed border-muted-foreground/30">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Unggah Lampiran Form Bertanda Tangan
+            </CardTitle>
+            <CardDescription>
+              {isSubmitted
+                ? 'Survey sudah dikirim. Lampiran tidak dapat diubah.'
+                : 'Seret file PDF/PNG ke kotak di bawah atau klik untuk memilih. Maks. 5MB.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <input
+              ref={attachmentInputRef}
+              type="file"
+              accept=".pdf,.png,application/pdf,image/png"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleAttachmentFile(file);
+                e.target.value = '';
+              }}
+            />
+            <div
+              role="button"
+              tabIndex={0}
+              onDragOver={(e) => {
+                if (isSubmitted) return;
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDraggingAttachment(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDraggingAttachment(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDraggingAttachment(false);
+                if (isSubmitted) return;
+                const file = e.dataTransfer.files?.[0];
+                if (file) void handleAttachmentFile(file);
+              }}
+              onClick={() => !isSubmitted && attachmentInputRef.current?.click()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  if (!isSubmitted) attachmentInputRef.current?.click();
+                }
+              }}
+              className={cn(
+                'flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-8 transition-colors min-h-[160px]',
+                isSubmitted
+                  ? 'cursor-not-allowed opacity-60 bg-muted/30'
+                  : 'cursor-pointer hover:border-primary/50 hover:bg-muted/50',
+                isDraggingAttachment && !isSubmitted && 'border-primary bg-primary/10',
+                !isDraggingAttachment && !isSubmitted && 'border-muted-foreground/25',
+                legacyAttachmentPath && 'border-green-500/50 bg-green-500/5'
+              )}
+              aria-label="Unggah lampiran PDF atau PNG"
+            >
+              {uploadingAttachment ? (
+                <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+              ) : (
+                <Upload className="h-10 w-10 text-muted-foreground" />
+              )}
+              <span className="text-sm font-medium text-center text-muted-foreground">
+                {legacyAttachmentPath
+                  ? 'Lampiran terunggah: ' + legacyAttachmentPath.split('/').pop()
+                  : isSubmitted
+                    ? 'Lampiran terkunci setelah survey dikirim'
+                    : isDraggingAttachment
+                      ? 'Lepaskan file di sini'
+                      : 'Seret file ke sini atau klik untuk memilih'}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {!isSubmitted && (
+          <div className="flex flex-wrap items-center gap-3 mt-4">
             <Button onClick={handleSubmit} disabled={isSubmitting} className="gap-2">
               {isSubmitting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -427,6 +1239,8 @@ export default function EvaluationSurveyPage() {
               Kembali ke Dashboard
             </Button>
           </div>
+        )}
+          </>
         )}
       </div>
     </div>

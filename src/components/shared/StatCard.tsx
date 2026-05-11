@@ -88,13 +88,13 @@ export function StatCard({
       )}
     >
       <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm text-muted-foreground mb-1">{title}</p>
-          <p className="text-3xl font-bold text-foreground tabular-nums">
+        <div className="min-w-0 flex-1">
+          <p className="mb-1 text-xs text-muted-foreground sm:text-sm">{title}</p>
+          <p className="text-2xl font-bold text-foreground tabular-nums sm:text-3xl">
             {typeof displayValue === 'number' ? displayValue.toLocaleString() : displayValue}
           </p>
           {trend && (
-            <div className="flex items-center gap-1 mt-2">
+            <div className="mt-2 flex flex-wrap items-center gap-1">
               <span
                 className={cn(
                   "text-xs font-medium",
@@ -109,11 +109,11 @@ export function StatCard({
         </div>
         <div
           className={cn(
-            "w-12 h-12 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110",
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 sm:h-12 sm:w-12",
             colorClasses[color]
           )}
         >
-          <Icon className="w-6 h-6" />
+          <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
         </div>
       </div>
     </div>

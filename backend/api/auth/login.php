@@ -8,6 +8,73 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/auth.php';
+require_once __DIR__ . '/../students/status_effective_sql.php';
+
+function auth_login_map_student_data(array $row): array {
+    $studentLastLogin = $row['student_last_login'] ?? ($row['last_login'] ?? null);
+
+    return [
+        'id' => $row['student_id'] ?? $row['id'],
+        'nim' => $row['nim'] ?? null,
+        'nama' => $row['student_nama'] ?? ($row['nama'] ?? null),
+        'jurusan' => $row['jurusan'] ?? null,
+        'prodi' => $row['prodi'] ?? null,
+        'status' => $row['status'] ?? null,
+        'status_mode' => $row['status_mode'] ?? null,
+        'status_effective' => $row['status_effective'] ?? ($row['status'] ?? null),
+        'tahun_masuk' => $row['tahun_masuk'] ?? null,
+        'tahun_lulus' => $row['tahun_lulus'] ?? null,
+        'email' => $row['email'] ?? null,
+        'no_hp' => $row['no_hp'] ?? null,
+        'alamat' => $row['alamat'] ?? null,
+        'has_credentials' => (bool)($row['has_credentials'] ?? false),
+        'last_login' => $studentLastLogin,
+        'created_at' => $row['student_created_at'] ?? ($row['created_at'] ?? null),
+        'updated_at' => $row['student_updated_at'] ?? ($row['updated_at'] ?? null),
+        'login_email' => $row['login_email'] ?? null,
+        'pending_login_email' => $row['pending_login_email'] ?? null,
+        'is_email_login_enabled' => (bool)($row['is_email_login_enabled'] ?? false),
+        'email_verified_at' => $row['email_verified_at'] ?? null,
+        'is_first_login' => empty($studentLastLogin),
+    ];
+}
+
+function auth_login_fetch_student_join_by_identifier(PDO $pdo, string $identifierLower): ?array {
+    $statusEffectiveExpr = student_status_effective_expr('s');
+    $sql = '
+        SELECT
+            u.id AS user_id, u.username, u.nama AS user_nama, u.role, u.password_hash,
+            s.id AS student_id, s.nim, s.nama AS student_nama, s.jurusan, s.prodi, s.status, s.status_mode,
+            (' . $statusEffectiveExpr . ') AS status_effective,
+            s.tahun_masuk, s.tahun_lulus, s.email, s.no_hp, s.alamat, s.has_credentials,
+            s.last_login AS student_last_login, s.created_at AS student_created_at, s.updated_at AS student_updated_at,
+            s.login_email, s.pending_login_email, s.is_email_login_enabled, s.email_verified_at
+        FROM students s
+        JOIN users u ON s.user_id = u.id AND u.is_active = 1
+        WHERE s.deleted_at IS NULL
+          AND (
+            LOWER(TRIM(s.nim)) = ?
+            OR (
+                s.is_email_login_enabled = 1
+                AND s.login_email IS NOT NULL
+                AND LOWER(TRIM(s.login_email)) = ?
+            )
+          )
+        LIMIT 1
+    ';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([$identifierLower, $identifierLower]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ?: null;
+}
+
+function auth_login_fetch_student_by_user_id(PDO $pdo, string $userId): ?array {
+    $statusEffectiveExpr = student_status_effective_expr('s');
+    $stmt = $pdo->prepare('SELECT s.*, (' . $statusEffectiveExpr . ') AS status_effective FROM students s WHERE s.user_id = ? AND s.deleted_at IS NULL LIMIT 1');
+    $stmt->execute([$userId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ?: null;
+}
 
 function auth_login_fail(string $message): void {
     http_response_code(401);
@@ -40,23 +107,13 @@ try {
     $password = (string)$input['password'];
     $role = isset($input['role']) ? trim((string)$input['role']) : null;
 
+    $usernameLower = mb_strtolower($username);
+
     $user = null;
     $studentData = null;
 
     if ($role === 'student') {
-        $stmt = $pdo->prepare('
-            SELECT
-                u.id AS user_id, u.username, u.nama AS user_nama, u.role, u.password_hash,
-                s.id AS student_id, s.nim, s.nama AS student_nama, s.jurusan, s.prodi, s.status,
-                s.tahun_masuk, s.tahun_lulus, s.email, s.no_hp, s.alamat, s.has_credentials, s.last_login AS student_last_login,
-                s.created_at AS student_created_at, s.updated_at AS student_updated_at
-            FROM students s
-            JOIN users u ON s.user_id COLLATE utf8mb4_unicode_ci = u.id
-            WHERE s.nim = ? AND u.is_active = 1
-            LIMIT 1
-        ');
-        $stmt->execute([$username]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $row = auth_login_fetch_student_join_by_identifier($pdo, $usernameLower);
 
         if ($row) {
             $user = [
@@ -66,48 +123,54 @@ try {
                 'role' => $row['role'],
                 'password_hash' => $row['password_hash'],
             ];
-            $studentData = [
-                'id' => $row['student_id'],
-                'nim' => $row['nim'],
-                'nama' => $row['student_nama'],
-                'jurusan' => $row['jurusan'],
-                'prodi' => $row['prodi'],
-                'status' => $row['status'],
-                'tahun_masuk' => $row['tahun_masuk'],
-                'tahun_lulus' => $row['tahun_lulus'],
-                'email' => $row['email'],
-                'no_hp' => $row['no_hp'],
-                'alamat' => $row['alamat'],
-                'has_credentials' => (bool)$row['has_credentials'],
-                'last_login' => $row['student_last_login'],
-                'created_at' => $row['student_created_at'],
-                'updated_at' => $row['student_updated_at'],
-            ];
+            $studentData = auth_login_map_student_data($row);
         }
 
         if (!$user) {
-            $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE username = ? AND role = ? AND is_active = 1');
-            $stmt->execute([$username, 'student']);
+            $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE LOWER(TRIM(username)) = ? AND role = ? AND is_active = 1 LIMIT 1');
+            $stmt->execute([$usernameLower, 'student']);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($user) {
-                $stmt = $pdo->prepare('SELECT * FROM students WHERE user_id = ?');
-                $stmt->execute([$user['id']]);
-                $studentData = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+                $studentRow = auth_login_fetch_student_by_user_id($pdo, (string)$user['id']);
+                $studentData = $studentRow ? auth_login_map_student_data($studentRow) : null;
             }
         }
     } elseif ($role === 'admin') {
-        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE username = ? AND role = ? AND is_active = 1');
-        $stmt->execute([$username, 'admin']);
+        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE LOWER(TRIM(username)) = ? AND role = ? AND is_active = 1 LIMIT 1');
+        $stmt->execute([$usernameLower, 'admin']);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
     } else {
-        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE username = ? AND is_active = 1');
-        $stmt->execute([$username]);
+        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE LOWER(TRIM(username)) = ? AND is_active = 1 LIMIT 1');
+        $stmt->execute([$usernameLower]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($user && $user['role'] === 'student') {
+            $studentRow = auth_login_fetch_student_by_user_id($pdo, (string)$user['id']);
+            $studentData = $studentRow ? auth_login_map_student_data($studentRow) : null;
+        }
+
+        if (!$user) {
+            $row = auth_login_fetch_student_join_by_identifier($pdo, $usernameLower);
+            if ($row) {
+                $user = [
+                    'id' => $row['user_id'],
+                    'username' => $row['username'],
+                    'nama' => $row['user_nama'],
+                    'role' => $row['role'],
+                    'password_hash' => $row['password_hash'],
+                ];
+                $studentData = auth_login_map_student_data($row);
+            }
+        }
     }
 
     if (!$user || !password_verify($password, $user['password_hash'])) {
         auth_login_fail('Username atau password salah');
+    }
+
+    if (($user['role'] ?? '') === 'student' && !$studentData) {
+        auth_login_fail('Akun mahasiswa tidak aktif');
     }
 
     $tokenPayload = [

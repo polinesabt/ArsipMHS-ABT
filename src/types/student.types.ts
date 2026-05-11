@@ -41,6 +41,13 @@ export interface AdminProfile {
 export type StudentStatus = 'active' | 'on_leave' | 'dropout' | 'alumni';
 
 /**
+ * Student status mode (manual override vs auto-computed)
+ * - manual: use stored status as-is
+ * - auto: compute effective status from tahunMasuk/tahunLulus (4-year estimation)
+ */
+export type StudentStatusMode = 'manual' | 'auto';
+
+/**
  * Tracer study career status (only applicable for alumni)
  */
 export type CareerStatus = 'working' | 'job_seeking' | 'entrepreneur' | 'further_study';
@@ -118,11 +125,20 @@ export interface StudentProfile {
   
   // Status tracking
   status: StudentStatus;
+  /** Source/mode of status calculation (manual override vs auto). */
+  statusMode?: StudentStatusMode;
+  /** Stored/manual status value (for admin forms & audit). */
+  statusManual?: StudentStatus;
   tahunMasuk: number; // Year of enrollment
   tahunLulus?: number; // Year of graduation (only for alumni)
   
   // Contact information
   email?: string;
+  loginEmail?: string;
+  pendingLoginEmail?: string;
+  isEmailLoginEnabled?: boolean;
+  emailVerifiedAt?: Date;
+  isFirstLogin?: boolean;
   noHp?: string;
   alamat?: string;
   
@@ -146,6 +162,7 @@ export interface StudentAccountInput {
   email?: string;
   noHp?: string;
   status: StudentStatus;
+  statusMode?: StudentStatusMode;
   tahunMasuk: number;
   tahunLulus?: number;
 }

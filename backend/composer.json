@@ -1,0 +1,10 @@
+{
+  "name": "arsipmhs-abt/backend",
+  "description": "Backend dependencies for arsipmhs-abt",
+  "type": "project",
+  "require": {
+    "php": "^8.1",
+    "phpoffice/phpspreadsheet": "^2.2",
+    "phpmailer/phpmailer": "^6.10"
+  }
+}

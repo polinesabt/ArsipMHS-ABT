@@ -7,6 +7,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../students/status_effective_sql.php';
 
 try {
     $input = json_decode(file_get_contents('php://input'), true);
@@ -16,6 +17,28 @@ try {
     }
     
     $tracer_id = $input['id'];
+
+    $statusEffectiveExpr = student_status_effective_expr('s');
+    $checkStmt = $pdo->prepare('
+        SELECT t.id, s.status AS student_status, (' . $statusEffectiveExpr . ') AS status_effective
+        FROM tracer_study t
+        JOIN students s ON s.id = t.student_id
+        WHERE t.id = ? AND s.deleted_at IS NULL
+        LIMIT 1
+    ');
+    $checkStmt->execute([$tracer_id]);
+    $checkRow = $checkStmt->fetch(PDO::FETCH_ASSOC);
+    if (!$checkRow) {
+        throw new Exception('Tracer study tidak ditemukan atau akun mahasiswa tidak aktif');
+    }
+    if (($checkRow['status_effective'] ?? '') !== 'alumni') {
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'error' => 'Mahasiswa belum berstatus Alumni. Akses ditolak.',
+        ]);
+        exit;
+    }
     
     $fields = [];
     $params = [];
@@ -55,11 +78,29 @@ try {
     $query = 'UPDATE tracer_study SET ' . implode(', ', $fields) . ', updated_at = NOW() WHERE id = ?';
     $stmt = $pdo->prepare($query);
     $stmt->execute($params);
+
+    if (array_key_exists('email', $input)) {
+        $studentIdStmt = $pdo->prepare('SELECT student_id FROM tracer_study WHERE id = ?');
+        $studentIdStmt->execute([$tracer_id]);
+        $row = $studentIdStmt->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            $emailVal = $input['email'];
+            if (is_string($emailVal)) {
+                $updateStudent = $pdo->prepare('UPDATE students SET email = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL');
+                $updateStudent->execute([trim($emailVal), $row['student_id']]);
+            }
+        }
+    }
     
     $stmt = $pdo->prepare('SELECT * FROM tracer_study WHERE id = ?');
     $stmt->execute([$tracer_id]);
     $updated = $stmt->fetch(PDO::FETCH_ASSOC);
-    
+
+    // Sinkron otomatis chart Waktu Tunggu dan Cakupan Kerja setiap update tracer
+    require_once __DIR__ . '/../insight/sync_helpers.php';
+    syncWaitingTime($pdo);
+    syncWorkCoverage($pdo);
+
     echo json_encode([
         'success' => true,
         'data' => $updated,

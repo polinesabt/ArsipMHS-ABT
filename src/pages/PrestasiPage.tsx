@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAlumni } from '@/contexts/AlumniContext';
 import { useToast } from '@/hooks/use-toast';
 import { FileUpload } from '@/components/shared';
+import { AchievementFormModal } from '@/components/shared/AchievementFormModal';
 import { 
   CategorySidebar, 
   AchievementTimelineView, 
@@ -28,18 +29,27 @@ import {
   Achievement,
   AchievementCategory,
   ACHIEVEMENT_CATEGORIES,
+  STUDENT_PRODUCT_CATEGORIES,
+  STUDENT_PRODUCT_CATEGORY_LABELS,
 } from '@/types/achievement.types';
 import {
   createAchievementViaAPI,
+  deleteAchievementAttachmentViaAPI,
   deleteAchievementViaAPI,
   getAchievementsFromAPI,
+  uploadAchievementAttachmentViaAPI,
   updateAchievementViaAPI,
 } from '@/repositories/api-student.repository';
 import { mapApiAchievementToUi, mapUiAchievementToApiPayload } from '@/lib/achievement-api-mapper';
+import { getAchievementTypeFromUiCategory, getAchievementTypeLabel } from '@/lib/achievement-classification';
+import { isValidHttpUrl } from '@/lib/chart-record-link-utils';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -49,14 +59,47 @@ const VALID_CATEGORY_FILTERS = new Set<CategoryFilter>([
   'unggulan',
   'lomba',
   'seminar',
+  'pagelaran',
   'publikasi',
   'haki',
+  'luaran_penelitian',
   'magang',
   'portofolio',
+  'produk_mahasiswa',
   'wirausaha',
   'pengembangan',
   'organisasi',
 ]);
+
+const CATEGORY_LABELS: Record<AchievementCategory, string> = {
+  lomba: 'Lomba',
+  seminar: 'Publikasi di Seminar',
+  pagelaran: 'Pagelaran / Presentasi',
+  publikasi: 'Karya Ilmiah & Publikasi',
+  haki: 'Kekayaan Intelektual',
+  luaran_penelitian: 'Luaran Penelitian',
+  magang: 'Pengalaman Magang',
+  portofolio: 'Portofolio Praktikum Kelas',
+  produk_mahasiswa: 'Produk Mahasiswa',
+  wirausaha: 'Pengalaman Wirausaha',
+  pengembangan: 'Program Pengembangan Diri',
+  organisasi: 'Organisasi & Kepemimpinan',
+};
+
+const ACADEMIC_CATEGORY_ORDER: AchievementCategory[] = ['publikasi', 'portofolio'];
+
+const NON_ACADEMIC_CATEGORY_ORDER: AchievementCategory[] = [
+  'lomba',
+  'haki',
+  'luaran_penelitian',
+  'magang',
+  'produk_mahasiswa',
+  'wirausaha',
+  'pengembangan',
+  'organisasi',
+  'seminar',
+  'pagelaran',
+];
 
 function isValidCategoryFilter(value: string | null): value is CategoryFilter {
   return !!value && VALID_CATEGORY_FILTERS.has(value as CategoryFilter);
@@ -74,7 +117,7 @@ export default function PrestasiPage() {
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [editingAchievement, setEditingAchievement] = useState<Achievement | null>(null);
   const [stats, setStats] = useState<Record<AchievementCategory, number>>({
-    lomba: 0, seminar: 0, publikasi: 0, haki: 0, magang: 0, portofolio: 0, wirausaha: 0, pengembangan: 0, organisasi: 0
+    lomba: 0, seminar: 0, pagelaran: 0, publikasi: 0, haki: 0, luaran_penelitian: 0, magang: 0, portofolio: 0, produk_mahasiswa: 0, wirausaha: 0, pengembangan: 0, organisasi: 0
   });
   const [unggulanCount, setUnggulanCount] = useState(0);
   const [highestLevel, setHighestLevel] = useState<string | null>(null);
@@ -105,10 +148,13 @@ export default function PrestasiPage() {
   const computeStats = (items: Achievement[]) => ({
     lomba: items.filter(a => a.category === 'lomba').length,
     seminar: items.filter(a => a.category === 'seminar').length,
+    pagelaran: items.filter(a => a.category === 'pagelaran').length,
     publikasi: items.filter(a => a.category === 'publikasi').length,
     haki: items.filter(a => a.category === 'haki').length,
+    luaran_penelitian: items.filter(a => a.category === 'luaran_penelitian').length,
     magang: items.filter(a => a.category === 'magang').length,
     portofolio: items.filter(a => a.category === 'portofolio').length,
+    produk_mahasiswa: items.filter(a => a.category === 'produk_mahasiswa').length,
     wirausaha: items.filter(a => a.category === 'wirausaha').length,
     pengembangan: items.filter(a => a.category === 'pengembangan').length,
     organisasi: items.filter(a => a.category === 'organisasi').length,
@@ -125,7 +171,7 @@ export default function PrestasiPage() {
     let highestScore = 0;
     items.forEach((achievement) => {
       if (achievement.category === 'lomba') {
-        const tingkat = (achievement as any).tingkat;
+        const tingkat = achievement.tingkat;
         const score = levelHierarchy[tingkat] || 0;
         if (score > highestScore) {
           highestScore = score;
@@ -136,24 +182,55 @@ export default function PrestasiPage() {
     return highestLevel;
   };
 
-  const refreshData = async () => {
+  const refreshData = useCallback(async () => {
     if (!selectedAlumni) return;
-    const response = await getAchievementsFromAPI(selectedAlumni.id);
-    if (!response.success || !response.data) {
+
+    try {
+      const response = await getAchievementsFromAPI(selectedAlumni.id, { includeAttachments: true });
+      if (!response.success || !response.data) {
+        setAchievements([]);
+        setStats({
+          lomba: 0, seminar: 0, pagelaran: 0, publikasi: 0, haki: 0, luaran_penelitian: 0, magang: 0, portofolio: 0, produk_mahasiswa: 0, wirausaha: 0, pengembangan: 0, organisasi: 0
+        });
+        setUnggulanCount(0);
+        setHighestLevel(null);
+        return;
+      }
+
+      let apiRows: unknown = response.data;
+      if (typeof apiRows === 'string') {
+        try {
+          const parsed = JSON.parse(apiRows) as { data?: unknown };
+          apiRows = parsed.data ?? parsed;
+        } catch {
+          throw new Error('Format respons prestasi tidak valid.');
+        }
+      }
+
+      if (!Array.isArray(apiRows)) {
+        throw new Error('Data prestasi tidak berbentuk daftar.');
+      }
+
+      const mapped = (apiRows as Array<Parameters<typeof mapApiAchievementToUi>[0]>).map(mapApiAchievementToUi);
+      setAchievements(mapped);
+      setStats(computeStats(mapped));
+      setUnggulanCount(mapped.filter(a => a.isUnggulan).length);
+      setHighestLevel(computeHighestLevel(mapped));
+    } catch (error) {
+      console.error('Failed to refresh achievements', error);
       setAchievements([]);
       setStats({
-        lomba: 0, seminar: 0, publikasi: 0, haki: 0, magang: 0, portofolio: 0, wirausaha: 0, pengembangan: 0, organisasi: 0
+        lomba: 0, seminar: 0, pagelaran: 0, publikasi: 0, haki: 0, luaran_penelitian: 0, magang: 0, portofolio: 0, produk_mahasiswa: 0, wirausaha: 0, pengembangan: 0, organisasi: 0
       });
       setUnggulanCount(0);
       setHighestLevel(null);
-      return;
+      toast({
+        title: 'Gagal memuat prestasi',
+        description: error instanceof Error ? error.message : 'Terjadi kesalahan saat mengambil data prestasi.',
+        variant: 'destructive',
+      });
     }
-    const mapped = response.data.map(mapApiAchievementToUi);
-    setAchievements(mapped);
-    setStats(computeStats(mapped));
-    setUnggulanCount(mapped.filter(a => a.isUnggulan).length);
-    setHighestLevel(computeHighestLevel(mapped));
-  };
+  }, [selectedAlumni, toast]);
 
   useEffect(() => {
     if (!selectedAlumni) {
@@ -161,7 +238,27 @@ export default function PrestasiPage() {
       return;
     }
     void refreshData();
-  }, [selectedAlumni, navigate]);
+  }, [selectedAlumni, navigate, refreshData]);
+
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      void refreshData();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshData();
+      }
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [refreshData]);
 
   const handleItemClick = (achievement: Achievement) => {
     setExpandedId(prev => prev === achievement.id ? null : achievement.id);
@@ -210,10 +307,10 @@ export default function PrestasiPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="pt-24 pb-20">
-        <div className="container mx-auto px-4 sm:px-6">
+        <div className="container mx-auto px-3 sm:px-6">
           <div className="max-w-6xl mx-auto">
             {/* Back Button + Page Title */}
-            <div className="flex items-center gap-3 mb-6 animate-fade-up">
+            <div className="mb-6 flex flex-wrap items-start gap-3 animate-fade-up">
               <Button 
                 variant="ghost" 
                 size="icon" 
@@ -224,13 +321,13 @@ export default function PrestasiPage() {
               </Button>
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold text-foreground">
-                  Prestasi Non-Akademik
+                  Prestasi Mahasiswa
                 </h1>
                 <p className="text-sm text-muted-foreground">
-                  Portofolio pencapaian akademik & profesional
+                  Portofolio pencapaian akademik & non-akademik
                 </p>
               </div>
-              <div className="flex-1" />
+              <div className="hidden flex-1 sm:block" />
               <Button onClick={() => { setEditingAchievement(null); setIsFormOpen(true); }} className="hidden sm:flex shadow-soft">
                 <Plus className="w-4 h-4 mr-2" />
                 Tambah Prestasi
@@ -249,7 +346,7 @@ export default function PrestasiPage() {
             </div>
 
             {/* Two-Column Layout: Sidebar + Main Content */}
-            <div className="flex gap-6 animate-fade-up" style={{ animationDelay: '0.1s' }}>
+            <div className="flex flex-col gap-6 animate-fade-up lg:flex-row" style={{ animationDelay: '0.1s' }}>
               {/* Category Sidebar */}
               <CategorySidebar
                 activeCategory={activeCategory}
@@ -268,11 +365,14 @@ export default function PrestasiPage() {
                       <h2 className="text-lg font-semibold text-foreground">
                         {activeCategory === 'all' ? 'Semua Prestasi' : 
                           activeCategory === 'lomba' ? 'Lomba' :
-                          activeCategory === 'seminar' ? 'Seminar' :
+                          activeCategory === 'seminar' ? 'Publikasi di Seminar' :
+                          activeCategory === 'pagelaran' ? 'Pagelaran / Presentasi' :
                           activeCategory === 'publikasi' ? 'Karya Ilmiah & Publikasi' :
                           activeCategory === 'haki' ? 'Kekayaan Intelektual' :
+                          activeCategory === 'luaran_penelitian' ? 'Luaran Penelitian' :
                           activeCategory === 'magang' ? 'Pengalaman Magang' :
                           activeCategory === 'portofolio' ? 'Portofolio Praktikum Kelas' :
+                          activeCategory === 'produk_mahasiswa' ? 'Produk Mahasiswa' :
                           activeCategory === 'wirausaha' ? 'Pengalaman Wirausaha' :
                           activeCategory === 'pengembangan' ? 'Program Pengembangan Diri' :
                           activeCategory === 'organisasi' ? 'Organisasi & Kepemimpinan' :
@@ -317,9 +417,9 @@ export default function PrestasiPage() {
 
             {/* Form Modal */}
             {isFormOpen && (
-              <AchievementForm
-                category={editingAchievement?.category || formCategory}
+              <AchievementFormModal
                 masterId={selectedAlumni.id}
+                category={editingAchievement?.category || formCategory}
                 editData={editingAchievement}
                 onClose={() => {
                   setIsFormOpen(false);
@@ -328,9 +428,12 @@ export default function PrestasiPage() {
                 onSuccess={() => {
                   setIsFormOpen(false);
                   setEditingAchievement(null);
-                  refreshData();
+                  void refreshData();
                   toast({ title: editingAchievement ? 'Prestasi berhasil diperbarui!' : 'Prestasi berhasil ditambahkan!' });
                 }}
+                useApi
+                renderMode="modal"
+                categoryScope="all"
               />
             )}
           </div>
@@ -356,9 +459,23 @@ function AchievementForm({
   onSuccess: () => void;
 }) {
   const [selectedCategory, setSelectedCategory] = useState<AchievementCategory>(editData?.category || category);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [formData, setFormData] = useState<Record<string, any>>(editData || {});
+  type FormAttachmentCandidate = {
+    id?: string;
+    attachmentId?: string;
+    file?: File;
+    fileName?: string;
+  };
 
   const { toast } = useToast();
+
+  const getAttachmentId = (attachment: FormAttachmentCandidate): string =>
+    attachment.attachmentId?.trim() || attachment.id?.trim() || '';
+
+  const isPendingUploadAttachment = (
+    attachment: FormAttachmentCandidate
+  ): attachment is FormAttachmentCandidate & { file: File } => attachment.file instanceof File;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -409,9 +526,152 @@ function AchievementForm({
       });
       return;
     }
+
+    if (selectedCategory === 'seminar') {
+      const judulPublikasi = String(formData.judulPublikasi || formData.namaSeminar || '').trim();
+      const levelSeminar = String(formData.levelSeminar || '').trim();
+      const jenisPerolehan = String(formData.jenisPerolehan || 'mandiri').trim();
+      const tanggalPublikasi = String(formData.tanggalPublikasi || formData.tanggalSeminar || '').trim();
+
+      if (judulPublikasi === '') {
+        toast({
+          title: 'Validasi gagal',
+          description: 'Judul publikasi seminar wajib diisi.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (!['local', 'national', 'international'].includes(levelSeminar)) {
+        toast({
+          title: 'Validasi gagal',
+          description: 'Level kegiatan wajib dipilih.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (!['mandiri', 'kolaborasi_dosen'].includes(jenisPerolehan)) {
+        toast({
+          title: 'Validasi gagal',
+          description: 'Jenis perolehan wajib dipilih.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (jenisPerolehan === 'kolaborasi_dosen' && (!formData.namaDosen || !String(formData.namaDosen).trim())) {
+        toast({
+          title: 'Validasi gagal',
+          description: 'Nama dosen wajib diisi jika perolehan kolaborasi dosen.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (tanggalPublikasi === '') {
+        toast({
+          title: 'Validasi gagal',
+          description: 'Tanggal kegiatan wajib diisi.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    if (selectedCategory === 'pagelaran') {
+      const judulPublikasi = String(formData.judulPublikasi || formData.namaSeminar || '').trim();
+      const levelSeminar = String(formData.levelSeminar || '').trim();
+      const tanggalPublikasi = String(formData.tanggalPublikasi || formData.tanggalSeminar || '').trim();
+      const jenisKegiatan = String(formData.jenisKegiatan || '').trim();
+
+      if (judulPublikasi === '') {
+        toast({
+          title: 'Validasi gagal',
+          description: 'Judul kegiatan pagelaran/presentasi wajib diisi.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (jenisKegiatan === '') {
+        toast({
+          title: 'Validasi gagal',
+          description: 'Jenis kegiatan pagelaran/presentasi wajib dipilih.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (!['local', 'national', 'international'].includes(levelSeminar)) {
+        toast({
+          title: 'Validasi gagal',
+          description: 'Level kegiatan wajib dipilih.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (tanggalPublikasi === '') {
+        toast({
+          title: 'Validasi gagal',
+          description: 'Tanggal kegiatan wajib diisi.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    if (selectedCategory === 'produk_mahasiswa') {
+      if (!formData.namaProduk || !String(formData.namaProduk).trim()) {
+        toast({
+          title: 'Validasi gagal',
+          description: 'Nama produk wajib diisi.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (!formData.kategoriProduk || !String(formData.kategoriProduk).trim()) {
+        toast({
+          title: 'Validasi gagal',
+          description: 'Kategori produk wajib dipilih.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (
+        formData.kategoriProduk === 'lainnya'
+        && (!formData.kategoriProdukLainnya || !String(formData.kategoriProdukLainnya).trim())
+      ) {
+        toast({
+          title: 'Validasi gagal',
+          description: 'Kategori produk lainnya wajib diisi.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (!formData.tanggalAdopsi || !String(formData.tanggalAdopsi).trim()) {
+        toast({
+          title: 'Validasi gagal',
+          description: 'Tanggal adopsi wajib diisi.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      const linkProduk = String(formData.linkProduk || '').trim();
+      if (linkProduk !== '' && !isValidHttpUrl(linkProduk)) {
+        toast({
+          title: 'Validasi gagal',
+          description: 'Link produk harus berupa URL valid (http/https).',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
     
     const payload = mapUiAchievementToApiPayload(masterId, selectedCategory, formData);
     try {
+      let achievementId = editData?.id ?? '';
       if (editData) {
         const response = await updateAchievementViaAPI(editData.id, payload);
         if (!response.success) {
@@ -422,6 +682,59 @@ function AchievementForm({
         if (!response.success) {
           throw new Error(response.error || 'Gagal menambahkan prestasi');
         }
+        const createdId =
+          (response.data && typeof (response.data as Record<string, unknown>).id === 'string'
+            ? ((response.data as Record<string, unknown>).id as string)
+            : '') ||
+          (typeof (response as unknown as { id?: unknown }).id === 'string'
+            ? ((response as unknown as { id?: string }).id as string)
+            : '');
+        achievementId = createdId;
+      }
+
+      if (!achievementId) {
+        throw new Error('ID prestasi tidak ditemukan setelah simpan data.');
+      }
+
+      const formAttachments = (Array.isArray(formData.attachments) ? formData.attachments : []) as FormAttachmentCandidate[];
+      const keptPersistedAttachmentIds = new Set(
+        formAttachments
+          .filter((attachment) => !isPendingUploadAttachment(attachment))
+          .map((attachment) => getAttachmentId(attachment))
+          .filter((attachmentId: string) => attachmentId !== '')
+      );
+      const removedPersistedAttachmentIds = editData
+        ? (Array.isArray(editData.attachments) ? editData.attachments : [])
+            .map((attachment) => String(attachment.attachmentId || attachment.id || ''))
+            .filter((attachmentId: string) => attachmentId !== '' && !keptPersistedAttachmentIds.has(attachmentId))
+        : [];
+
+      const failedDeletes: string[] = [];
+      for (const attachmentId of removedPersistedAttachmentIds) {
+        const deleteRes = await deleteAchievementAttachmentViaAPI(attachmentId);
+        if (deleteRes.success) continue;
+        failedDeletes.push(`${attachmentId}: ${deleteRes.error || 'Gagal hapus'}`);
+      }
+
+      const pendingUploads = formAttachments.filter((attachment) => isPendingUploadAttachment(attachment));
+      const failedUploads: string[] = [];
+      for (const attachment of pendingUploads) {
+        const uploadRes = await uploadAchievementAttachmentViaAPI(achievementId, attachment.file as File);
+        if (uploadRes.success) continue;
+        const attachmentName = attachment.fileName?.trim() || attachment.file.name || 'File';
+        failedUploads.push(`${attachmentName}: ${uploadRes.error || 'Gagal upload'}`);
+      }
+
+      if (failedDeletes.length > 0 || failedUploads.length > 0) {
+        const failureMessages = [
+          ...failedDeletes.map((message) => `Hapus ${message}`),
+          ...failedUploads.map((message) => `Upload ${message}`),
+        ];
+        toast({
+          title: 'Sebagian sinkronisasi lampiran gagal',
+          description: failureMessages.slice(0, 2).join(' | '),
+          variant: 'destructive',
+        });
       }
       onSuccess();
     } catch (error) {
@@ -433,21 +746,12 @@ function AchievementForm({
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateField = (key: string, value: any) => {
     setFormData(prev => ({ ...prev, [key]: value }));
   };
 
-  const categoryLabels: Record<AchievementCategory, string> = {
-    lomba: 'Lomba',
-    seminar: 'Seminar',
-    publikasi: 'Karya Ilmiah & Publikasi',
-    haki: 'Kekayaan Intelektual',
-    magang: 'Pengalaman Magang',
-    portofolio: 'Portofolio Praktikum Kelas',
-    wirausaha: 'Pengalaman Wirausaha',
-    pengembangan: 'Program Pengembangan Diri',
-    organisasi: 'Organisasi & Kepemimpinan',
-  };
+  const achievementTypeLabel = getAchievementTypeLabel(getAchievementTypeFromUiCategory(selectedCategory));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-fade-in">
@@ -463,30 +767,44 @@ function AchievementForm({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-5">
-          {/* Category Selector (only for new achievements) */}
-          {!editData && (
-            <div className="space-y-2">
-              <Label>Kategori Prestasi</Label>
-              <Select value={selectedCategory} onValueChange={(v) => setSelectedCategory(v as AchievementCategory)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Pilih kategori" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(categoryLabels).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
+          <div className="rounded-md border bg-muted/20 px-3 py-2">
+            <p className="text-xs text-muted-foreground">Jenis Prestasi (otomatis)</p>
+            <p className="text-sm font-medium text-foreground">{achievementTypeLabel}</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Kategori Prestasi</Label>
+            <Select value={selectedCategory} onValueChange={(v) => setSelectedCategory(v as AchievementCategory)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Pilih kategori" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectLabel>Akademik</SelectLabel>
+                  {ACADEMIC_CATEGORY_ORDER.map((key) => (
+                    <SelectItem key={key} value={key}>{CATEGORY_LABELS[key]}</SelectItem>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+                </SelectGroup>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>Non-Akademik</SelectLabel>
+                  {NON_ACADEMIC_CATEGORY_ORDER.map((key) => (
+                    <SelectItem key={key} value={key}>{CATEGORY_LABELS[key]}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Dynamic Form Fields */}
           {selectedCategory === 'lomba' && <LombaFields formData={formData} updateField={updateField} />}
           {selectedCategory === 'seminar' && <SeminarFields formData={formData} updateField={updateField} />}
+          {selectedCategory === 'pagelaran' && <PagelaranFields formData={formData} updateField={updateField} />}
           {selectedCategory === 'publikasi' && <PublikasiFields formData={formData} updateField={updateField} />}
           {selectedCategory === 'haki' && <HakiFields formData={formData} updateField={updateField} />}
           {selectedCategory === 'magang' && <MagangFields formData={formData} updateField={updateField} />}
           {selectedCategory === 'portofolio' && <PortofolioFields formData={formData} updateField={updateField} />}
+          {selectedCategory === 'produk_mahasiswa' && <ProdukMahasiswaFields formData={formData} updateField={updateField} />}
           {selectedCategory === 'wirausaha' && <WirausahaFields formData={formData} updateField={updateField} />}
           {selectedCategory === 'pengembangan' && <PengembanganFields formData={formData} updateField={updateField} />}
           {selectedCategory === 'organisasi' && <OrganisasiFields formData={formData} updateField={updateField} />}
@@ -501,15 +819,15 @@ function AchievementForm({
               value={formData.attachments || []}
               onChange={(attachments) => updateField('attachments', attachments)}
               maxFiles={5}
-              maxSizeInMB={5}
+              maxSizeInMB={2}
             />
             <p className="text-xs text-muted-foreground mt-2">
-              Unggah sertifikat, foto dokumentasi, atau dokumen pendukung lainnya (maks. 5 file)
+              Unggah sertifikat, foto dokumentasi, atau dokumen pendukung lainnya (maks. 5 file, 2 MB per file). Penghapusan lampiran lama diproses saat klik Simpan.
             </p>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-4">
+          <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row">
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">
               Batal
             </Button>
@@ -526,7 +844,9 @@ function AchievementForm({
 
 // Form Field Components
 interface FieldProps { 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   formData: Record<string, any>; 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   updateField: (k: string, v: any) => void; 
 }
 
@@ -551,7 +871,7 @@ function LombaFields({ formData, updateField }: FieldProps) {
           required 
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label>Tingkat *</Label>
           <Select value={formData.tingkat || ''} onValueChange={(v) => updateField('tingkat', v)}>
@@ -575,7 +895,7 @@ function LombaFields({ formData, updateField }: FieldProps) {
           </Select>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label>Peringkat</Label>
           <Input 
@@ -609,64 +929,206 @@ function LombaFields({ formData, updateField }: FieldProps) {
 }
 
 function SeminarFields({ formData, updateField }: FieldProps) {
+  const jenisPerolehan = formData.jenisPerolehan || 'mandiri';
+
+  const handleJenisPerolehanChange = (value: string) => {
+    updateField('jenisPerolehan', value);
+    if (value !== 'kolaborasi_dosen') {
+      updateField('namaDosen', undefined);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div>
-        <Label>Nama Seminar *</Label>
-        <Input 
-          value={formData.namaSeminar || ''} 
-          onChange={(e) => updateField('namaSeminar', e.target.value)} 
-          placeholder="Contoh: Seminar Nasional Teknologi"
-          required 
+        <Label>Judul Publikasi Seminar *</Label>
+        <Input
+          value={formData.judulPublikasi || ''}
+          onChange={(e) => updateField('judulPublikasi', e.target.value)}
+          placeholder="Contoh: Strategi Adopsi UMKM Berbasis Data"
+          required
         />
       </div>
-      <div>
-        <Label>Penyelenggara *</Label>
-        <Input 
-          value={formData.penyelenggara || ''} 
-          onChange={(e) => updateField('penyelenggara', e.target.value)} 
-          placeholder="Nama institusi penyelenggara"
-          required 
-        />
-      </div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <Label>Peran *</Label>
-          <Select value={formData.peran || ''} onValueChange={(v) => updateField('peran', v)}>
-            <SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger>
+          <Label>Level Seminar *</Label>
+          <Select value={formData.levelSeminar || ''} onValueChange={(v) => updateField('levelSeminar', v)}>
+            <SelectTrigger><SelectValue placeholder="Pilih level seminar" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="peserta">Peserta</SelectItem>
-              <SelectItem value="pembicara">Pembicara</SelectItem>
+              <SelectItem value="local">Lokal/Wilayah/Perguruan Tinggi</SelectItem>
+              <SelectItem value="national">Nasional</SelectItem>
+              <SelectItem value="international">Internasional</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div>
-          <Label>Mode *</Label>
-          <Select value={formData.mode || ''} onValueChange={(v) => updateField('mode', v)}>
-            <SelectTrigger><SelectValue placeholder="Pilih" /></SelectTrigger>
+          <Label>Perolehan Publikasi *</Label>
+          <Select value={jenisPerolehan} onValueChange={handleJenisPerolehanChange}>
+            <SelectTrigger><SelectValue placeholder="Pilih status perolehan" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="online">Online</SelectItem>
-              <SelectItem value="offline">Offline</SelectItem>
+              <SelectItem value="mandiri">Mandiri</SelectItem>
+              <SelectItem value="kolaborasi_dosen">Bersama Dosen</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <div>
-          <Label>Tahun *</Label>
-          <Input 
-            type="number" 
-            value={formData.tahun || ''} 
-            onChange={(e) => updateField('tahun', parseInt(e.target.value))} 
-            placeholder="2024"
-            required 
+      </div>
+      <div
+        className={cn(
+          'overflow-hidden transition-all duration-300 ease-out',
+          jenisPerolehan === 'kolaborasi_dosen' ? 'max-h-24 opacity-100' : 'max-h-0 opacity-0'
+        )}
+      >
+        <div className="pt-1">
+          <Label>Nama Dosen *</Label>
+          <Input
+            value={formData.namaDosen || ''}
+            onChange={(e) => updateField('namaDosen', e.target.value)}
+            placeholder="Contoh: Dr. Budi Santoso"
+            required={jenisPerolehan === 'kolaborasi_dosen'}
           />
         </div>
       </div>
       <div>
+        <Label>Tanggal Publikasi *</Label>
+        <Input
+          type="date"
+          value={formData.tanggalPublikasi || ''}
+          onChange={(e) => updateField('tanggalPublikasi', e.target.value)}
+          required
+        />
+      </div>
+      <div>
+        <Label>Penulis</Label>
+        <Input
+          value={formData.penulis || ''}
+          onChange={(e) => updateField('penulis', e.target.value)}
+          placeholder="Nama penulis (pisahkan dengan koma)"
+        />
+      </div>
+      <div>
+        <Label>Nama Seminar / Konferensi</Label>
+        <Input
+          value={formData.namaSeminarKonferensi || ''}
+          onChange={(e) => updateField('namaSeminarKonferensi', e.target.value)}
+          placeholder="Contoh: Seminar Nasional Manajemen Terapan"
+        />
+      </div>
+      <div>
+        <Label>Penyelenggara</Label>
+        <Input
+          value={formData.penyelenggara || ''}
+          onChange={(e) => updateField('penyelenggara', e.target.value)}
+          placeholder="Contoh: Politeknik Negeri Semarang"
+        />
+      </div>
+      <div>
+        <Label>Link Publikasi (URL)</Label>
+        <Input
+          type="url"
+          value={formData.urlPublikasi || ''}
+          onChange={(e) => updateField('urlPublikasi', e.target.value)}
+          placeholder="https://..."
+        />
+      </div>
+      <div>
         <Label>Deskripsi</Label>
-        <Textarea 
-          value={formData.deskripsi || ''} 
-          onChange={(e) => updateField('deskripsi', e.target.value)} 
-          placeholder="Ceritakan pengalaman Anda..."
+        <Textarea
+          value={formData.deskripsi || ''}
+          onChange={(e) => updateField('deskripsi', e.target.value)}
+          placeholder="Ringkas isi publikasi seminar Anda..."
+          rows={3}
+        />
+      </div>
+    </div>
+  );
+}
+
+function PagelaranFields({ formData, updateField }: FieldProps) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label>Judul Kegiatan *</Label>
+        <Input
+          value={formData.judulPublikasi || ''}
+          onChange={(e) => updateField('judulPublikasi', e.target.value)}
+          placeholder="Contoh: Presentasi Inovasi Bisnis Mahasiswa"
+          required
+        />
+      </div>
+      <div>
+        <Label>Jenis Kegiatan *</Label>
+        <Select value={formData.jenisKegiatan || ''} onValueChange={(v) => updateField('jenisKegiatan', v)}>
+          <SelectTrigger><SelectValue placeholder="Pilih jenis kegiatan" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="conference">Presentasi Konferensi</SelectItem>
+            <SelectItem value="presentasi">Presentasi Ilmiah</SelectItem>
+            <SelectItem value="oral_presentation">Presentasi Lisan</SelectItem>
+            <SelectItem value="poster_presentation">Presentasi Poster</SelectItem>
+            <SelectItem value="pagelaran">Pagelaran</SelectItem>
+            <SelectItem value="pameran">Pameran</SelectItem>
+            <SelectItem value="expo">Expo</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label>Level Kegiatan *</Label>
+        <Select value={formData.levelSeminar || ''} onValueChange={(v) => updateField('levelSeminar', v)}>
+          <SelectTrigger><SelectValue placeholder="Pilih level kegiatan" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="local">Lokal/Wilayah/Perguruan Tinggi</SelectItem>
+            <SelectItem value="national">Nasional</SelectItem>
+            <SelectItem value="international">Internasional</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label>Tanggal Kegiatan *</Label>
+        <Input
+          type="date"
+          value={formData.tanggalPublikasi || ''}
+          onChange={(e) => updateField('tanggalPublikasi', e.target.value)}
+          required
+        />
+      </div>
+      <div>
+        <Label>Penulis</Label>
+        <Input
+          value={formData.penulis || ''}
+          onChange={(e) => updateField('penulis', e.target.value)}
+          placeholder="Nama penulis (opsional)"
+        />
+      </div>
+      <div>
+        <Label>Nama Acara / Konferensi</Label>
+        <Input
+          value={formData.namaSeminarKonferensi || ''}
+          onChange={(e) => updateField('namaSeminarKonferensi', e.target.value)}
+          placeholder="Contoh: Festival Inovasi Kampus"
+        />
+      </div>
+      <div>
+        <Label>Mitra Kegiatan (jika ada)</Label>
+        <Input
+          value={formData.penyelenggara || ''}
+          onChange={(e) => updateField('penyelenggara', e.target.value)}
+          placeholder="Contoh: KADIN Jawa Tengah"
+        />
+      </div>
+      <div>
+        <Label>Link Dokumentasi (URL)</Label>
+        <Input
+          type="url"
+          value={formData.urlPublikasi || ''}
+          onChange={(e) => updateField('urlPublikasi', e.target.value)}
+          placeholder="https://..."
+        />
+      </div>
+      <div>
+        <Label>Deskripsi</Label>
+        <Textarea
+          value={formData.deskripsi || ''}
+          onChange={(e) => updateField('deskripsi', e.target.value)}
+          placeholder="Ringkas kegiatan pagelaran/presentasi Anda..."
           rows={3}
         />
       </div>
@@ -676,14 +1138,17 @@ function SeminarFields({ formData, updateField }: FieldProps) {
 
 function OrganisasiFields({ formData, updateField }: FieldProps) {
   const masihAktif = formData.masihAktif ?? true;
+  const [openStart, setOpenStart] = useState(false);
+  const [openEnd, setOpenEnd] = useState(false);
 
-  // Handle membership toggle change
   const handleMasihAktifChange = (checked: boolean) => {
     updateField('masihAktif', checked);
     if (checked) {
       updateField('tanggalSelesai', undefined);
     }
   };
+
+  const todayStr = () => new Date().toISOString().split('T')[0];
 
   return (
     <div className="space-y-4">
@@ -747,32 +1212,62 @@ function OrganisasiFields({ formData, updateField }: FieldProps) {
       </div>
 
       {/* Start Date - Always visible */}
-      <div>
+      <div className="space-y-1.5">
         <Label>Tanggal Masuk Organisasi *</Label>
-        <Popover>
+        <Popover open={openStart} onOpenChange={setOpenStart}>
           <PopoverTrigger asChild>
             <Button
               variant="outline"
               className={cn(
-                "w-full justify-start text-left font-normal",
+                "w-full justify-start text-left font-normal h-10 rounded-md border border-input bg-background shadow-sm hover:bg-accent/50 hover:border-primary/20 transition-colors",
                 !formData.tanggalMulai && "text-muted-foreground"
               )}
+              aria-label="Pilih tanggal masuk organisasi"
             >
-              <CalendarIcon className="mr-2 h-4 w-4" />
+              <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground shrink-0" />
               {formData.tanggalMulai 
                 ? format(new Date(formData.tanggalMulai), 'd MMMM yyyy', { locale: idLocale })
                 : <span>Pilih tanggal mulai</span>
               }
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
+          <PopoverContent className="w-auto p-0 rounded-lg border bg-popover shadow-lg" align="start">
             <Calendar
               mode="single"
+              locale={idLocale}
               selected={formData.tanggalMulai ? new Date(formData.tanggalMulai) : undefined}
-              onSelect={(date) => updateField('tanggalMulai', date?.toISOString().split('T')[0])}
+              onSelect={(date) => {
+                updateField('tanggalMulai', date?.toISOString().split('T')[0]);
+                setOpenStart(false);
+              }}
               initialFocus
-              className={cn("p-3 pointer-events-auto")}
+              className="p-3 pointer-events-auto"
             />
+            <div className="flex items-center justify-between border-t px-3 py-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-destructive"
+                onClick={() => {
+                  updateField('tanggalMulai', undefined);
+                  setOpenStart(false);
+                }}
+              >
+                Hapus
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  updateField('tanggalMulai', todayStr());
+                  setOpenStart(false);
+                }}
+              >
+                Hari ini
+              </Button>
+            </div>
           </PopoverContent>
         </Popover>
       </div>
@@ -781,39 +1276,70 @@ function OrganisasiFields({ formData, updateField }: FieldProps) {
       <div 
         className={`overflow-hidden transition-all duration-300 ease-out ${
           !masihAktif 
-            ? 'max-h-32 opacity-100' 
+            ? 'max-h-40 opacity-100' 
             : 'max-h-0 opacity-0'
         }`}
       >
-        <div className="pt-1">
+        <div className="pt-1 space-y-1.5">
           <Label>Tanggal Selesai Keanggotaan *</Label>
-          <Popover>
+          <p className="text-xs text-muted-foreground">Tidak boleh sebelum tanggal masuk.</p>
+          <Popover open={openEnd} onOpenChange={setOpenEnd}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
                 className={cn(
-                  "w-full justify-start text-left font-normal",
+                  "w-full justify-start text-left font-normal h-10 rounded-md border border-input bg-background shadow-sm hover:bg-accent/50 hover:border-primary/20 transition-colors",
                   !formData.tanggalSelesai && "text-muted-foreground"
                 )}
+                aria-label="Pilih tanggal selesai keanggotaan"
               >
-                <CalendarIcon className="mr-2 h-4 w-4" />
+                <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground shrink-0" />
                 {formData.tanggalSelesai 
                   ? format(new Date(formData.tanggalSelesai), 'd MMMM yyyy', { locale: idLocale })
                   : <span>Pilih tanggal selesai</span>
                 }
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
+            <PopoverContent className="w-auto p-0 rounded-lg border bg-popover shadow-lg" align="start">
               <Calendar
                 mode="single"
+                locale={idLocale}
                 selected={formData.tanggalSelesai ? new Date(formData.tanggalSelesai) : undefined}
-                onSelect={(date) => updateField('tanggalSelesai', date?.toISOString().split('T')[0])}
+                onSelect={(date) => {
+                  updateField('tanggalSelesai', date?.toISOString().split('T')[0]);
+                  setOpenEnd(false);
+                }}
                 disabled={(date) => 
                   formData.tanggalMulai ? date < new Date(formData.tanggalMulai) : false
                 }
                 initialFocus
-                className={cn("p-3 pointer-events-auto")}
+                className="p-3 pointer-events-auto"
               />
+              <div className="flex items-center justify-between border-t px-3 py-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => {
+                    updateField('tanggalSelesai', undefined);
+                    setOpenEnd(false);
+                  }}
+                >
+                  Hapus
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    updateField('tanggalSelesai', todayStr());
+                    setOpenEnd(false);
+                  }}
+                >
+                  Hari ini
+                </Button>
+              </div>
             </PopoverContent>
           </Popover>
         </div>
@@ -866,7 +1392,7 @@ function PublikasiFields({ formData, updateField }: FieldProps) {
           required 
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label>Nama Jurnal / Konferensi</Label>
           <Input 
@@ -920,7 +1446,7 @@ function HakiFields({ formData, updateField }: FieldProps) {
           required 
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label>Jenis KI *</Label>
           <Select value={formData.jenisHaki || ''} onValueChange={(v) => updateField('jenisHaki', v)}>
@@ -945,7 +1471,7 @@ function HakiFields({ formData, updateField }: FieldProps) {
           </Select>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label>Nomor Pendaftaran</Label>
           <Input 
@@ -990,7 +1516,7 @@ function MagangFields({ formData, updateField }: FieldProps) {
           required 
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label>Lokasi *</Label>
           <Input 
@@ -1010,7 +1536,7 @@ function MagangFields({ formData, updateField }: FieldProps) {
           />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label>Tanggal Mulai *</Label>
           <Input 
@@ -1099,7 +1625,7 @@ function PortofolioFields({ formData, updateField }: FieldProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label>Tahun *</Label>
           <Input 
@@ -1135,6 +1661,105 @@ function PortofolioFields({ formData, updateField }: FieldProps) {
   );
 }
 
+function ProdukMahasiswaFields({ formData, updateField }: FieldProps) {
+  const isOtherProductCategory = formData.kategoriProduk === 'lainnya';
+
+  const handleKategoriProdukChange = (value: string) => {
+    updateField('kategoriProduk', value);
+    if (value !== 'lainnya') {
+      updateField('kategoriProdukLainnya', undefined);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label>Nama Produk *</Label>
+        <Input
+          value={formData.namaProduk || ''}
+          onChange={(e) => updateField('namaProduk', e.target.value)}
+          placeholder="Contoh: Aplikasi Kasir UMKM"
+          required
+        />
+      </div>
+      <div>
+        <Label>Kategori Produk *</Label>
+        <Select value={formData.kategoriProduk || ''} onValueChange={handleKategoriProdukChange}>
+          <SelectTrigger><SelectValue placeholder="Pilih kategori produk" /></SelectTrigger>
+          <SelectContent className="!max-h-48">
+            {STUDENT_PRODUCT_CATEGORIES.map((key) => (
+              <SelectItem key={key} value={key}>
+                {STUDENT_PRODUCT_CATEGORY_LABELS[key]}
+              </SelectItem>
+            ))}
+            <SelectItem value="lainnya">Lainnya</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div
+        className={cn(
+          'overflow-hidden transition-all duration-300 ease-out',
+          isOtherProductCategory ? 'max-h-24 opacity-100' : 'max-h-0 opacity-0'
+        )}
+      >
+        <div className="pt-1">
+          <Label>Kategori Produk (Lainnya) *</Label>
+          <Input
+            value={formData.kategoriProdukLainnya || ''}
+            onChange={(e) => updateField('kategoriProdukLainnya', e.target.value.slice(0, 100))}
+            placeholder="Contoh: Agritech"
+            maxLength={100}
+            required={isOtherProductCategory}
+          />
+        </div>
+      </div>
+      <div>
+        <Label>Tanggal Adopsi *</Label>
+        <Input
+          type="date"
+          value={formData.tanggalAdopsi || ''}
+          onChange={(e) => updateField('tanggalAdopsi', e.target.value)}
+          required
+        />
+      </div>
+      <div>
+        <Label>Mitra Adopsi (jika ada)</Label>
+        <Input
+          value={formData.mitraAdopsi || ''}
+          onChange={(e) => updateField('mitraAdopsi', e.target.value)}
+          placeholder="Contoh: Dinas Koperasi Kota Semarang"
+        />
+      </div>
+      <div>
+        <Label>Link Produk (URL)</Label>
+        <Input
+          type="url"
+          value={formData.linkProduk || ''}
+          onChange={(e) => updateField('linkProduk', e.target.value)}
+          placeholder="https://..."
+        />
+      </div>
+      <div>
+        <Label>Lokasi</Label>
+        <Input
+          value={formData.lokasi || ''}
+          onChange={(e) => updateField('lokasi', e.target.value)}
+          placeholder="Contoh: Semarang"
+        />
+      </div>
+      <div>
+        <Label>Deskripsi</Label>
+        <Textarea
+          value={formData.deskripsi || ''}
+          onChange={(e) => updateField('deskripsi', e.target.value)}
+          placeholder="Ceritakan detail produk mahasiswa yang diadopsi..."
+          rows={3}
+        />
+      </div>
+    </div>
+  );
+}
+
 function WirausahaFields({ formData, updateField }: FieldProps) {
   return (
     <div className="space-y-4">
@@ -1156,7 +1781,7 @@ function WirausahaFields({ formData, updateField }: FieldProps) {
           required 
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label>Lokasi *</Label>
           <Input 
@@ -1225,7 +1850,7 @@ function PengembanganFields({ formData, updateField }: FieldProps) {
           required 
         />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label>Lokasi</Label>
           <Input 
@@ -1243,7 +1868,7 @@ function PengembanganFields({ formData, updateField }: FieldProps) {
           />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <Label>Tanggal Mulai *</Label>
           <Input 

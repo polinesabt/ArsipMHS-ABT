@@ -1,0 +1,425 @@
+-- =====================================================================
+-- ARSIP MAHASISWA PRODI ABT - Instalasi Database MySQL
+-- =====================================================================
+-- Cara pakai di phpMyAdmin:
+-- 1. Buka phpMyAdmin (http://localhost/phpmyadmin)
+-- 2. Klik tab "SQL"
+-- 3. Copy-paste seluruh isi file ini, lalu klik "Go"
+--
+-- Atau: Import file ini lewat tab "Import" → pilih install.sql
+--
+-- Catatan: Jalankan sekali untuk database baru. Nama database: arsipmhs
+-- (sesuaikan di .env: DB_NAME=arsipmhs)
+-- =====================================================================
+
+CREATE DATABASE IF NOT EXISTS arsipmhs
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+USE arsipmhs;
+
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
+SET collation_connection = 'utf8mb4_unicode_ci';
+SET FOREIGN_KEY_CHECKS = 0;
+
+-- =====================================================================
+-- 1. USERS TABLE - Unified Authentication
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS users (
+  id VARCHAR(36) PRIMARY KEY COMMENT 'UUID v4',
+  username VARCHAR(50) UNIQUE NOT NULL COMMENT 'Login username (admin or NIM)',
+  password_hash VARCHAR(255) NOT NULL COMMENT 'Bcrypt hashed password',
+  nama VARCHAR(100) NOT NULL COMMENT 'Full name',
+  role ENUM('admin', 'student') NOT NULL DEFAULT 'student' COMMENT 'User role',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Account creation date',
+  last_login TIMESTAMP NULL COMMENT 'Last login timestamp',
+  is_active BOOLEAN DEFAULT TRUE COMMENT 'Account status',
+  INDEX idx_username (username),
+  INDEX idx_role (role),
+  INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Unified authentication table for admins and students';
+
+-- =====================================================================
+-- 2. STUDENTS TABLE - Main Profile Hub
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS students (
+  id VARCHAR(36) PRIMARY KEY COMMENT 'UUID v4',
+  nim VARCHAR(20) UNIQUE NOT NULL COMMENT 'Student ID number',
+  nama VARCHAR(100) NOT NULL COMMENT 'Full name',
+  jurusan VARCHAR(50) NOT NULL DEFAULT 'Administrasi Bisnis' COMMENT 'Department',
+  prodi VARCHAR(100) NOT NULL DEFAULT 'Administrasi Bisnis Terapan' COMMENT 'Study Program',
+  status ENUM('active', 'on_leave', 'dropout', 'alumni') NOT NULL DEFAULT 'active' COMMENT 'Student status',
+  status_mode ENUM('manual', 'auto') NOT NULL DEFAULT 'auto' COMMENT 'manual=use status; auto=compute active/alumni from tahun_masuk/tahun_lulus',
+  tahun_masuk INT NOT NULL COMMENT 'Year of enrollment',
+  tahun_lulus INT NULL COMMENT 'Year of graduation (NULL if not alumni)',
+  email VARCHAR(100) NULL UNIQUE COMMENT 'Email address',
+  login_email VARCHAR(100) NULL UNIQUE COMMENT 'Verified email for optional login',
+  pending_login_email VARCHAR(100) NULL COMMENT 'Pending email waiting for verification',
+  is_email_login_enabled BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'Email login activation status',
+  email_verified_at TIMESTAMP NULL COMMENT 'Email login verification timestamp',
+  email_verification_token_hash CHAR(64) NULL COMMENT 'SHA-256 hash of verification token',
+  email_verification_expires_at DATETIME NULL COMMENT 'Verification token expiry timestamp',
+  email_verification_sent_at DATETIME NULL COMMENT 'Last verification email sent timestamp',
+  email_verification_otp_hash CHAR(64) NULL COMMENT 'SHA-256 hash of 6-digit OTP for email verification',
+  no_hp VARCHAR(20) NULL COMMENT 'Phone number',
+  alamat TEXT NULL COMMENT 'Address',
+  user_id VARCHAR(36) UNIQUE NULL COMMENT 'FK to users table',
+  has_credentials BOOLEAN DEFAULT FALSE COMMENT 'Has login account',
+  last_login TIMESTAMP NULL COMMENT 'Last login',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Record creation',
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update',
+  INDEX idx_nim (nim),
+  INDEX idx_status (status),
+  INDEX idx_tahun_lulus (tahun_lulus),
+  INDEX idx_email (email),
+  INDEX idx_login_email (login_email),
+  INDEX idx_pending_login_email (pending_login_email),
+  INDEX idx_email_verification_token_hash (email_verification_token_hash),
+  INDEX idx_email_verification_otp_hash (email_verification_otp_hash),
+  INDEX idx_status_tahun (status, tahun_lulus),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT check_tahun_lulus CHECK (tahun_lulus IS NULL OR tahun_lulus >= tahun_masuk),
+  CONSTRAINT check_tahun_masuk CHECK (tahun_masuk > 1900 AND tahun_masuk < 2100)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Central student profile hub';
+
+-- =====================================================================
+-- 3. ADMINS TABLE - Admin Role Mapping
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS admins (
+  id VARCHAR(36) PRIMARY KEY COMMENT 'FK to users.id',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Admin creation date',
+  FOREIGN KEY (id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Admin role mapping';
+
+-- =====================================================================
+-- 4. TRACER_STUDY TABLE - Alumni Career Tracking
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS tracer_study (
+  id VARCHAR(36) PRIMARY KEY COMMENT 'UUID v4',
+  student_id VARCHAR(36) UNIQUE NOT NULL COMMENT 'FK to students (UNIQUE - one per student)',
+  email VARCHAR(100) NOT NULL COMMENT 'Contact email',
+  no_hp VARCHAR(20) NOT NULL COMMENT 'Phone number',
+  media_sosial VARCHAR(255) NULL COMMENT 'Social media handle',
+  linkedin VARCHAR(255) NULL COMMENT 'LinkedIn URL',
+  career_status ENUM('working', 'job_seeking', 'entrepreneur', 'further_study') NOT NULL COMMENT 'Career status',
+  tahun_pengisian INT NOT NULL COMMENT 'Year of submission',
+  employment_data JSON NULL COMMENT 'Employment details (career_status = working)',
+  job_seeking_data JSON NULL COMMENT 'Job seeking details (career_status = job_seeking)',
+  entrepreneurship_data JSON NULL COMMENT 'Business details (career_status = entrepreneur)',
+  further_study_data JSON NULL COMMENT 'Further study details (career_status = further_study)',
+  ringkasan_karir TEXT NULL COMMENT 'Career summary',
+  bersedia_dihubungi BOOLEAN DEFAULT FALSE COMMENT 'Willing to be contacted',
+  saran_komentar TEXT NULL COMMENT 'Suggestions/comments',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Submission date',
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update',
+  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+  INDEX idx_career_status (career_status),
+  INDEX idx_tahun_pengisian (tahun_pengisian),
+  INDEX idx_student_id (student_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Alumni career tracking (tracer study)';
+
+-- =====================================================================
+-- 5. ACHIEVEMENTS TABLE - Non-Academic Achievement Records
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS achievements (
+  id VARCHAR(36) PRIMARY KEY COMMENT 'UUID v4',
+  student_id VARCHAR(36) NOT NULL COMMENT 'FK to students',
+  category VARCHAR(50) NOT NULL COMMENT 'Achievement category',
+  subcategory VARCHAR(50) NOT NULL COMMENT 'Achievement subcategory',
+  achievement_type ENUM('academic', 'non_academic') NOT NULL DEFAULT 'non_academic' COMMENT 'Derived achievement classification',
+  title VARCHAR(255) NOT NULL COMMENT 'Achievement title',
+  description TEXT NULL COMMENT 'Detailed description',
+  tanggal DATE NOT NULL COMMENT 'Achievement date',
+  lokasi VARCHAR(255) NULL COMMENT 'Location',
+  penyelenggara VARCHAR(255) NULL COMMENT 'Organizer/institution',
+  tingkat ENUM('lokal', 'regional', 'nasional', 'internasional') NULL COMMENT 'Achievement level',
+  peringkat VARCHAR(100) NULL COMMENT 'Ranking/award (e.g., Juara 1, Finalist)',
+  verified BOOLEAN DEFAULT FALSE COMMENT 'Admin verified',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Record creation',
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update',
+  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+  INDEX idx_category (category),
+  INDEX idx_subcategory (subcategory),
+  INDEX idx_achievement_type (achievement_type),
+  INDEX idx_student_id (student_id),
+  INDEX idx_tanggal (tanggal DESC),
+  INDEX idx_student_category (student_id, category)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Non-academic achievements';
+
+-- =====================================================================
+-- 6. ACHIEVEMENT_ATTACHMENTS TABLE - File Storage Metadata
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS achievement_attachments (
+  id VARCHAR(36) PRIMARY KEY COMMENT 'UUID v4',
+  achievement_id VARCHAR(36) NOT NULL COMMENT 'FK to achievements',
+  file_name VARCHAR(255) NOT NULL COMMENT 'Original filename',
+  file_type VARCHAR(50) NOT NULL COMMENT 'MIME type (e.g., application/pdf)',
+  file_size INT NOT NULL COMMENT 'File size in bytes',
+  file_path VARCHAR(500) NOT NULL COMMENT 'URL or server path to file',
+  uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Upload timestamp',
+  deleted_at TIMESTAMP NULL COMMENT 'Soft delete timestamp (Recycle Bin)',
+  deleted_by VARCHAR(36) NULL COMMENT 'Admin/system actor id that moved attachment to Recycle Bin',
+  FOREIGN KEY (achievement_id) REFERENCES achievements(id) ON DELETE CASCADE,
+  INDEX idx_achievement_id (achievement_id),
+  INDEX idx_achievement_attachments_deleted_at (deleted_at),
+  INDEX idx_achievement_attachments_deleted_by (deleted_by),
+  CONSTRAINT check_file_size CHECK (file_size > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Achievement file attachments metadata';
+
+-- =====================================================================
+-- 7. EVALUATIONS TABLE - Graduate Evaluation Campaign
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS evaluations (
+  id VARCHAR(36) PRIMARY KEY COMMENT 'UUID-like id',
+  title VARCHAR(255) NOT NULL COMMENT 'Evaluation title',
+  short_message VARCHAR(500) NULL COMMENT 'Short notification message',
+  status ENUM('active', 'closed') NOT NULL DEFAULT 'active' COMMENT 'Evaluation lifecycle status',
+  start_at DATETIME NOT NULL COMMENT 'Evaluation start date-time',
+  end_at DATETIME NULL COMMENT 'Evaluation end date-time',
+  reminder_enabled BOOLEAN DEFAULT TRUE COMMENT 'Enable automatic reminder',
+  reminder_interval_days INT NOT NULL DEFAULT 7 COMMENT 'Auto reminder interval in days',
+  created_by VARCHAR(36) NOT NULL COMMENT 'FK to users (admin creator)',
+  closed_by VARCHAR(36) NULL COMMENT 'FK to users (admin closer)',
+  closed_at TIMESTAMP NULL COMMENT 'Closed timestamp',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Creation timestamp',
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update timestamp',
+  deleted_at TIMESTAMP NULL COMMENT 'Soft delete timestamp (Recycle Bin)',
+  deleted_by VARCHAR(36) NULL COMMENT 'Admin/system actor id that moved evaluation to Recycle Bin',
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT,
+  FOREIGN KEY (closed_by) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT check_evaluation_period CHECK (end_at IS NULL OR end_at >= start_at),
+  CONSTRAINT check_reminder_days CHECK (reminder_interval_days >= 1 AND reminder_interval_days <= 365),
+  INDEX idx_evaluations_status (status),
+  INDEX idx_evaluations_period (start_at, end_at),
+  INDEX idx_evaluations_creator (created_by),
+  INDEX idx_evaluations_deleted_at (deleted_at),
+  INDEX idx_evaluations_deleted_by (deleted_by)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Graduate evaluation campaigns';
+
+-- =====================================================================
+-- 8. EVALUATION_ASPECTS TABLE - Master Aspect Configuration
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS evaluation_aspects (
+  id VARCHAR(36) PRIMARY KEY COMMENT 'UUID-like id',
+  code VARCHAR(50) NOT NULL UNIQUE COMMENT 'Stable aspect code',
+  name VARCHAR(255) NOT NULL COMMENT 'Aspect display label',
+  sort_order INT NOT NULL COMMENT 'Display order',
+  is_active BOOLEAN DEFAULT TRUE COMMENT 'Aspect active flag',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Creation timestamp',
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update timestamp',
+  CONSTRAINT check_aspect_sort_order CHECK (sort_order > 0),
+  INDEX idx_aspects_active_order (is_active, sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Master list of evaluation aspects';
+
+-- =====================================================================
+-- 9. EVALUATION_INVITATIONS TABLE - Alumni Invitation Tracking
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS evaluation_invitations (
+  id VARCHAR(36) PRIMARY KEY COMMENT 'UUID-like id',
+  evaluation_id VARCHAR(36) NOT NULL COMMENT 'FK to evaluations',
+  student_id VARCHAR(36) NOT NULL COMMENT 'FK to students (alumni target)',
+  user_id VARCHAR(36) NULL COMMENT 'FK to users (student account)',
+  access_token VARCHAR(128) NOT NULL UNIQUE COMMENT 'Secure survey access token',
+  first_sent_at TIMESTAMP NULL COMMENT 'First invitation sent timestamp',
+  last_sent_at TIMESTAMP NULL COMMENT 'Latest invitation/reminder sent timestamp',
+  send_count INT NOT NULL DEFAULT 0 COMMENT 'How many times invitation/reminder sent',
+  submitted_at TIMESTAMP NULL COMMENT 'Survey submission timestamp',
+  created_by VARCHAR(36) NULL COMMENT 'FK to users (admin sender/creator)',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Creation timestamp',
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update timestamp',
+  FOREIGN KEY (evaluation_id) REFERENCES evaluations(id) ON DELETE CASCADE,
+  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  CONSTRAINT unique_evaluation_student UNIQUE (evaluation_id, student_id),
+  CONSTRAINT check_send_count CHECK (send_count >= 0),
+  INDEX idx_invitations_evaluation (evaluation_id),
+  INDEX idx_invitations_student (student_id),
+  INDEX idx_invitations_user_id (user_id),
+  INDEX idx_invitations_submitted (submitted_at),
+  INDEX idx_invitations_reminder_due (submitted_at, last_sent_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Invitation mapping between evaluation and alumni';
+
+-- =====================================================================
+-- 10. EVALUATION_RESPONSES TABLE - Survey Header Responses
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS evaluation_responses (
+  id VARCHAR(36) PRIMARY KEY COMMENT 'UUID-like id',
+  evaluation_id VARCHAR(36) NOT NULL COMMENT 'FK to evaluations',
+  invitation_id VARCHAR(36) NOT NULL COMMENT 'FK to evaluation_invitations',
+  student_id VARCHAR(36) NOT NULL COMMENT 'FK to students',
+  company_name VARCHAR(255) NOT NULL COMMENT 'Company name',
+  company_address TEXT NOT NULL COMMENT 'Company address',
+  employee_name VARCHAR(255) NOT NULL COMMENT 'Employee being evaluated',
+  graduation_year INT NOT NULL COMMENT 'Graduation year of employee',
+  study_program VARCHAR(150) NOT NULL COMMENT 'Study program',
+  current_work_division VARCHAR(255) NOT NULL COMMENT 'Current work division/field',
+  major_job_match ENUM('ya', 'tidak') NOT NULL COMMENT 'Is major relevant to current work',
+  submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Response submission timestamp',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Creation timestamp',
+  FOREIGN KEY (evaluation_id) REFERENCES evaluations(id) ON DELETE CASCADE,
+  FOREIGN KEY (invitation_id) REFERENCES evaluation_invitations(id) ON DELETE RESTRICT,
+  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+  CONSTRAINT unique_response_invitation UNIQUE (invitation_id),
+  CONSTRAINT unique_response_evaluation_student UNIQUE (evaluation_id, student_id),
+  INDEX idx_responses_evaluation (evaluation_id),
+  INDEX idx_responses_student (student_id),
+  INDEX idx_responses_match (major_job_match),
+  INDEX idx_responses_submitted (submitted_at DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Survey response header data';
+
+-- =====================================================================
+-- 11. EVALUATION_RESPONSE_RATINGS TABLE - Aspect Scores
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS evaluation_response_ratings (
+  id VARCHAR(36) PRIMARY KEY COMMENT 'UUID-like id',
+  response_id VARCHAR(36) NOT NULL COMMENT 'FK to evaluation_responses',
+  aspect_id VARCHAR(36) NOT NULL COMMENT 'FK to evaluation_aspects',
+  score TINYINT UNSIGNED NOT NULL COMMENT 'Rating score: 1-5',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Creation timestamp',
+  FOREIGN KEY (response_id) REFERENCES evaluation_responses(id) ON DELETE CASCADE,
+  FOREIGN KEY (aspect_id) REFERENCES evaluation_aspects(id) ON DELETE RESTRICT,
+  CONSTRAINT unique_response_aspect UNIQUE (response_id, aspect_id),
+  CONSTRAINT check_rating_score CHECK (score >= 1 AND score <= 5),
+  INDEX idx_ratings_aspect (aspect_id),
+  INDEX idx_ratings_score (score),
+  INDEX idx_ratings_aspect_score (aspect_id, score)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Per-aspect rating values for each response';
+
+-- =====================================================================
+-- 12. STUDENT_NOTIFICATIONS TABLE - In-app Notification Feed
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS student_notifications (
+  id VARCHAR(36) PRIMARY KEY COMMENT 'UUID-like id',
+  student_id VARCHAR(36) NOT NULL COMMENT 'FK to students',
+  evaluation_id VARCHAR(36) NULL COMMENT 'FK to evaluations (nullable)',
+  invitation_id VARCHAR(36) NULL COMMENT 'FK to evaluation_invitations (nullable)',
+  type ENUM('invitation', 'reminder') NOT NULL COMMENT 'Notification type',
+  title VARCHAR(255) NOT NULL COMMENT 'Notification title',
+  message VARCHAR(500) NOT NULL COMMENT 'Notification message',
+  link_path VARCHAR(500) NOT NULL COMMENT 'Frontend route/path with token',
+  is_read BOOLEAN DEFAULT FALSE COMMENT 'Read status',
+  read_at TIMESTAMP NULL COMMENT 'Read timestamp',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Creation timestamp',
+  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+  FOREIGN KEY (evaluation_id) REFERENCES evaluations(id) ON DELETE SET NULL,
+  FOREIGN KEY (invitation_id) REFERENCES evaluation_invitations(id) ON DELETE SET NULL,
+  INDEX idx_notifications_student (student_id),
+  INDEX idx_notifications_read (student_id, is_read),
+  INDEX idx_notifications_created (created_at DESC),
+  INDEX idx_notifications_evaluation (evaluation_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='In-app notification storage for students';
+
+-- =====================================================================
+-- EVALUATION_TOKEN_BLACKLIST - Superseded tokens when admin resends link
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS evaluation_token_blacklist (
+  token VARCHAR(128) PRIMARY KEY COMMENT 'Superseded access_token',
+  evaluation_id VARCHAR(36) NOT NULL COMMENT 'FK to evaluations',
+  invalidated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'When token was replaced by resend',
+  INDEX idx_blacklist_evaluation (evaluation_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Tokens invalidated when admin resends evaluation link';
+
+-- =====================================================================
+-- ADDITIONAL INDEXES FOR PERFORMANCE
+-- (Jalankan sekali; jika index sudah ada akan error - aman diabaikan)
+-- =====================================================================
+CREATE INDEX idx_students_status_tahun ON students(status, tahun_lulus DESC);
+CREATE INDEX idx_achievements_date ON achievements(tanggal DESC);
+CREATE INDEX idx_tracer_tahun ON tracer_study(tahun_pengisian DESC);
+CREATE INDEX idx_invitations_eval_submission ON evaluation_invitations(evaluation_id, submitted_at);
+CREATE INDEX idx_responses_eval_match ON evaluation_responses(evaluation_id, major_job_match);
+
+-- =====================================================================
+-- VIEWS (Optional, for reporting)
+-- =====================================================================
+DROP VIEW IF EXISTS v_student_achievements_summary;
+DROP VIEW IF EXISTS v_alumni_overview;
+
+CREATE VIEW v_alumni_overview AS
+SELECT
+  s.id,
+  s.nim,
+  s.nama,
+  s.tahun_lulus,
+  s.email,
+  s.no_hp,
+  t.career_status,
+  t.tahun_pengisian,
+  COUNT(DISTINCT a.id) AS total_achievements
+FROM students s
+LEFT JOIN tracer_study t ON s.id = t.student_id
+LEFT JOIN achievements a ON s.id = a.student_id
+WHERE (
+  CASE
+    WHEN s.status_mode = 'manual' THEN s.status
+    WHEN s.status_mode = 'auto' THEN
+      CASE
+        WHEN s.tahun_lulus IS NOT NULL AND s.tahun_lulus <= YEAR(CURDATE()) THEN 'alumni'
+        WHEN s.tahun_lulus IS NULL AND YEAR(CURDATE()) >= (s.tahun_masuk + 4) THEN 'alumni'
+        ELSE 'active'
+      END
+    ELSE s.status
+  END
+) = 'alumni'
+GROUP BY s.id, s.nim, s.nama, s.tahun_lulus, s.email, s.no_hp, t.career_status, t.tahun_pengisian;
+
+CREATE VIEW v_student_achievements_summary AS
+SELECT
+  s.id,
+  s.nim,
+  s.nama,
+  s.status,
+  COUNT(a.id) AS total_achievements,
+  COUNT(DISTINCT a.category) AS total_categories,
+  COUNT(CASE WHEN a.verified = TRUE THEN 1 ELSE NULL END) AS verified_achievements,
+  MAX(a.tanggal) AS latest_achievement_date
+FROM students s
+LEFT JOIN achievements a ON s.id = a.student_id
+GROUP BY s.id, s.nim, s.nama, s.status;
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- =====================================================================
+-- Optional: metadata tambahan untuk luaran penelitian (jika tabel SSOT sudah ada)
+-- =====================================================================
+SET @has_pki := (
+  SELECT COUNT(*)
+  FROM information_schema.TABLES
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'prestasi_kekayaan_intelektual'
+);
+SET @sql := IF(@has_pki > 0,
+  "ALTER TABLE prestasi_kekayaan_intelektual
+    ADD COLUMN IF NOT EXISTS jenis_perolehan ENUM('mandiri','kolaborasi_dosen') NULL AFTER deskripsi,
+    ADD COLUMN IF NOT EXISTS nama_dosen VARCHAR(255) NULL AFTER jenis_perolehan,
+    ADD COLUMN IF NOT EXISTS url_publikasi VARCHAR(500) NULL AFTER nama_dosen",
+  'SELECT 1'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- =====================================================================
+-- SEED DATA - Data awal (admin + aspek evaluasi)
+-- =====================================================================
+-- Admin: username=admin, password=admin123
+INSERT IGNORE INTO users (id, username, password_hash, nama, role, created_at, is_active) VALUES
+('admin-001', 'admin', '$2y$10$hrLNnB/vm3jGnUZNl5KpMOZ4F00A2siE/1C0q26JfCt58ER3QSiJq', 'Administrator ARSIP MAHASISWA ABT', 'admin', NOW(), TRUE);
+
+INSERT IGNORE INTO admins (id, created_at) VALUES
+('admin-001', NOW());
+
+-- Aspek evaluasi lulusan (survey kepuasan)
+INSERT IGNORE INTO evaluation_aspects (id, code, name, sort_order, is_active, created_at, updated_at) VALUES
+('asp-001', 'etika', 'Etika', 1, TRUE, NOW(), NOW()),
+('asp-002', 'kompetensi_utama', 'Keahlian pada bidang ilmu (kompetensi utama)', 2, TRUE, NOW(), NOW()),
+('asp-003', 'bahasa_asing', 'Kemampuan berbahasa asing', 3, TRUE, NOW(), NOW()),
+('asp-004', 'teknologi_informasi', 'Penggunaan teknologi informasi', 4, TRUE, NOW(), NOW()),
+('asp-005', 'komunikasi', 'Kemampuan berkomunikasi', 5, TRUE, NOW(), NOW()),
+('asp-006', 'kerjasama', 'Kerjasama', 6, TRUE, NOW(), NOW()),
+('asp-007', 'pengembangan_diri', 'Pengembangan diri', 7, TRUE, NOW(), NOW()),
+('asp-008', 'loyalitas_tujuan', 'Loyalitas terhadap tujuan perusahaan', 8, TRUE, NOW(), NOW()),
+('asp-009', 'integritas_pergaulan', 'Integritas diri dalam pergaulan di perusahaan', 9, TRUE, NOW(), NOW()),
+('asp-010', 'manajemen_waktu', 'Kemampuan mengelola waktu kerja', 10, TRUE, NOW(), NOW());
+
+-- =====================================================================
+-- SELESAI - Database siap dipakai
+-- =====================================================================

@@ -4,7 +4,7 @@
  * Provides full CRUD for all career status types (bekerja/wirausaha/studi/mencari)
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -66,6 +66,24 @@ export const CAREER_STATUS_CONFIG = {
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 15 }, (_, i) => currentYear - i);
 
+const MONTH_LABELS: Record<number, string> = {
+  1: 'Januari', 2: 'Februari', 3: 'Maret', 4: 'April', 5: 'Mei', 6: 'Juni',
+  7: 'Juli', 8: 'Agustus', 9: 'September', 10: 'Oktober', 11: 'November', 12: 'Desember',
+};
+const months = Array.from({ length: 12 }, (_, i) => i + 1);
+
+const WORK_SCOPE_OPTIONS_BEKERJA = [
+  { value: 'local', label: 'Lokal/Wilayah' },
+  { value: 'national', label: 'Nasional' },
+  { value: 'multinational', label: 'Multinasional/ Internasional' },
+] as const;
+
+const WORK_SCOPE_OPTIONS_WIRAUSAHA = [
+  { value: 'local', label: 'Lokal/Wilayah/ Berwirausaha tidak Berizin' },
+  { value: 'national', label: 'Nasional/ Berwirausaha Berizin' },
+  { value: 'multinational', label: 'Multinasional/ Internasional' },
+] as const;
+
 // Validation schema
 const careerFormSchema = z.object({
   status: z.enum(['bekerja', 'wirausaha', 'studi', 'mencari'], {
@@ -86,13 +104,17 @@ export interface CareerFormData {
   lokasiPerusahaan?: string;
   bidangIndustri?: string;
   tahunMulaiKerja?: number;
+  bulanMulaiKerja?: number; // 1-12, untuk kalkulasi waktu tunggu lulusan
   tahunSelesaiKerja?: number;
   masihAktifKerja?: boolean;
+  /** Cakupan tempat kerja: local | national | multinational */
+  cakupanTempatKerja?: string;
   // Wirausaha fields
   namaUsaha?: string;
   jenisUsaha?: string;
   lokasiUsaha?: string;
   tahunMulaiUsaha?: number;
+  bulanMulaiUsaha?: number; // 1-12
   usahaAktif?: boolean;
   // Studi fields
   namaKampus?: string;
@@ -131,14 +153,14 @@ export function CareerFormModal({
   const [formData, setFormData] = useState<CareerFormData>(() => getInitialFormData(editData));
   const [originalFormData, setOriginalFormData] = useState<CareerFormData>(() => getInitialFormData(editData));
 
-  // Reset form when editData changes
-  useState(() => {
+  // Reset form when modal opens or editData changes
+  useEffect(() => {
     if (open) {
       const initial = getInitialFormData(editData);
       setFormData(initial);
       setOriginalFormData(initial);
     }
-  });
+  }, [open, editData]);
 
   // Check for unsaved changes
   const hasUnsavedChanges = useMemo(() => {
@@ -204,7 +226,7 @@ export function CareerFormModal({
     } catch (error) {
       toast({
         title: 'Gagal menyimpan',
-        description: 'Terjadi kesalahan saat menyimpan data.',
+        description: error instanceof Error ? error.message : 'Terjadi kesalahan saat menyimpan data.',
         variant: 'destructive',
       });
     } finally {
@@ -219,7 +241,7 @@ export function CareerFormModal({
   return (
     <>
       <Dialog open={open} onOpenChange={handleClose}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               {mode === 'add' ? 'Tambah Riwayat Karir' : 'Edit Riwayat Karir'}
@@ -286,7 +308,7 @@ export function CareerFormModal({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-4 border-t">
+          <div className="flex flex-col-reverse gap-3 border-t pt-4 sm:flex-row">
             <Button variant="outline" onClick={handleClose} className="flex-1" disabled={isSaving}>
               Batal
             </Button>
@@ -339,13 +361,16 @@ function getInitialFormData(editData?: Partial<AlumniData> | null): CareerFormDa
       lokasiPerusahaan: editData.lokasiPerusahaan,
       bidangIndustri: editData.bidangIndustri,
       tahunMulaiKerja: editData.tahunMulaiKerja,
+      bulanMulaiKerja: editData.bulanMulaiKerja,
       tahunSelesaiKerja: editData.tahunSelesaiKerja,
       masihAktifKerja: editData.masihAktifKerja ?? true,
+      cakupanTempatKerja: editData.cakupanTempatKerja,
       // Wirausaha
       namaUsaha: editData.namaUsaha,
       jenisUsaha: editData.jenisUsaha,
       lokasiUsaha: editData.lokasiUsaha,
       tahunMulaiUsaha: editData.tahunMulaiUsaha,
+      bulanMulaiUsaha: editData.bulanMulaiUsaha,
       usahaAktif: editData.usahaAktif ?? true,
       // Studi
       namaKampus: editData.namaKampus,
@@ -385,7 +410,7 @@ function BekerjaFields({ formData, updateField }: FieldProps) {
     <div className="space-y-4 p-4 rounded-lg bg-muted/30 border border-border">
       <h4 className="font-medium text-sm text-muted-foreground">Detail Pekerjaan</h4>
       
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Nama Perusahaan *</Label>
           <Input
@@ -404,7 +429,7 @@ function BekerjaFields({ formData, updateField }: FieldProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Lokasi</Label>
           <Input
@@ -423,7 +448,29 @@ function BekerjaFields({ formData, updateField }: FieldProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="space-y-2">
+        <Label>Cakupan tempat kerja</Label>
+        <Select
+          value={formData.cakupanTempatKerja || ''}
+          onValueChange={(v) => updateField('cakupanTempatKerja', v)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Pilih cakupan" />
+          </SelectTrigger>
+          <SelectContent>
+            {WORK_SCOPE_OPTIONS_BEKERJA.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Lokal/Wilayah; Nasional; atau Multinasional/Internasional (untuk statistik Cakupan Kerja tab Bekerja)
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Tahun Mulai *</Label>
           <Select 
@@ -440,7 +487,26 @@ function BekerjaFields({ formData, updateField }: FieldProps) {
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-2">
+          <Label>Bulan Mulai Bekerja</Label>
+          <Select 
+            value={formData.bulanMulaiKerja?.toString() || ''} 
+            onValueChange={(v) => updateField('bulanMulaiKerja', parseInt(v))}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Pilih bulan" />
+            </SelectTrigger>
+            <SelectContent>
+              {months.map((m) => (
+                <SelectItem key={m} value={m.toString()}>{MONTH_LABELS[m]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">Untuk perhitungan waktu tunggu lulusan lebih akurat</p>
+        </div>
+      </div>
 
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {/* Tahun Selesai - Conditional */}
         <div className={cn(
           "space-y-2 transition-opacity duration-200",
@@ -494,7 +560,7 @@ function WirausahaFields({ formData, updateField }: FieldProps) {
     <div className="space-y-4 p-4 rounded-lg bg-muted/30 border border-border">
       <h4 className="font-medium text-sm text-muted-foreground">Detail Wirausaha</h4>
       
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Nama Usaha *</Label>
           <Input
@@ -513,7 +579,7 @@ function WirausahaFields({ formData, updateField }: FieldProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Lokasi</Label>
           <Input
@@ -522,6 +588,31 @@ function WirausahaFields({ formData, updateField }: FieldProps) {
             placeholder="Kota operasional"
           />
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Level Wirausaha</Label>
+        <Select
+          value={formData.cakupanTempatKerja || ''}
+          onValueChange={(v) => updateField('cakupanTempatKerja', v)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Pilih level wirausaha" />
+          </SelectTrigger>
+          <SelectContent>
+            {WORK_SCOPE_OPTIONS_WIRAUSAHA.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Untuk statistik Cakupan Kerja tab Wirausaha
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Tahun Mulai *</Label>
           <Select 
@@ -537,6 +628,23 @@ function WirausahaFields({ formData, updateField }: FieldProps) {
               ))}
             </SelectContent>
           </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Bulan Mulai Usaha</Label>
+          <Select 
+            value={formData.bulanMulaiUsaha?.toString() || ''} 
+            onValueChange={(v) => updateField('bulanMulaiUsaha', parseInt(v))}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Pilih bulan" />
+            </SelectTrigger>
+            <SelectContent>
+              {months.map((m) => (
+                <SelectItem key={m} value={m.toString()}>{MONTH_LABELS[m]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">Untuk perhitungan waktu tunggu lulusan lebih akurat</p>
         </div>
       </div>
 
@@ -567,7 +675,7 @@ function StudiFields({ formData, updateField }: FieldProps) {
     <div className="space-y-4 p-4 rounded-lg bg-muted/30 border border-border">
       <h4 className="font-medium text-sm text-muted-foreground">Detail Studi Lanjut</h4>
       
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Nama Kampus *</Label>
           <Input
@@ -586,7 +694,7 @@ function StudiFields({ formData, updateField }: FieldProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Jenjang *</Label>
           <Select 
@@ -613,7 +721,7 @@ function StudiFields({ formData, updateField }: FieldProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Tahun Mulai *</Label>
           <Select 
@@ -681,7 +789,7 @@ function MencariFields({ formData, updateField }: FieldProps) {
     <div className="space-y-4 p-4 rounded-lg bg-muted/30 border border-border">
       <h4 className="font-medium text-sm text-muted-foreground">Detail Pencarian Kerja</h4>
       
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Bidang yang Diincar</Label>
           <Input
