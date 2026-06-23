@@ -15,12 +15,13 @@ date_default_timezone_set('Asia/Jakarta');
 
 // Get database credentials from environment or use defaults
 $host = getenv('DB_HOST') ?: 'localhost';
+$port = getenv('DB_PORT') ?: '3306';
 $db = getenv('DB_NAME') ?: 'arsipmhs';
 $user = getenv('DB_USER') ?: 'root';
 $pass = getenv('DB_PASS') ?: '';
 $charset = getenv('DB_CHARSET') ?: 'utf8mb4';
 
-$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+$dsn = "mysql:host=$host;port=$port;dbname=$db;charset=$charset";
 
 try {
     $pdo = new PDO($dsn, $user, $pass, [

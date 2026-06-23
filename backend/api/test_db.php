@@ -6,7 +6,7 @@ require_once __DIR__ . '/../config/cors.php';
  */
 
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
@@ -28,6 +28,7 @@ try {
     // 1. Test Database Config
     $result['database_config'] = [
         'host' => $host ?? 'not set',
+        'port' => $port ?? 'not set',
         'database' => $db ?? 'not set',
         'user' => $user ?? 'not set',
         'charset' => $charset ?? 'not set'

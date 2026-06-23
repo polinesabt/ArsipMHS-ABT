@@ -2,7 +2,6 @@ import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { HowItWorksSection } from '@/components/landing/HowItWorksSection';
-import { FAQSection } from '@/components/landing/FAQSection';
 
 /**
  * Landing Page
@@ -15,7 +14,6 @@ const Index = () => {
       <main className="pt-16">
         <HeroSection />
         <HowItWorksSection />
-        <FAQSection />
       </main>
       <Footer />
     </div>
