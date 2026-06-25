@@ -1351,7 +1351,10 @@ export function ChartRecordsTableEmbedded({ section, activeTab = null, onRecords
 
   const totalPages = Math.max(1, Math.ceil(total / PER_PAGE));
   const label = SECTION_LABELS[section] ?? section;
-  const safeRecords = Array.isArray(records) ? records : [];
+  const safeRecords = useMemo(
+    () => (Array.isArray(records) ? records : []),
+    [records]
+  );
   const allSelected = safeRecords.length > 0 && selectedIds.length === safeRecords.length;
   const someSelected = selectedIds.length > 0 && !allSelected;
   const publicationTab = resolvePublicationTableTab(activeTab);

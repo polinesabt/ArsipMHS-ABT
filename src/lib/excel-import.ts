@@ -9,7 +9,7 @@
 
 import type { StudentAccountInput, StudentStatus, StudentStatusMode } from '@/types/student.types';
 
-export interface ParsedStudentAccount extends StudentAccountInput {}
+export type ParsedStudentAccount = StudentAccountInput;
 
 export interface ImportResult {
   accounts: ParsedStudentAccount[];

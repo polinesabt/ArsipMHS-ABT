@@ -40,7 +40,7 @@ export function StudentProducts() {
     return () => { cancelled = true; };
   }, [yearParam]);
 
-  const byCategory = data?.by_category ?? [];
+  const byCategory = useMemo(() => data?.by_category ?? [], [data?.by_category]);
   const total = data?.total ?? 0;
   const chartData = useMemo(
     () =>

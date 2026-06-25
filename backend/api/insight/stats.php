@@ -7,6 +7,7 @@ require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/auth.php';
 require_once __DIR__ . '/stats_from_records.php';
+require_once __DIR__ . '/stats_cache.php';
 require_once __DIR__ . '/sync_helpers.php';
 
 function resolveInsightTabForSection(string $section, string $rawTab): ?string {
@@ -89,13 +90,22 @@ try {
     }
 
     $meta = getChartMeta($pdo, $section);
+    $cacheKey = buildInsightStatsCacheKey($section, $yearFilter, $tabFilter, $meta['last_synced_at'] ?? null);
+    $cachedResponse = loadInsightStatsCache($cacheKey);
+    if ($cachedResponse !== null) {
+        echo json_encode($cachedResponse);
+        exit();
+    }
 
-    echo json_encode([
+    $response = [
         'success' => true,
         'data' => $data,
         'section' => $section,
         'meta' => $meta,
-    ]);
+    ];
+
+    saveInsightStatsCache($cacheKey, $response);
+    echo json_encode($response);
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode([

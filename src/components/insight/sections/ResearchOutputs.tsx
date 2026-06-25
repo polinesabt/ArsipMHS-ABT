@@ -70,16 +70,19 @@ export function ResearchOutputs({ activeTab, onActiveTabChange }: ResearchOutput
     };
   }, [tab, yearParam]);
 
-  const ip = data?.intellectual_property ?? [];
-  const tech = data?.technology ?? { softwareDevelopment: 0, products: 0, breakdown: [] };
-  const other = data?.other ?? [];
+  const ip = useMemo(() => data?.intellectual_property ?? [], [data?.intellectual_property]);
+  const tech = useMemo(() => data?.technology ?? { softwareDevelopment: 0, products: 0, breakdown: [] }, [data?.technology]);
+  const other = useMemo(() => data?.other ?? [], [data?.other]);
   const totalHaki = ip.reduce((sum, item) => sum + item.count, 0);
-  const technologyBreakdown = Array.isArray(tech.breakdown) && tech.breakdown.length > 0
-    ? tech.breakdown
-    : [
-        { name: 'Pengembangan Software', key: 'software_development', count: tech.softwareDevelopment ?? 0 },
-        { name: 'Produk Teknologi', key: 'technology_product', count: tech.products ?? 0 },
-      ];
+  const technologyBreakdown = useMemo(
+    () => (Array.isArray(tech.breakdown) && tech.breakdown.length > 0
+      ? tech.breakdown
+      : [
+          { name: 'Pengembangan Software', key: 'software_development', count: tech.softwareDevelopment ?? 0 },
+          { name: 'Produk Teknologi', key: 'technology_product', count: tech.products ?? 0 },
+        ]),
+    [tech]
+  );
   const totalTech = technologyBreakdown.reduce((sum, item) => sum + (item.count ?? 0), 0);
   const totalOther = other.reduce((sum, item) => sum + item.count, 0);
   const hakiChartData = ip

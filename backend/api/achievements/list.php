@@ -23,6 +23,16 @@ function achievement_list_has_column(PDO $pdo, string $table, string $column): b
     return $cache[$cacheKey];
 }
 
+function achievement_list_get_config_from_row(array $row): ?array {
+    $category = isset($row['category']) ? trim((string)$row['category']) : '';
+    $subcategory = isset($row['subcategory']) ? trim((string)$row['subcategory']) : '';
+    if ($category === '') {
+        return null;
+    }
+
+    return achievement_store_resolve_from_legacy($category, $subcategory);
+}
+
 try {
     $category = $_GET['category'] ?? null;
     $student_id = $_GET['student_id'] ?? null;
@@ -105,31 +115,64 @@ try {
     // Lampiran selalu diambil dari tabel prestasi_*_attachments (tidak pakai view) agar konsisten di production
     if ($includeAttachments && count($achievements) > 0) {
         $groupedAttachments = [];
+        $attachmentGroups = [];
         foreach ($achievements as $row) {
             $aid = $row['id'] ?? null;
             if ($aid === null || $aid === '') {
                 continue;
             }
-            $found = achievement_store_find_record($pdo, $aid);
-            if (!$found) {
+            $config = achievement_list_get_config_from_row($row);
+            if (!$config) {
                 $groupedAttachments[$aid] = [];
                 continue;
             }
-            $config = $found['config'];
-            $fk = $config['attachment_fk'];
+
             $table = $config['attachment_table'];
-            $sqlWithDeleted = "SELECT id, $fk AS achievement_id, file_name, file_type, file_size, file_path, uploaded_at FROM $table WHERE $fk = ? AND deleted_at IS NULL ORDER BY uploaded_at ASC";
-            $sqlNoDeleted = "SELECT id, $fk AS achievement_id, file_name, file_type, file_size, file_path, uploaded_at FROM $table WHERE $fk = ? ORDER BY uploaded_at ASC";
+            $fk = $config['attachment_fk'];
+            $groupKey = $table . '|' . $fk;
+
+            if (!isset($attachmentGroups[$groupKey])) {
+                $attachmentGroups[$groupKey] = [
+                    'table' => $table,
+                    'fk' => $fk,
+                    'ids' => [],
+                ];
+            }
+            $attachmentGroups[$groupKey]['ids'][] = $aid;
+        }
+
+        foreach ($attachmentGroups as $group) {
+            $table = $group['table'];
+            $fk = $group['fk'];
+            $ids = array_values(array_unique($group['ids']));
+            if (count($ids) === 0) {
+                continue;
+            }
+
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $sqlWithDeleted = "SELECT id, $fk AS achievement_id, file_name, file_type, file_size, file_path, uploaded_at FROM $table WHERE $fk IN ($placeholders) AND deleted_at IS NULL ORDER BY uploaded_at ASC";
+            $sqlNoDeleted = "SELECT id, $fk AS achievement_id, file_name, file_type, file_size, file_path, uploaded_at FROM $table WHERE $fk IN ($placeholders) ORDER BY uploaded_at ASC";
+
             try {
                 $attStmt = $pdo->prepare($sqlWithDeleted);
-                $attStmt->execute([$aid]);
-                $groupedAttachments[$aid] = $attStmt->fetchAll(PDO::FETCH_ASSOC);
+                $attStmt->execute($ids);
             } catch (Throwable $e) {
                 $attStmt = $pdo->prepare($sqlNoDeleted);
-                $attStmt->execute([$aid]);
-                $groupedAttachments[$aid] = $attStmt->fetchAll(PDO::FETCH_ASSOC);
+                $attStmt->execute($ids);
+            }
+
+            while ($attachment = $attStmt->fetch(PDO::FETCH_ASSOC)) {
+                $achievementId = $attachment['achievement_id'] ?? null;
+                if ($achievementId === null || $achievementId === '') {
+                    continue;
+                }
+                if (!isset($groupedAttachments[$achievementId])) {
+                    $groupedAttachments[$achievementId] = [];
+                }
+                $groupedAttachments[$achievementId][] = $attachment;
             }
         }
+
         foreach ($achievements as &$achievement) {
             $achievementId = $achievement['id'] ?? '';
             $achievement['attachments'] = $groupedAttachments[$achievementId] ?? [];

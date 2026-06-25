@@ -210,34 +210,20 @@ export default function CareerHistoryPage() {
       navigate('/validasi');
       return;
     }
-    
     const studentStatus: StudentStatus = (selectedAlumni as any).status || 'alumni';
     if (!isCareerHistoryVisible(studentStatus)) {
       navigate('/dashboard');
     }
   }, [selectedAlumni, navigate]);
 
-  // Check if form has unsaved changes
-  const hasUnsavedChanges = useMemo(() => {
-    if (!originalFormData) return false;
-    return (
-      editFormData.status !== originalFormData.status ||
-      editFormData.title !== originalFormData.title ||
-      editFormData.subtitle !== originalFormData.subtitle ||
-      editFormData.location !== originalFormData.location ||
-      editFormData.industry !== originalFormData.industry ||
-      editFormData.year !== originalFormData.year ||
-      editFormData.isActive !== originalFormData.isActive ||
-      editFormData.workScope !== originalFormData.workScope
-    );
-  }, [editFormData, originalFormData]);
-
-  if (!selectedAlumni) return null;
-
-  const alumniHistory = getAlumniDataByMasterId(selectedAlumni.id);
+  // Define all derived values and memos before early return to ensure consistent hook order
+  const alumniHistory = useMemo(
+    () => (selectedAlumni ? getAlumniDataByMasterId(selectedAlumni.id) : []),
+    [selectedAlumni, getAlumniDataByMasterId]
+  );
 
   // Transform career history data
-  const careerItems: CareerItem[] = alumniHistory.map((data) => {
+  const careerItems: CareerItem[] = useMemo(() => alumniHistory.map((data) => {
     let title = '';
     let subtitle = '';
     let location = '';
@@ -278,7 +264,22 @@ export default function CareerHistoryPage() {
       period,
       isActive: data.isActive !== undefined ? data.isActive : true, // Default to true if not set
     };
-  });
+  }), [alumniHistory]);
+
+  // Check if form has unsaved changes
+  const hasUnsavedChanges = useMemo(() => {
+    if (!originalFormData) return false;
+    return (
+      editFormData.status !== originalFormData.status ||
+      editFormData.title !== originalFormData.title ||
+      editFormData.subtitle !== originalFormData.subtitle ||
+      editFormData.location !== originalFormData.location ||
+      editFormData.industry !== originalFormData.industry ||
+      editFormData.year !== originalFormData.year ||
+      editFormData.isActive !== originalFormData.isActive ||
+      editFormData.workScope !== originalFormData.workScope
+    );
+  }, [editFormData, originalFormData]);
 
   // Get unique years for filter
   const availableYears = useMemo(() => {
@@ -545,6 +546,8 @@ export default function CareerHistoryPage() {
     editFormData.status === 'wirausaha'
       ? WORK_SCOPE_OPTIONS_WIRAUSAHA
       : WORK_SCOPE_OPTIONS_BEKERJA;
+
+  if (!selectedAlumni) return null;
 
   return (
     <div className="min-h-screen bg-background">
