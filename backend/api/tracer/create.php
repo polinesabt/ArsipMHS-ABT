@@ -36,11 +36,7 @@ try {
         http_response_code(400);
         throw new Exception('Format email tidak valid');
     }
-    if (trim((string)$no_hp) === '') {
-        http_response_code(400);
-        throw new Exception('No. HP wajib diisi. Lengkapi nomor HP mahasiswa di tab Profil terlebih dahulu.');
-    }
-    
+
     // Validate phone (optional, bisa di-comment jika tidak perlu)
     // if (!validatePhone($no_hp)) {
     //     throw new Exception('Format nomor HP tidak valid');

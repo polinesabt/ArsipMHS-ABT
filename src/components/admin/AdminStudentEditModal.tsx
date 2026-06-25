@@ -466,14 +466,6 @@ export function AdminStudentEditModal({
       tracerId = existingTracer.data?.[0]?.id;
     }
 
-    if (!tracerId) {
-      if (!resolvedNoHp.trim()) {
-        throw new Error(
-          'No. HP mahasiswa wajib diisi di tab Profil sebelum menambahkan riwayat karir pertama.'
-        );
-      }
-    }
-
     if (tracerId) {
       const response = await updateTracerStudyViaAPI(tracerId, payload);
       if (!response.success) {
