@@ -47,7 +47,7 @@ export function HeroSection() {
 
             {/* Main Title */}
             <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-foreground mb-6 animate-fade-up" style={{ animationDelay: '0.1s' }}>
-              <span className="gradient-text">ARSIP MAHASISWA</span>
+              <span className="gradient-text">ARISP DAVINA</span>
             </h1>
             
             <h2 className="text-2xl md:text-3xl lg:text-4xl font-semibold text-foreground mb-4 animate-fade-up" style={{ animationDelay: '0.15s' }}>
