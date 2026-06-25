@@ -85,7 +85,7 @@ try {
         $row = $studentIdStmt->fetch(PDO::FETCH_ASSOC);
         if ($row) {
             $emailVal = $input['email'];
-            if (is_string($emailVal)) {
+            if (is_string($emailVal) && trim($emailVal) !== '') {
                 $updateStudent = $pdo->prepare('UPDATE students SET email = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL');
                 $updateStudent->execute([trim($emailVal), $row['student_id']]);
             }

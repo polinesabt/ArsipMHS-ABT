@@ -17,23 +17,28 @@ try {
         !$input ||
         !isset($input['student_id']) ||
         !isset($input['career_status']) ||
-        !isset($input['email']) ||
-        !isset($input['no_hp']) ||
         !isset($input['tahun_pengisian'])
     ) {
-        throw new Exception('student_id, career_status, email, no_hp, dan tahun_pengisian diperlukan');
+        http_response_code(400);
+        throw new Exception('student_id, career_status, dan tahun_pengisian diperlukan');
     }
     
     // Sanitize and validate input
     $student_id = sanitizeInput($input['student_id'], 'string');
     $career_status = sanitizeInput($input['career_status'], 'string');
-    $email = sanitizeInput($input['email'], 'email');
-    $no_hp = sanitizeInput($input['no_hp'], 'string');
+    $rawEmail = trim((string)($input['email'] ?? ''));
+    $email = $rawEmail === '' ? '' : sanitizeInput($rawEmail, 'email');
+    $no_hp = sanitizeInput($input['no_hp'] ?? '', 'string');
     $tahun_pengisian = sanitizeInput($input['tahun_pengisian'], 'int');
     
-    // Validate email
-    if (!validateEmail($email)) {
+    // Email is optional for admin-created first career records.
+    if ($rawEmail !== '' && !validateEmail($email)) {
+        http_response_code(400);
         throw new Exception('Format email tidak valid');
+    }
+    if (trim((string)$no_hp) === '') {
+        http_response_code(400);
+        throw new Exception('No. HP wajib diisi. Lengkapi nomor HP mahasiswa di tab Profil terlebih dahulu.');
     }
     
     // Validate phone (optional, bisa di-comment jika tidak perlu)
@@ -96,9 +101,12 @@ try {
         isset($input['saran_komentar']) ? sanitizeInput($input['saran_komentar'], 'string') : null
     ]);
 
-    // Sinkronkan email ke akun mahasiswa (satu email per akun, dipakai di Pengaturan Login Email)
-    $updateStudent = $pdo->prepare('UPDATE students SET email = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL');
-    $updateStudent->execute([$email, $student_id]);
+    // Sinkronkan email ke akun mahasiswa hanya jika admin mengisi email valid.
+    // Jangan timpa email mahasiswa dengan string kosong saat riwayat karir dibuat tanpa email.
+    if ($rawEmail !== '') {
+        $updateStudent = $pdo->prepare('UPDATE students SET email = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL');
+        $updateStudent->execute([$email, $student_id]);
+    }
 
     // Sync chart Waktu Tunggu dan Cakupan Kerja agar data karir baru langsung muncul di dashboard
     require_once __DIR__ . '/../insight/sync_helpers.php';
@@ -112,7 +120,9 @@ try {
     ]);
     
 } catch (Exception $e) {
-    http_response_code(500);
+    if (http_response_code() < 400) {
+        http_response_code(500);
+    }
     echo json_encode([
         'success' => false,
         'error' => $e->getMessage()

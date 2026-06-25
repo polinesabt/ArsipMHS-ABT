@@ -389,11 +389,27 @@ export function AdminStudentEditModal({
       mencari: 'job_seeking',
     };
 
+    const existingCareer = careerHistory.find((item) => item.alumniMasterId === student.id);
+    const resolvedEmail = (
+      profileForm.email.trim() ||
+      student.email?.trim() ||
+      existingCareer?.email?.trim() ||
+      editingCareer?.email?.trim() ||
+      ''
+    );
+    const resolvedNoHp = (
+      profileForm.noHp.trim() ||
+      student.noHp?.trim() ||
+      existingCareer?.noHp?.trim() ||
+      editingCareer?.noHp?.trim() ||
+      ''
+    );
+
     const payload = {
       student_id: student.id,
       career_status: statusMap[data.status] || 'job_seeking',
-      email: student.email || '',
-      no_hp: student.noHp || '',
+      email: resolvedEmail,
+      no_hp: resolvedNoHp,
       media_sosial: undefined,
       linkedin: undefined,
       tahun_pengisian: data.tahunPengisian,
@@ -448,6 +464,14 @@ export function AdminStudentEditModal({
         throw new Error(existingTracer.error || 'Gagal memeriksa tracer study yang sudah ada');
       }
       tracerId = existingTracer.data?.[0]?.id;
+    }
+
+    if (!tracerId) {
+      if (!resolvedNoHp.trim()) {
+        throw new Error(
+          'No. HP mahasiswa wajib diisi di tab Profil sebelum menambahkan riwayat karir pertama.'
+        );
+      }
     }
 
     if (tracerId) {
