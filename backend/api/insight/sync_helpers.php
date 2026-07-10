@@ -869,6 +869,7 @@ function syncWaitingTime(PDO $pdo): int {
         WHERE s.tahun_lulus IS NOT NULL AND (t.employment_data IS NOT NULL OR t.entrepreneurship_data IS NOT NULL)
     ");
     $count = 0;
+    $activeIds = [];
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $json = $row['career_status'] === 'working' ? $row['employment_data'] : $row['entrepreneurship_data'];
         $tahunMulai = null;
@@ -886,6 +887,7 @@ function syncWaitingTime(PDO $pdo): int {
             }
         }
         if ($tahunMulai === null) continue;
+        $activeIds[] = $row['id'];
         $tahunLulus = (int)$row['tahun_lulus'];
         $bulanLulus = 6; // Asumsi bulan wisuda Juni jika hanya tahun yang tersedia
         $totalBulanMulai = $tahunMulai * 12 + $bulanMulai;
@@ -910,6 +912,13 @@ function syncWaitingTime(PDO $pdo): int {
             'payload_json' => json_encode($payload),
         ]);
         $count++;
+    }
+    if (!empty($activeIds)) {
+        $placeholders = implode(',', array_fill(0, count($activeIds), '?'));
+        $delStmt = $pdo->prepare("DELETE FROM menu_waiting_time_records WHERE source_table = 'tracer_study' AND source_id NOT IN ($placeholders)");
+        $delStmt->execute($activeIds);
+    } else {
+        $pdo->exec("DELETE FROM menu_waiting_time_records WHERE source_table = 'tracer_study'");
     }
     return $count;
 }
@@ -980,7 +989,9 @@ function syncWorkCoverage(PDO $pdo): int {
         JOIN students s ON s.id = t.student_id AND s.deleted_at IS NULL
     ");
     $count = 0;
+    $activeIds = [];
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $activeIds[] = $row['id'];
         $tahunLulus = $row['tahun_lulus'] !== null ? (int)$row['tahun_lulus'] : (int)date('Y');
         $payload = ['career_status' => $row['career_status'], 'tahun_lulus' => $row['tahun_lulus']];
         $workScope = null;
@@ -1011,6 +1022,13 @@ function syncWorkCoverage(PDO $pdo): int {
             'payload_json' => json_encode($payload),
         ]);
         $count++;
+    }
+    if (!empty($activeIds)) {
+        $placeholders = implode(',', array_fill(0, count($activeIds), '?'));
+        $delStmt = $pdo->prepare("DELETE FROM menu_work_coverage_records WHERE source_table = 'tracer_study' AND source_id NOT IN ($placeholders)");
+        $delStmt->execute($activeIds);
+    } else {
+        $pdo->exec("DELETE FROM menu_work_coverage_records WHERE source_table = 'tracer_study'");
     }
     return $count;
 }
@@ -1138,6 +1156,51 @@ function syncPublications(PDO $pdo): int {
     return $count;
 }
 
+function calculateActiveStudentsCountHelper(PDO $pdo, int $tahun, string $semester): int {
+    $sql = "SELECT COUNT(*) FROM students 
+            WHERE deleted_at IS NULL 
+              AND status != 'dropout'
+              AND (
+                (:semester1 = 'ganjil' AND tahun_masuk <= :tahun1)
+                OR
+                (:semester2 = 'genap' AND tahun_masuk < :tahun2)
+              )
+              AND (
+                CASE 
+                  WHEN status = 'alumni' OR tahun_lulus IS NOT NULL THEN (
+                    CASE 
+                      WHEN tahun_lulus IS NOT NULL THEN (
+                        (:tahun3 < tahun_lulus) OR (:tahun4 = tahun_lulus AND :semester3 = 'genap')
+                      )
+                      ELSE (
+                        (:tahun5 < tahun_masuk + 4) OR (:tahun6 = tahun_masuk + 4 AND :semester4 = 'genap')
+                      )
+                    END
+                  )
+                  ELSE (
+                    (:tahun7 < tahun_masuk + 4) OR (:tahun8 = tahun_masuk + 4 AND :semester5 = 'genap')
+                  )
+                END
+              )";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute([
+        'semester1' => $semester,
+        'tahun1' => $tahun,
+        'semester2' => $semester,
+        'tahun2' => $tahun,
+        'tahun3' => $tahun,
+        'tahun4' => $tahun,
+        'semester3' => $semester,
+        'tahun5' => $tahun,
+        'tahun6' => $tahun,
+        'semester4' => $semester,
+        'tahun7' => $tahun,
+        'tahun8' => $tahun,
+        'semester5' => $semester
+    ]);
+    return (int)$stmt->fetchColumn();
+}
+
 function syncActiveStudents(PDO $pdo): int {
     $stmt = $pdo->query("SELECT id, nim, nama, prodi, jurusan, tahun_masuk FROM students WHERE status = 'active' AND deleted_at IS NULL");
     $count = 0;
@@ -1156,6 +1219,46 @@ function syncActiveStudents(PDO $pdo): int {
         ]);
         $count++;
     }
+
+    // 2. Sinkron otomatis ke tabel active_students_semester_stats
+    $pdo->exec("CREATE TABLE IF NOT EXISTS active_students_semester_stats (
+      tahun INT NOT NULL,
+      semester ENUM('genap','ganjil') NOT NULL,
+      pd_dikti INT NOT NULL DEFAULT 0,
+      aktif INT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (tahun, semester),
+      INDEX idx_tahun (tahun)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $rangeStmt = $pdo->query("SELECT MIN(tahun_masuk) as min_y, MAX(COALESCE(tahun_lulus, YEAR(CURDATE()))) as max_y FROM students WHERE deleted_at IS NULL");
+    $range = $rangeStmt->fetch(PDO::FETCH_ASSOC);
+    $minYear = isset($range['min_y']) ? (int)$range['min_y'] : (int)date('Y') - 5;
+    $maxYear = isset($range['max_y']) ? (int)$range['max_y'] : (int)date('Y');
+    
+    if ($minYear < 1900) $minYear = 1900;
+    if ($maxYear > 2100) $maxYear = 2100;
+    if ($minYear > $maxYear) $minYear = $maxYear - 5;
+
+    for ($y = $minYear; $y <= $maxYear; $y++) {
+        foreach (['ganjil', 'genap'] as $sem) {
+            $aktifCount = calculateActiveStudentsCountHelper($pdo, $y, $sem);
+            
+            $checkStmt = $pdo->prepare("SELECT pd_dikti FROM active_students_semester_stats WHERE tahun = ? AND semester = ?");
+            $checkStmt->execute([$y, $sem]);
+            $existing = $checkStmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($existing !== false) {
+                $updateStmt = $pdo->prepare("UPDATE active_students_semester_stats SET aktif = ?, updated_at = NOW() WHERE tahun = ? AND semester = ?");
+                $updateStmt->execute([$aktifCount, $y, $sem]);
+            } else {
+                $insertStmt = $pdo->prepare("INSERT INTO active_students_semester_stats (tahun, semester, pd_dikti, aktif, created_at, updated_at) VALUES (?, ?, 0, ?, NOW(), NOW())");
+                $insertStmt->execute([$y, $sem, $aktifCount]);
+            }
+        }
+    }
+
     return $count;
 }
 

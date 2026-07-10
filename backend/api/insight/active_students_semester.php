@@ -95,9 +95,21 @@ if ($method === 'PUT' || $method === 'POST') {
         if (!array_key_exists('aktif', $input) && $existing !== false) {
             $aktifFinal = $existing['aktif'] !== null ? (int)$existing['aktif'] : null;
         }
+
+        // Auto-calculate aktif count from students database if empty
+        if ($aktifFinal === null) {
+            require_once __DIR__ . '/sync_helpers.php';
+            $aktifFinal = calculateActiveStudentsCountHelper($pdo, $tahun, $semester);
+        }
+
         $stmt = $pdo->prepare("INSERT INTO active_students_semester_stats (tahun, semester, pd_dikti, aktif) VALUES (?, ?, ?, ?)
           ON DUPLICATE KEY UPDATE pd_dikti = VALUES(pd_dikti), aktif = VALUES(aktif)");
         $stmt->execute([$tahun, $semester, $pd_dikti, $aktifFinal]);
+
+        // Invalidate chart cache
+        require_once __DIR__ . '/sync_helpers.php';
+        updateChartSyncLog($pdo, 'active_students', null);
+
         echo json_encode([
             'success' => true,
             'data' => [
@@ -127,6 +139,11 @@ if ($method === 'DELETE') {
         }
         $stmt = $pdo->prepare("DELETE FROM active_students_semester_stats WHERE tahun = ? AND semester = ?");
         $stmt->execute([$tahun, $semester]);
+
+        // Invalidate chart cache
+        require_once __DIR__ . '/sync_helpers.php';
+        updateChartSyncLog($pdo, 'active_students', null);
+
         echo json_encode(['success' => true, 'deleted' => $stmt->rowCount() > 0]);
     } catch (Throwable $e) {
         http_response_code(500);
