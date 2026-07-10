@@ -94,7 +94,13 @@ try {
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     $result = [];
+    $seenStudents = [];
     foreach ($rows as $row) {
+        if (isset($seenStudents[$row['id']])) {
+            continue;
+        }
+        $seenStudents[$row['id']] = true;
+
         $evaluationStatus = mapInvitationStatus($row);
         if ($statusFilter && $evaluationStatus !== $statusFilter) {
             continue;

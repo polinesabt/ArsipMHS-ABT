@@ -452,20 +452,6 @@ export function AdminStudentEditModal({
     let savedTracer: ApiTracerStudy | null = null;
     let tracerId = data.id;
 
-    // tracer_study currently enforces one row per student via UNIQUE(student_id),
-    // so admin save must fall back to update whenever a record already exists.
-    if (!tracerId) {
-      tracerId = careerHistory.find((item) => item.alumniMasterId === student.id)?.id;
-    }
-
-    if (!tracerId) {
-      const existingTracer = await getTracerStudyFromAPI(student.id);
-      if (!existingTracer.success) {
-        throw new Error(existingTracer.error || 'Gagal memeriksa tracer study yang sudah ada');
-      }
-      tracerId = existingTracer.data?.[0]?.id;
-    }
-
     if (tracerId) {
       const response = await updateTracerStudyViaAPI(tracerId, payload);
       if (!response.success) {

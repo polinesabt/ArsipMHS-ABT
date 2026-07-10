@@ -106,7 +106,26 @@ export default function FormPage() {
   useEffect(() => {
     if (!selectedAlumni) {
       navigate('/validasi');
+      return;
     }
+
+    // Pre-fill contact details from the latest tracer study if available
+    getTracerStudyFromAPI(selectedAlumni.id)
+      .then((res) => {
+        if (res.success && res.data && res.data.length > 0) {
+          const latest = res.data[0];
+          if (latest.email) setEmail(latest.email);
+          if (latest.no_hp) setNoHp(latest.no_hp);
+          if (latest.media_sosial) setMediaSosial(latest.media_sosial);
+          if (latest.linkedin) setLinkedin(latest.linkedin);
+          if (latest.bersedia_dihubungi !== undefined) {
+            setBersediaDihubungi(Boolean(latest.bersedia_dihubungi));
+          }
+        }
+      })
+      .catch(() => {
+        // Ignore fetch errors and leave empty/defaults
+      });
   }, [selectedAlumni, navigate]);
 
   if (!selectedAlumni) return null;
@@ -224,18 +243,9 @@ export default function FormPage() {
     }
 
     try {
-      const existing = await getTracerStudyFromAPI(selectedAlumni.id);
-      if (existing.success && existing.data && existing.data.length > 0) {
-        const tracerId = existing.data[0].id;
-        const updateRes = await updateTracerStudyViaAPI(tracerId, payload);
-        if (!updateRes.success) {
-          throw new Error(updateRes.error || 'Gagal memperbarui data tracer');
-        }
-      } else {
-        const createRes = await createTracerStudyViaAPI(payload);
-        if (!createRes.success) {
-          throw new Error(createRes.error || 'Gagal menyimpan data tracer');
-        }
+      const createRes = await createTracerStudyViaAPI(payload);
+      if (!createRes.success) {
+        throw new Error(createRes.error || 'Gagal menyimpan data tracer');
       }
 
       await refreshData();

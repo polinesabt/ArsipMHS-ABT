@@ -38,7 +38,7 @@ try {
     }
 
     if ($career_status !== null && $career_status !== '') {
-        $join = ' INNER JOIN tracer_study t ON s.id = t.student_id AND t.career_status = ?';
+        $conditions[] = 'EXISTS (SELECT 1 FROM tracer_study t WHERE t.student_id = s.id AND t.career_status = ?)';
         $params[] = $career_status;
     }
 

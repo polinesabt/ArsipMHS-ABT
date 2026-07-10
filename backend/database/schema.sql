@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS admins (
 -- =====================================================================
 CREATE TABLE IF NOT EXISTS tracer_study (
   id VARCHAR(36) PRIMARY KEY COMMENT 'UUID v4',
-  student_id VARCHAR(36) UNIQUE NOT NULL COMMENT 'FK to students (UNIQUE - one per student)',
+  student_id VARCHAR(36) NOT NULL COMMENT 'FK to students',
   
   -- Contact info
   email VARCHAR(100) NOT NULL COMMENT 'Contact email',
