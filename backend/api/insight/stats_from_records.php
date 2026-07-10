@@ -128,6 +128,7 @@ function getWorkCoverageFromRecords(PDO $pdo, $yearFilter) {
         $y = (int)$row['tahun_pelaporan'];
         if (!isset($byYear[$y])) $byYear[$y] = ['year' => $y, 'local' => 0, 'national' => 0, 'multinational' => 0];
         if (!isset($byYearByStatus[$status][$y])) $byYearByStatus[$status][$y] = ['year' => $y, 'local' => 0, 'national' => 0, 'multinational' => 0];
+        // Default work_scope to 'national' if not set
         $workScope = isset($payload['work_scope']) ? (string)$payload['work_scope'] : 'national';
         if ($workScope === 'local' || $workScope === 'regional') {
             $byYear[$y]['local']++;
@@ -883,3 +884,8 @@ function getStudentAchievementsFromRecords(PDO $pdo, $yearFilter, $tabFilter = n
         'non_academic_breakdown' => $nonAcademicBreakdown,
     ];
 }
+
+
+
+
+

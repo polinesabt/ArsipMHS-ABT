@@ -100,6 +100,8 @@ try {
     require_once __DIR__ . '/../insight/sync_helpers.php';
     syncWaitingTime($pdo);
     syncWorkCoverage($pdo);
+    updateChartSyncLog($pdo, 'work_coverage', null);
+    updateChartSyncLog($pdo, 'waiting_time', null);
 
     echo json_encode([
         'success' => true,

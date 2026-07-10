@@ -4,6 +4,7 @@
  */
 
 import { apiClient, ApiResponse, getApiBaseUrl } from '@/lib/api-client';
+import { invalidateInsightCache } from '@/lib/insight-cache-event';
 import type { AchievementType } from '@/types/achievement.types';
 
 const AUTH_RETRY_CODES = new Set([
@@ -490,7 +491,11 @@ export async function getTracerStudyByIdFromAPI(tracerId: string): Promise<ApiRe
 export async function createTracerStudyViaAPI(
   payload: CreateTracerStudyPayload
 ): Promise<ApiResponse<TracerStudy>> {
-  return apiClient.post<TracerStudy>('tracer/create.php', payload);
+  const result = await apiClient.post<TracerStudy>('tracer/create.php', payload);
+  if (result.success) {
+    invalidateInsightCache();
+  }
+  return result;
 }
 
 /**
@@ -824,3 +829,6 @@ export async function deleteTracerStudyViaAPI(
 ): Promise<ApiResponse<{ success: boolean }>> {
   return apiClient.post<{ success: boolean }>('tracer/delete.php', { id: tracerId });
 }
+
+
+

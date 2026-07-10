@@ -5,6 +5,7 @@ import { ChartTooltip } from '@/components/insight/dashboard/ChartTooltip';
 import { InsightDataEmpty } from '@/components/insight/InsightDataEmpty';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useInsightDashboard } from '@/contexts/InsightDashboardContext';
+import { onInsightCacheInvalidate } from '@/lib/insight-cache-event';
 import { getInsightStats, type WorkCoverageData, type InsightStatsResponse } from '@/repositories/insight.repository';
 import { getInsightErrorMessage } from '@/lib/insight-errors';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -68,7 +69,7 @@ function WorkCoverageLegend({
 }
 
 export function WorkCoverage() {
-  const { selectedYear } = useInsightDashboard();
+  const { selectedYear, refreshTrigger } = useInsightDashboard();
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState<WorkCoverageTab>('working');
   const [data, setData] = useState<WorkCoverageData | null>(null);
@@ -101,7 +102,7 @@ export function WorkCoverage() {
     return () => {
       cancelled = true;
     };
-  }, [yearParam]);
+  }, [yearParam, refreshTrigger]);
 
   const config = TAB_CONFIG[activeTab];
   const hasSplitByStatus = useMemo(() => {
@@ -187,3 +188,5 @@ export function WorkCoverage() {
     </DashboardCard>
   );
 }
+
+

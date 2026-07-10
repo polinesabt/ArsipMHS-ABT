@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
 import type { Year } from '@/types/insight';
 
 interface InsightDashboardContextType {
@@ -8,6 +8,9 @@ interface InsightDashboardContextType {
   setPresentationMode: (mode: boolean) => void;
   sidebarCollapsed: boolean;
   setSidebarCollapsed: (collapsed: boolean) => void;
+  // New: Cache invalidation trigger
+  refreshTrigger: number;
+  invalidateCache: () => void;
 }
 
 interface InsightDashboardProviderProps {
@@ -28,6 +31,11 @@ export function InsightDashboardProvider({
   const [selectedYear, setSelectedYear] = useState<Year | 'all'>(initialSelectedYear);
   const [presentationMode, setPresentationMode] = useState(initialPresentationMode);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(initialSidebarCollapsed);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const invalidateCache = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   return (
     <InsightDashboardContext.Provider
@@ -38,6 +46,8 @@ export function InsightDashboardProvider({
         setPresentationMode,
         sidebarCollapsed,
         setSidebarCollapsed,
+        refreshTrigger,
+        invalidateCache,
       }}
     >
       {children}

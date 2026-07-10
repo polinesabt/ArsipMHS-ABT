@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../../config/cors.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
@@ -40,6 +40,13 @@ try {
     $result = $stmt->execute([$tracerId]);
     
     if ($result && $stmt->rowCount() > 0) {
+        // Invalidate chart cache
+        require_once __DIR__ . '/../insight/sync_helpers.php';
+        syncWaitingTime($pdo);
+        syncWorkCoverage($pdo);
+        updateChartSyncLog($pdo, 'work_coverage', null);
+        updateChartSyncLog($pdo, 'waiting_time', null);
+        
         echo json_encode([
             'success' => true,
             'message' => 'Tracer study berhasil dihapus'

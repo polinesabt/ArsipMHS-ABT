@@ -6,9 +6,33 @@
 require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/auth.php';
+require_once __DIR__ . '/sync_helpers_realtime.php';
+
+// Use realtime sync function
+function ensureSectionSynced(PDO $pdo, string $section, ?string $adminId = null): void {
+    ensureSectionSyncedRealTime($pdo, $section, $adminId);
+}
+
+// Dummy functions to prevent errors if sync_helpers functions are called
+function syncStudyPeriod(PDO $pdo): int { return 0; }
+function syncWaitingTime(PDO $pdo): int { return 0; }
+function syncJobRelevance(PDO $pdo): int { return 0; }
+function syncWorkCoverage(PDO $pdo): int { return 0; }
+function syncUserSatisfaction(PDO $pdo): int { return 0; }
+function syncPublications(PDO $pdo): int { return 0; }
+function syncActiveStudents(PDO $pdo): int { return 0; }
+function syncStudentProducts(PDO $pdo): int { return 0; }
+function syncResearchOutputs(PDO $pdo): int { return 0; }
+function syncStudentAchievements(PDO $pdo): int { return 0; }
+function updateChartSyncLog(PDO $pdo, string $menuSection, ?string $adminId = null): void {
+    $stmt = $pdo->prepare('INSERT INTO chart_sync_log (menu_section, last_synced_at, synced_by, updated_at) VALUES (?, NOW(), ?, NOW()) ON DUPLICATE KEY UPDATE last_synced_at = NOW(), synced_by = ?, updated_at = NOW()');
+    $stmt->execute([$menuSection, $adminId, $adminId]);
+}
+
 require_once __DIR__ . '/stats_from_records.php';
 require_once __DIR__ . '/stats_cache.php';
-require_once __DIR__ . '/sync_helpers.php';
+
+
 
 function resolveInsightTabForSection(string $section, string $rawTab): ?string {
     if ($rawTab === '') {
@@ -427,3 +451,7 @@ function getResearchOutputs(PDO $pdo, $yearFilter) {
         'total' => $totalHaki + $totalOther,
     ];
 }
+
+
+
+
