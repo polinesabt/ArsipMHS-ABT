@@ -257,6 +257,17 @@ function achievement_store_normalize_date($value): ?string {
     if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw) === 1) {
         return $raw;
     }
+    
+    // Check if it is an Excel date serial number (e.g. 45229)
+    if (is_numeric($raw)) {
+        $val = (float)$raw;
+        if ($val >= 30000 && $val <= 80000) {
+            $days = floor($val);
+            $timestamp = ($days - 25569) * 86400;
+            return gmdate('Y-m-d', $timestamp);
+        }
+    }
+    
     $timestamp = strtotime($raw);
     if ($timestamp === false) return null;
     return date('Y-m-d', $timestamp);
