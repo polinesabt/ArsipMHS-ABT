@@ -503,7 +503,7 @@ export default function AdminAdvancedSettingsPage() {
   };
 
   if (!sectionParam || !ADVANCED_SETTINGS_SECTIONS.includes(sectionParam)) {
-    return <div className="p-6"><p>Section tidak valid.</p><Button variant="link" asChild><Link to="/admin/dashboard/all">Kembali ke Dashboard</Link></Button></div>;
+    return <div className="p-6"><p>Section tidak valid.</p><Button variant="link" asChild><Link to="/admin/mahasiswa/dashboard/all">Kembali ke Dashboard</Link></Button></div>;
   }
 
   return (
@@ -511,7 +511,7 @@ export default function AdminAdvancedSettingsPage() {
       <div className="flex-shrink-0 border-b bg-card p-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" asChild><Link to={`/admin/dashboard/${sectionParam}`}><ArrowLeft className="h-4 w-4" /></Link></Button>
+            <Button variant="ghost" size="icon" asChild><Link to={`/admin/mahasiswa/dashboard/${sectionParam}`}><ArrowLeft className="h-4 w-4" /></Link></Button>
             <h1 className="text-lg font-semibold">Advanced Settings - {label}</h1>
           </div>
           <div className="flex items-center gap-2">

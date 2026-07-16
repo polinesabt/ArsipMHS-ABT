@@ -98,20 +98,20 @@
     --shadow-elevated: 0 8px 24px -8px hsl(222 60% 35% / 0.12), 0 16px 48px -16px hsl(222 47% 11% / 0.08);
     --shadow-glow: 0 0 40px hsl(210 80% 55% / 0.15);
 
-    /* Sidebar */
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 220 25% 90%;
-    --sidebar-primary: 210 80% 55%;
+    /* Sidebar (Light Theme to match Student Dashboard) */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 215 90% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 40% 18%;
-    --sidebar-accent-foreground: 220 25% 95%;
-    --sidebar-border: 222 40% 20%;
-    --sidebar-ring: 210 80% 55%;
+    --sidebar-accent: 210 70% 94%;
+    --sidebar-accent-foreground: 222 60% 30%;
+    --sidebar-border: 220 20% 88%;
+    --sidebar-ring: 222 60% 35%;
 
-    --sidebar-bg: 215 25% 15%;
-    --sidebar-fg: 210 20% 80%;
+    --sidebar-bg: 0 0% 100%;
+    --sidebar-fg: 222 47% 11%;
     --sidebar-active: 215 90% 50%;
-    --sidebar-hover: 215 20% 20%;
+    --sidebar-hover: 210 70% 94%;
   }
 
   .dark {
@@ -204,6 +204,11 @@
     --sidebar-accent-foreground: 220 25% 95%;
     --sidebar-border: 222 40% 15%;
     --sidebar-ring: 210 80% 55%;
+
+    --sidebar-bg: 222 47% 6%;
+    --sidebar-fg: 220 25% 90%;
+    --sidebar-active: 210 80% 55%;
+    --sidebar-hover: 222 40% 14%;
   }
 }
 

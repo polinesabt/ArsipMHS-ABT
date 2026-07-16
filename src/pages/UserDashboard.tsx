@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Navbar } from '@/components/layout/Navbar';
-import { Footer } from '@/components/layout/Footer';
+// Shared layout handles Navbar and Footer
 import { useAlumni } from '@/contexts/AlumniContext';
 import { Award, Bell, LogOut, MailCheck, CheckCircle2, KeyRound, User, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -14,9 +13,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { 
-  StudentIdentityHeader, 
-  SummaryCard, 
+import {
+  StudentIdentityHeader,
+  SummaryCard,
   AchievementTimeline,
   AlumniStatusCard,
   CareerHistoryCard,
@@ -287,13 +286,13 @@ export default function UserDashboard() {
   // Get latest achievement for summary card
   const getLatestAchievement = () => {
     if (achievements.length === 0) return null;
-    
+
     const sorted = [...achievements].sort((a, b) => {
       const yearA = getAchievementYear(a);
       const yearB = getAchievementYear(b);
       return yearB - yearA;
     });
-    
+
     return {
       title: getAchievementTitle(sorted[0]),
       year: getAchievementYear(sorted[0]),
@@ -478,200 +477,196 @@ export default function UserDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <main className="pt-24 pb-20">
-        <div className="container mx-auto px-3 sm:px-4">
-          <div className="max-w-5xl mx-auto">
-            {/* Page Title with Logout */}
-            <div className="mb-8 animate-fade-up flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <StudentIdentityHeader
-                  nama={displayData.nama}
-                  nim={displayData.nim}
-                  prodi={displayData.prodi}
-                  jurusan={displayData.jurusan}
-                  tahunLulus={displayData.tahunLulus}
-                  studentStatus={studentStatus}
-                  careerHistory={alumniHistory}
-                />
-              </div>
-              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-                {accountButtonRevealedAfterIntro && (
-                  <div className="relative">
-                    {accountButtonJustRevealed && (
-                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
-                        {[
-                          { tx: '8px', ty: '-12px' },
-                          { tx: '-10px', ty: '-8px' },
-                          { tx: '12px', ty: '4px' },
-                          { tx: '-8px', ty: '10px' },
-                          { tx: '6px', ty: '-6px' },
-                          { tx: '-12px', ty: '6px' },
-                        ].map(({ tx, ty }, i) => (
-                          <span
-                            key={i}
-                            className="absolute left-1/2 top-1/2 h-1.5 w-1.5 rounded-full bg-green-400/80"
-                            style={{
-                              '--tx': tx,
-                              '--ty': ty,
-                              animation: 'account-particle-out 0.9s ease-out forwards',
-                              animationDelay: `${i * 55}ms`,
-                            } as React.CSSProperties}
-                          />
-                        ))}
-                      </div>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        if (showAccountPanel && !accountPanelClosing) closeAccountPanel();
-                        else if (!showAccountPanel) setShowAccountPanel(true);
-                      }}
-                      className={
-                        accountButtonJustRevealed
-                          ? 'gap-1.5 border-green-500/50 bg-green-500/15 text-green-700 dark:text-green-300 shadow-[0_0_12px_rgba(34,197,94,0.25)] animate-[account-button-pop_0.5s_ease-out_forwards] transition-colors duration-300'
-                          : showAccountPanel
-                            ? 'gap-1.5 border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive transition-colors duration-300'
-                            : 'gap-1.5 transition-colors duration-300'
-                      }
-                    >
-                      {showAccountPanel ? (
-                        <>
-                          <X className="w-4 h-4" />
-                          Akun
-                        </>
-                      ) : (
-                        <>
-                          <User className="w-4 h-4" />
-                          Akun
-                        </>
-                      )}
-                    </Button>
+    <div className="container mx-auto px-3 sm:px-4">
+      <div className="max-w-5xl mx-auto">
+        {/* Page Title with Logout */}
+        <div className="mb-8 animate-fade-up flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <StudentIdentityHeader
+              nama={displayData.nama}
+              nim={displayData.nim}
+              prodi={displayData.prodi}
+              jurusan={displayData.jurusan}
+              tahunLulus={displayData.tahunLulus}
+              studentStatus={studentStatus}
+              careerHistory={alumniHistory}
+            />
+          </div>
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+            {accountButtonRevealedAfterIntro && (
+              <div className="relative">
+                {accountButtonJustRevealed && (
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center" aria-hidden>
+                    {[
+                      { tx: '8px', ty: '-12px' },
+                      { tx: '-10px', ty: '-8px' },
+                      { tx: '12px', ty: '4px' },
+                      { tx: '-8px', ty: '10px' },
+                      { tx: '6px', ty: '-6px' },
+                      { tx: '-12px', ty: '6px' },
+                    ].map(({ tx, ty }, i) => (
+                      <span
+                        key={i}
+                        className="absolute left-1/2 top-1/2 h-1.5 w-1.5 rounded-full bg-green-400/80"
+                        style={{
+                          '--tx': tx,
+                          '--ty': ty,
+                          animation: 'account-particle-out 0.9s ease-out forwards',
+                          animationDelay: `${i * 55}ms`,
+                        } as React.CSSProperties}
+                      />
+                    ))}
                   </div>
                 )}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon" className="relative">
-                      <Bell className="w-4 h-4" />
-                      {unreadCount > 0 && (
-                        <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] leading-5">
-                          {unreadCount > 9 ? '9+' : unreadCount}
-                        </span>
-                      )}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-80">
-                    <div className="px-2 py-1.5 flex items-center justify-between gap-2">
-                      <DropdownMenuLabel className="p-0">Notifikasi Evaluasi</DropdownMenuLabel>
-                      <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
-                        Tandai semua
-                      </Button>
-                    </div>
-                    <DropdownMenuSeparator />
-                    {(notifications ?? []).length === 0 ? (
-                      <div className="px-2 py-4 text-sm text-muted-foreground text-center">
-                        Tidak ada notifikasi.
-                      </div>
-                    ) : (
-                      <div className="max-h-[13rem] overflow-y-auto overflow-x-hidden">
-                        {(notifications ?? []).map((notification) => (
-                          <DropdownMenuItem
-                            key={notification.id}
-                            className="cursor-pointer"
-                            onSelect={(event) => {
-                              event.preventDefault();
-                              void handleOpenNotification(notification);
-                            }}
-                          >
-                            <div className="flex flex-col gap-0.5">
-                              <span className="text-sm font-medium">{notification.title}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {notification.message}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground">
-                                {notification.is_read ? 'Sudah dibaca' : 'Belum dibaca'}
-                              </span>
-                            </div>
-                          </DropdownMenuItem>
-                        ))}
-                      </div>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <Button variant="outline" onClick={handleLogout} className="gap-2 self-start sm:self-auto">
-                  <LogOut className="w-4 h-4" />
-                  Keluar
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (showAccountPanel && !accountPanelClosing) closeAccountPanel();
+                    else if (!showAccountPanel) setShowAccountPanel(true);
+                  }}
+                  className={
+                    accountButtonJustRevealed
+                      ? 'gap-1.5 border-green-500/50 bg-green-500/15 text-green-700 dark:text-green-300 shadow-[0_0_12px_rgba(34,197,94,0.25)] animate-[account-button-pop_0.5s_ease-out_forwards] transition-colors duration-300'
+                      : showAccountPanel
+                        ? 'gap-1.5 border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive transition-colors duration-300'
+                        : 'gap-1.5 transition-colors duration-300'
+                  }
+                >
+                  {showAccountPanel ? (
+                    <>
+                      <X className="w-4 h-4" />
+                      Akun
+                    </>
+                  ) : (
+                    <>
+                      <User className="w-4 h-4" />
+                      Akun
+                    </>
+                  )}
                 </Button>
               </div>
-            </div>
-
-            {(showFirstLoginOnboarding || onboardingPanelClosing) && (
-              <div
-                className={`overflow-hidden origin-top ${onboardingPanelClosing ? 'relative z-[100]' : ''}`}
-                style={{
-                  maxHeight: onboardingPanelClosing ? 0 : 400,
-                  opacity: onboardingPanelClosing ? 0 : 1,
-                  transform: onboardingPanelClosing ? 'scaleY(0) translateY(-100px)' : 'scaleY(1) translateY(0)',
-                  transition: 'max-height 500ms cubic-bezier(0.4, 0, 0.5, 1), opacity 400ms ease-out, transform 500ms cubic-bezier(0.4, 0, 0.5, 1)',
-                }}
-              >
-                <div className="mt-6 p-5 rounded-2xl border border-primary/30 bg-primary/5 animate-fade-up">
-                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-primary mb-1">Login Email Opsional</p>
-                      <h2 className="text-lg font-semibold text-foreground">
-                        Aktifkan email sebagai metode login tambahan
-                      </h2>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Anda tetap bisa login dengan NIM kapan pun. Aktivasi ini hanya menambah opsi login.
-                      </p>
-                    </div>
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <Button
-                        variant="outline"
-                        onClick={handleDismissOnboarding}
-                      >
-                        Nanti saja
-                      </Button>
-                      <Button onClick={handleRequestVerification} disabled={isRequesting}>
-                        {isRequesting ? 'Mengirim...' : 'Aktifkan sekarang'}
-                      </Button>
-                    </div>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="relative">
+                  <Bell className="w-4 h-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] leading-5">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80">
+                <div className="px-2 py-1.5 flex items-center justify-between gap-2">
+                  <DropdownMenuLabel className="p-0">Notifikasi Evaluasi</DropdownMenuLabel>
+                  <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
+                    Tandai semua
+                  </Button>
+                </div>
+                <DropdownMenuSeparator />
+                {(notifications ?? []).length === 0 ? (
+                  <div className="px-2 py-4 text-sm text-muted-foreground text-center">
+                    Tidak ada notifikasi.
                   </div>
+                ) : (
+                  <div className="max-h-[13rem] overflow-y-auto overflow-x-hidden">
+                    {(notifications ?? []).map((notification) => (
+                      <DropdownMenuItem
+                        key={notification.id}
+                        className="cursor-pointer"
+                        onSelect={(event) => {
+                          event.preventDefault();
+                          void handleOpenNotification(notification);
+                        }}
+                      >
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-sm font-medium">{notification.title}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {notification.message}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {notification.is_read ? 'Sudah dibaca' : 'Belum dibaca'}
+                          </span>
+                        </div>
+                      </DropdownMenuItem>
+                    ))}
+                  </div>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <Button variant="outline" onClick={handleLogout} className="gap-2 self-start sm:self-auto">
+              <LogOut className="w-4 h-4" />
+              Keluar
+            </Button>
+          </div>
+        </div>
+
+        {(showFirstLoginOnboarding || onboardingPanelClosing) && (
+          <div
+            className={`overflow-hidden origin-top ${onboardingPanelClosing ? 'relative z-[100]' : ''}`}
+            style={{
+              maxHeight: onboardingPanelClosing ? 0 : 400,
+              opacity: onboardingPanelClosing ? 0 : 1,
+              transform: onboardingPanelClosing ? 'scaleY(0) translateY(-100px)' : 'scaleY(1) translateY(0)',
+              transition: 'max-height 500ms cubic-bezier(0.4, 0, 0.5, 1), opacity 400ms ease-out, transform 500ms cubic-bezier(0.4, 0, 0.5, 1)',
+            }}
+          >
+            <div className="mt-6 p-5 rounded-2xl border border-primary/30 bg-primary/5 animate-fade-up">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-primary mb-1">Login Email Opsional</p>
+                  <h2 className="text-lg font-semibold text-foreground">
+                    Aktifkan email sebagai metode login tambahan
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Anda tetap bisa login dengan NIM kapan pun. Aktivasi ini hanya menambah opsi login.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button
+                    variant="outline"
+                    onClick={handleDismissOnboarding}
+                  >
+                    Nanti saja
+                  </Button>
+                  <Button onClick={handleRequestVerification} disabled={isRequesting}>
+                    {isRequesting ? 'Mengirim...' : 'Aktifkan sekarang'}
+                  </Button>
                 </div>
               </div>
-            )}
+            </div>
+          </div>
+        )}
 
-            {showAccountPanel && (
-            <div
-              className="overflow-hidden origin-top"
-              style={{
-                maxHeight: accountPanelClosing ? 0 : (accountPanelOpen ? 600 : 0),
-                opacity: accountPanelClosing ? 0 : (accountPanelOpen ? 1 : 0),
-                transform: accountPanelClosing ? 'scaleY(0.6) translateY(-12px)' : 'scaleY(1) translateY(0)',
-                transition: accountPanelClosing
-                  ? 'max-height 450ms cubic-bezier(0.32,0.72,0,1), opacity 400ms ease-out, transform 450ms cubic-bezier(0.32,0.72,0,1)'
-                  : `max-height ${ACCOUNT_PANEL_OPEN_DURATION_MS}ms cubic-bezier(0.22,1,0.36,1), opacity ${ACCOUNT_PANEL_OPEN_DURATION_MS}ms ease-out, transform ${ACCOUNT_PANEL_OPEN_DURATION_MS}ms cubic-bezier(0.22,1,0.36,1)`,
-              }}
-            >
-              <div className="mt-6 p-5 rounded-2xl border border-border bg-card">
-                <div className="flex items-center gap-2 mb-3">
-                  <MailCheck className="w-5 h-5 text-primary" />
-                  <h2 className="text-base font-semibold text-foreground">Pengaturan Login Email</h2>
-                </div>
+        {showAccountPanel && (
+          <div
+            className="overflow-hidden origin-top"
+            style={{
+              maxHeight: accountPanelClosing ? 0 : (accountPanelOpen ? 600 : 0),
+              opacity: accountPanelClosing ? 0 : (accountPanelOpen ? 1 : 0),
+              transform: accountPanelClosing ? 'scaleY(0.6) translateY(-12px)' : 'scaleY(1) translateY(0)',
+              transition: accountPanelClosing
+                ? 'max-height 450ms cubic-bezier(0.32,0.72,0,1), opacity 400ms ease-out, transform 450ms cubic-bezier(0.32,0.72,0,1)'
+                : `max-height ${ACCOUNT_PANEL_OPEN_DURATION_MS}ms cubic-bezier(0.22,1,0.36,1), opacity ${ACCOUNT_PANEL_OPEN_DURATION_MS}ms ease-out, transform ${ACCOUNT_PANEL_OPEN_DURATION_MS}ms cubic-bezier(0.22,1,0.36,1)`,
+            }}
+          >
+            <div className="mt-6 p-5 rounded-2xl border border-border bg-card">
+              <div className="flex items-center gap-2 mb-3">
+                <MailCheck className="w-5 h-5 text-primary" />
+                <h2 className="text-base font-semibold text-foreground">Pengaturan Login Email</h2>
+              </div>
 
               {emailLoginEnabled && !isChangingEmail ? (
                 /* Panel informasi akun: congrats (baru verifikasi) lalu setelah 8s morph ke tampilan biasa */
                 <div className="space-y-4">
                   <div
-                    className={`rounded-xl border p-4 min-h-[5.5rem] transition-[background-color,border-color] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                      showCongratsMessage
+                    className={`rounded-xl border p-4 min-h-[5.5rem] transition-[background-color,border-color] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${showCongratsMessage
                         ? 'border-green-500/30 bg-green-500/10'
                         : 'border-border bg-muted/30'
-                    }`}
+                      }`}
                   >
                     {showCongratsMessage ? (
                       <div className="flex items-start gap-3 animate-in fade-in duration-300">
@@ -804,106 +799,103 @@ export default function UserDashboard() {
                   </div>
                 </>
               )}
-              </div>
-            </div>
-            )}
-
-            {/* Modal Ganti Password */}
-            <Dialog open={showPasswordModal} onOpenChange={setShowPasswordModal}>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Ganti Password</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-4 py-2">
-                  <div className="grid gap-2">
-                    <Label htmlFor="new-password">Password baru</Label>
-                    <Input
-                      id="new-password"
-                      type="password"
-                      placeholder="Minimal 6 karakter"
-                      value={newPassword}
-                      onChange={(e) => { setNewPassword(e.target.value); setPasswordModalError(''); }}
-                      autoComplete="new-password"
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="confirm-password">Konfirmasi password baru</Label>
-                    <Input
-                      id="confirm-password"
-                      type="password"
-                      placeholder="Ulangi password baru"
-                      value={confirmPassword}
-                      onChange={(e) => { setConfirmPassword(e.target.value); setPasswordModalError(''); }}
-                      autoComplete="new-password"
-                    />
-                  </div>
-                  {passwordModalError && (
-                    <p className="text-sm text-destructive">{passwordModalError}</p>
-                  )}
-                </div>
-                <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row">
-                  <Button variant="outline" onClick={() => setShowPasswordModal(false)}>
-                    Batal
-                  </Button>
-                  <Button onClick={handleGantiPasswordSubmit} disabled={isChangingPassword || !newPassword || !confirmPassword}>
-                    {isChangingPassword ? 'Menyimpan...' : 'Simpan Password'}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-8 animate-fade-up" style={{ animationDelay: '0.1s' }}>
-              {/* Card 1 - Prestasi Mahasiswa (kiri) */}
-              <SummaryCard
-                title="Prestasi Mahasiswa"
-                icon={<Award className="w-6 h-6 text-success" />}
-                iconBgClass="bg-success/10"
-                primaryLabel="Total Prestasi"
-                primaryValue={totalAchievements.toString()}
-                secondaryLabel="Luaran Penelitian"
-                secondaryValue={totalResearchOutputs.toString()}
-                contextText={`Menampilkan ${Math.min(achievements.length, 5)} dari ${totalAchievements} prestasi (termasuk luaran penelitian)`}
-                highlight={latestAchievement ? {
-                  label: 'Prestasi terbaru',
-                  value: `${latestAchievement.title} (${latestAchievement.year})`
-                } : undefined}
-                ctaLabel={achievementsEditable ? "Tambah Prestasi" : "Lihat Prestasi"}
-                ctaVariant="secondary"
-                onCtaClick={() => navigate('/prestasi')}
-              />
-
-              {/* Card 2 - Status Alumni Saat Ini (kanan, Role-Aware) */}
-              <AlumniStatusCard
-                studentStatus={studentStatus}
-                careerHistory={alumniHistory}
-                onUpdateStatus={() => navigate('/form')}
-              />
-            </div>
-
-            {/* History Section - 2 Cards Grid (Fixed Layout) */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-6 animate-fade-up" style={{ animationDelay: '0.2s' }}>
-              {/* Card 3 - Riwayat Prestasi (kiri) */}
-              <AchievementTimeline
-                achievements={[...achievements].sort((a, b) => getAchievementYear(b) - getAchievementYear(a))}
-                maxItems={5}
-                contextText={`Menampilkan ${Math.min(achievements.length, 5)} dari ${totalAchievements} prestasi terbaru`}
-                onViewAll={() => navigate('/prestasi')}
-                onAddNew={achievementsEditable ? () => navigate('/prestasi') : undefined}
-              />
-
-              {/* Card 4 - Riwayat Karir (kanan, Role-Aware) */}
-              <CareerHistoryCard
-                studentStatus={studentStatus}
-                careerHistory={alumniHistory}
-                onViewAll={() => navigate('/riwayat-karir')}
-                onAddNew={showCareerHistory ? () => navigate('/form') : undefined}
-              />
             </div>
           </div>
+        )}
+
+        {/* Modal Ganti Password */}
+        <Dialog open={showPasswordModal} onOpenChange={setShowPasswordModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Ganti Password</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-2">
+              <div className="grid gap-2">
+                <Label htmlFor="new-password">Password baru</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  placeholder="Minimal 6 karakter"
+                  value={newPassword}
+                  onChange={(e) => { setNewPassword(e.target.value); setPasswordModalError(''); }}
+                  autoComplete="new-password"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="confirm-password">Konfirmasi password baru</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  placeholder="Ulangi password baru"
+                  value={confirmPassword}
+                  onChange={(e) => { setConfirmPassword(e.target.value); setPasswordModalError(''); }}
+                  autoComplete="new-password"
+                />
+              </div>
+              {passwordModalError && (
+                <p className="text-sm text-destructive">{passwordModalError}</p>
+              )}
+            </div>
+            <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row">
+              <Button variant="outline" onClick={() => setShowPasswordModal(false)}>
+                Batal
+              </Button>
+              <Button onClick={handleGantiPasswordSubmit} disabled={isChangingPassword || !newPassword || !confirmPassword}>
+                {isChangingPassword ? 'Menyimpan...' : 'Simpan Password'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-8 animate-fade-up" style={{ animationDelay: '0.1s' }}>
+          {/* Card 1 - Prestasi Mahasiswa (kiri) */}
+          <SummaryCard
+            title="Prestasi Mahasiswa"
+            icon={<Award className="w-6 h-6 text-success" />}
+            iconBgClass="bg-success/10"
+            primaryLabel="Total Prestasi"
+            primaryValue={totalAchievements.toString()}
+            secondaryLabel="Luaran Penelitian"
+            secondaryValue={totalResearchOutputs.toString()}
+            contextText={`Menampilkan ${Math.min(achievements.length, 5)} dari ${totalAchievements} prestasi (termasuk luaran penelitian)`}
+            highlight={latestAchievement ? {
+              label: 'Prestasi terbaru',
+              value: `${latestAchievement.title} (${latestAchievement.year})`
+            } : undefined}
+            ctaLabel={achievementsEditable ? "Tambah Prestasi" : "Lihat Prestasi"}
+            ctaVariant="secondary"
+            onCtaClick={() => navigate('/student/prestasi')}
+          />
+
+          {/* Card 2 - Status Alumni Saat Ini (kanan, Role-Aware) */}
+          <AlumniStatusCard
+            studentStatus={studentStatus}
+            careerHistory={alumniHistory}
+            onUpdateStatus={() => navigate('/student/form')}
+          />
         </div>
-      </main>
-      <Footer />
+
+        {/* History Section - 2 Cards Grid (Fixed Layout) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-6 animate-fade-up" style={{ animationDelay: '0.2s' }}>
+          {/* Card 3 - Riwayat Prestasi (kiri) */}
+          <AchievementTimeline
+            achievements={[...achievements].sort((a, b) => getAchievementYear(b) - getAchievementYear(a))}
+            maxItems={5}
+            contextText={`Menampilkan ${Math.min(achievements.length, 5)} dari ${totalAchievements} prestasi terbaru`}
+            onViewAll={() => navigate('/student/prestasi')}
+            onAddNew={achievementsEditable ? () => navigate('/student/prestasi') : undefined}
+          />
+
+          {/* Card 4 - Riwayat Karir (kanan, Role-Aware) */}
+          <CareerHistoryCard
+            studentStatus={studentStatus}
+            careerHistory={alumniHistory}
+            onViewAll={() => navigate('/student/riwayat-karir')}
+            onAddNew={showCareerHistory ? () => navigate('/student/form') : undefined}
+          />
+        </div>
+      </div>
     </div>
   );
 }
