@@ -36,8 +36,9 @@ export default function AdminSelectDashboardPage() {
             <h1 className="text-3xl font-extrabold text-foreground tracking-tight sm:text-4xl">
               Portal Admin
             </h1>
-            <p className="mt-3 text-muted-foreground max-w-md mx-auto text-base">
-              Selamat datang kembali, <span className="font-semibold text-foreground">{loggedInAdmin?.nama || 'Administrator'}</span>. Silakan pilih dashboard yang ingin Anda kelola hari ini.
+            <p className="mt-3 text-muted-foreground max-w-xl mx-auto text-base leading-relaxed">
+              Selamat datang kembali, <span className="font-semibold text-foreground">{loggedInAdmin?.nama || 'Administrator'}</span>.
+              <span className="block mt-1">Silakan pilih dashboard yang ingin Anda kelola hari ini.</span>
             </p>
           </div>
 
