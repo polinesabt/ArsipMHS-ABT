@@ -13,6 +13,7 @@ import {
   X,
   Check
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -33,6 +34,50 @@ const OPSI_PENDIDIKAN_PASCA_SARJANA = [
   'Doktor Terapan (S3 Terapan)',
   'Spesialis (Sp-1)'
 ];
+
+const contentVariants = {
+  initial: { opacity: 0, y: 12, filter: 'blur(4px)' },
+  animate: { 
+    opacity: 1, 
+    y: 0, 
+    filter: 'blur(0px)', 
+    transition: { 
+      duration: 0.25, 
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number]
+    } 
+  },
+  exit: { 
+    opacity: 0, 
+    y: -8, 
+    filter: 'blur(4px)', 
+    transition: { 
+      duration: 0.18, 
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number]
+    } 
+  }
+};
+
+const footerVariants = {
+  initial: { opacity: 0, y: 18, filter: 'blur(2px)' },
+  animate: { 
+    opacity: 1, 
+    y: 0, 
+    filter: 'blur(0px)', 
+    transition: { 
+      duration: 0.22, 
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number]
+    } 
+  },
+  exit: { 
+    opacity: 0, 
+    y: 18, 
+    filter: 'blur(2px)', 
+    transition: { 
+      duration: 0.15, 
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number]
+    } 
+  }
+};
 
 export default function AdminDosenDashboardPage() {
   const navigate = useNavigate();
@@ -245,19 +290,39 @@ export default function AdminDosenDashboardPage() {
                 <SheetTitle className="text-xl font-bold text-foreground">
                   {isEditing ? 'Edit Profil Dosen' : 'Detail Profil Dosen'}
                 </SheetTitle>
-                {!isEditing && selectedDosen && (
-                  <button
-                    onClick={() => {
-                      setEditFormData({ ...selectedDosen });
-                      setIsEditing(true);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border border-primary/20 transition-all shadow-sm"
-                    title="Edit Profil"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                    <span>Edit Profil</span>
-                  </button>
-                )}
+
+                <AnimatePresence mode="wait" initial={false}>
+                  {!isEditing && selectedDosen ? (
+                    <motion.button
+                      key="btn-edit-action"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.16 }}
+                      onClick={() => {
+                        setEditFormData({ ...selectedDosen });
+                        setIsEditing(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border border-primary/20 transition-all shadow-sm"
+                      title="Edit Profil"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      <span>Edit Profil</span>
+                    </motion.button>
+                  ) : (
+                    <motion.span
+                      key="badge-edit-mode"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      transition={{ duration: 0.16 }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      <span>Mode Edit</span>
+                    </motion.span>
+                  )}
+                </AnimatePresence>
               </div>
               <SheetDescription className="text-muted-foreground text-xs">
                 {isEditing 
@@ -266,319 +331,343 @@ export default function AdminDosenDashboardPage() {
               </SheetDescription>
             </SheetHeader>
             
-            {/* VIEW MODE */}
-            {!isEditing && selectedDosen && (
-              <div className="space-y-6 pt-6">
-                {/* Header profile info */}
-                <div className="flex items-center gap-4 p-4 rounded-2xl bg-muted/30 border border-border/30">
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
-                    <User className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-foreground leading-snug text-base">{selectedDosen.nama}</h4>
-                    <p className="text-xs text-muted-foreground font-mono mt-0.5">NIDN/NIDK: {selectedDosen.nidn}</p>
-                  </div>
-                </div>
-
-                {/* Section 1: Profil Status Kepegawaian */}
-                <div className="space-y-4">
-                  <h5 className="text-xs font-bold uppercase tracking-wider text-primary/80">Profil Status Kepegawaian</h5>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Status Dosen</p>
-                      <div>
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          selectedDosen.statusDosen === 'Tetap' 
-                            ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' 
-                            : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                        }`}>
-                          {selectedDosen.statusDosen}
-                        </span>
-                      </div>
+            {/* ANIMATED VIEW / EDIT MODE TRANSITION */}
+            <AnimatePresence mode="wait" initial={false}>
+              {/* VIEW MODE */}
+              {!isEditing && selectedDosen ? (
+                <motion.div
+                  key="view-mode"
+                  variants={contentVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className="space-y-6 pt-6"
+                >
+                  {/* Header profile info */}
+                  <div className="flex items-center gap-4 p-4 rounded-2xl bg-muted/30 border border-border/30">
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary shadow-inner">
+                      <User className="w-6 h-6" />
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">Kategori Peran</p>
-                      <div>
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          selectedDosen.peran === 'Akademisi' 
-                            ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' 
-                            : 'bg-purple-500/10 text-purple-500 border border-purple-500/20'
-                        }`}>
-                          {selectedDosen.peran}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-1 col-span-2">
-                      <p className="text-xs text-muted-foreground">Jabatan Akademik</p>
-                      <p className="font-semibold text-foreground flex items-center gap-1.5">
-                        <Award className="w-4 h-4 text-amber-500" />
-                        {selectedDosen.jabatan}
-                      </p>
-                    </div>
-                    <div className="space-y-1 col-span-2">
-                      <p className="text-xs text-muted-foreground font-medium">Perusahaan / Institusi</p>
-                      <p className="font-semibold text-foreground flex items-center gap-1.5">
-                        <Building className="w-4 h-4 text-sky-500" />
-                        {selectedDosen.institusi}
-                      </p>
+                    <div>
+                      <h4 className="font-bold text-foreground leading-snug text-base">{selectedDosen.nama}</h4>
+                      <p className="text-xs text-muted-foreground font-mono mt-0.5">NIDN/NIDK: {selectedDosen.nidn}</p>
                     </div>
                   </div>
-                </div>
 
-                {/* Section 2: Profil Latar Belakang Keahlian */}
-                <div className="space-y-4 pt-4 border-t border-border/30">
-                  <h5 className="text-xs font-bold uppercase tracking-wider text-primary/80">
-                    Profil Latar Belakang Keahlian
-                  </h5>
-
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    {/* 1. Pendidikan Pasca Sarjana */}
-                    <div className="space-y-1 col-span-2">
-                      <p className="text-xs text-muted-foreground">Pendidikan Pasca Sarjana</p>
-                      <div className="flex flex-wrap gap-1.5 pt-0.5">
-                        {Array.isArray(selectedDosen.pendidikanPascaSarjana) ? (
-                          selectedDosen.pendidikanPascaSarjana.map((tingkat: string, idx: number) => (
-                            <span
-                              key={idx}
-                              className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-500 border border-blue-500/20"
-                            >
-                              {tingkat}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-500 border border-blue-500/20">
-                            {selectedDosen.pendidikanPascaSarjana || 'Magister'}
+                  {/* Section 1: Profil Status Kepegawaian */}
+                  <div className="space-y-4">
+                    <h5 className="text-xs font-bold uppercase tracking-wider text-primary/80">Profil Status Kepegawaian</h5>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Status Dosen</p>
+                        <div>
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            selectedDosen.statusDosen === 'Tetap' 
+                              ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' 
+                              : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                          }`}>
+                            {selectedDosen.statusDosen}
                           </span>
-                        )}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Kategori Peran</p>
+                        <div>
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
+                            selectedDosen.peran === 'Akademisi' 
+                              ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' 
+                              : 'bg-purple-500/10 text-purple-500 border border-purple-500/20'
+                          }`}>
+                            {selectedDosen.peran}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="space-y-1 col-span-2">
+                        <p className="text-xs text-muted-foreground">Jabatan Akademik</p>
+                        <p className="font-semibold text-foreground flex items-center gap-1.5">
+                          <Award className="w-4 h-4 text-amber-500" />
+                          {selectedDosen.jabatan}
+                        </p>
+                      </div>
+                      <div className="space-y-1 col-span-2">
+                        <p className="text-xs text-muted-foreground font-medium">Perusahaan / Institusi</p>
+                        <p className="font-semibold text-foreground flex items-center gap-1.5">
+                          <Building className="w-4 h-4 text-sky-500" />
+                          {selectedDosen.institusi}
+                        </p>
                       </div>
                     </div>
+                  </div>
 
-                    {/* 2. Bidang Keahlian */}
-                    <div className="space-y-1 col-span-2">
-                      <p className="text-xs text-muted-foreground">Bidang Keahlian</p>
-                      <p className="font-semibold text-foreground flex items-center gap-1.5">
-                        <BookOpen className="w-4 h-4 text-sky-500" />
-                        {selectedDosen.bidangKeahlian}
-                      </p>
-                    </div>
+                  {/* Section 2: Profil Latar Belakang Keahlian */}
+                  <div className="space-y-4 pt-4 border-t border-border/30">
+                    <h5 className="text-xs font-bold uppercase tracking-wider text-primary/80">
+                      Profil Latar Belakang Keahlian
+                    </h5>
 
-                    {/* 3. Nomor Sertifikat Pendidik Profesional */}
-                    <div className="space-y-1 col-span-2">
-                      <p className="text-xs text-muted-foreground">Nomor Sertifikat Pendidik Profesional</p>
-                      <p className="font-semibold text-foreground flex items-center gap-1.5 font-mono text-xs">
-                        <FileText className="w-4 h-4 text-emerald-500" />
-                        {selectedDosen.sertifikatPendidik && selectedDosen.sertifikatPendidik !== '-' ? (
-                          <span className="text-emerald-500 font-semibold">{selectedDosen.sertifikatPendidik}</span>
-                        ) : (
-                          <span className="text-muted-foreground font-sans font-normal italic">-</span>
-                        )}
-                      </p>
-                    </div>
-
-                    {/* 4. Sertifikat Kompetensi */}
-                    <div className="space-y-1 col-span-2">
-                      <p className="text-xs text-muted-foreground">Sertifikat Kompetensi</p>
-                      <div className="flex items-center gap-1.5 pt-0.5">
-                        <Award className="w-4 h-4 text-purple-500 flex-shrink-0" />
-                        <div className="flex flex-wrap gap-1.5">
-                          {typeof selectedDosen.sertifikatKompetensi === 'string' && selectedDosen.sertifikatKompetensi.includes(',') ? (
-                            selectedDosen.sertifikatKompetensi.split(',').map((cert: string, idx: number) => (
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      {/* 1. Pendidikan Pasca Sarjana */}
+                      <div className="space-y-1 col-span-2">
+                        <p className="text-xs text-muted-foreground">Pendidikan Pasca Sarjana</p>
+                        <div className="flex flex-wrap gap-1.5 pt-0.5">
+                          {Array.isArray(selectedDosen.pendidikanPascaSarjana) ? (
+                            selectedDosen.pendidikanPascaSarjana.map((tingkat: string, idx: number) => (
                               <span
                                 key={idx}
-                                className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                                className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-500 border border-blue-500/20"
                               >
-                                {cert.trim()}
+                                {tingkat}
                               </span>
                             ))
-                          ) : selectedDosen.sertifikatKompetensi && selectedDosen.sertifikatKompetensi !== '-' ? (
-                            <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                              {selectedDosen.sertifikatKompetensi}
-                            </span>
                           ) : (
-                            <span className="text-xs text-muted-foreground italic">-</span>
+                            <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                              {selectedDosen.pendidikanPascaSarjana || 'Magister'}
+                            </span>
                           )}
+                        </div>
+                      </div>
+
+                      {/* 2. Bidang Keahlian */}
+                      <div className="space-y-1 col-span-2">
+                        <p className="text-xs text-muted-foreground">Bidang Keahlian</p>
+                        <p className="font-semibold text-foreground flex items-center gap-1.5">
+                          <BookOpen className="w-4 h-4 text-sky-500" />
+                          {selectedDosen.bidangKeahlian}
+                        </p>
+                      </div>
+
+                      {/* 3. Nomor Sertifikat Pendidik Profesional */}
+                      <div className="space-y-1 col-span-2">
+                        <p className="text-xs text-muted-foreground">Nomor Sertifikat Pendidik Profesional</p>
+                        <p className="font-semibold text-foreground flex items-center gap-1.5 font-mono text-xs">
+                          <FileText className="w-4 h-4 text-emerald-500" />
+                          {selectedDosen.sertifikatPendidik && selectedDosen.sertifikatPendidik !== '-' ? (
+                            <span className="text-emerald-500 font-semibold">{selectedDosen.sertifikatPendidik}</span>
+                          ) : (
+                            <span className="text-muted-foreground font-sans font-normal italic">-</span>
+                          )}
+                        </p>
+                      </div>
+
+                      {/* 4. Sertifikat Kompetensi */}
+                      <div className="space-y-1 col-span-2">
+                        <p className="text-xs text-muted-foreground">Sertifikat Kompetensi</p>
+                        <div className="flex items-center gap-1.5 pt-0.5">
+                          <Award className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                          <div className="flex flex-wrap gap-1.5">
+                            {typeof selectedDosen.sertifikatKompetensi === 'string' && selectedDosen.sertifikatKompetensi.includes(',') ? (
+                              selectedDosen.sertifikatKompetensi.split(',').map((cert: string, idx: number) => (
+                                <span
+                                  key={idx}
+                                  className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                                >
+                                  {cert.trim()}
+                                </span>
+                              ))
+                            ) : selectedDosen.sertifikatKompetensi && selectedDosen.sertifikatKompetensi !== '-' ? (
+                              <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                {selectedDosen.sertifikatKompetensi}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground italic">-</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* EDIT MODE FORM */}
-            {isEditing && editFormData && (
-              <div className="space-y-6 pt-6 text-sm">
-                {/* Basic Identity Inputs */}
-                <div className="p-4 rounded-2xl bg-muted/20 border border-border/40 space-y-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground">Nama Dosen Beserta Gelar</label>
-                    <Input
-                      value={editFormData.nama}
-                      onChange={(e) => setEditFormData({ ...editFormData, nama: e.target.value })}
-                      placeholder="Contoh: Dr. Ir. Fauzi, M.T."
-                      className="bg-background rounded-xl"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground">NIDN / NIDK</label>
-                    <Input
-                      value={editFormData.nidn}
-                      onChange={(e) => setEditFormData({ ...editFormData, nidn: e.target.value })}
-                      placeholder="Contoh: 0012087501"
-                      className="bg-background rounded-xl font-mono text-xs"
-                    />
-                  </div>
-                </div>
-
-                {/* Section 1: Profil Status Kepegawaian (Edit) */}
-                <div className="space-y-4 pt-2">
-                  <h5 className="text-xs font-bold uppercase tracking-wider text-primary/80">
-                    Profil Status Kepegawaian
-                  </h5>
-                  <div className="grid grid-cols-2 gap-3">
+                </motion.div>
+              ) : isEditing && editFormData ? (
+                /* EDIT MODE FORM */
+                <motion.div
+                  key="edit-mode"
+                  variants={contentVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className="space-y-6 pt-6 text-sm"
+                >
+                  {/* Basic Identity Inputs */}
+                  <div className="p-4 rounded-2xl bg-muted/20 border border-border/40 space-y-3">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">Status Dosen</label>
-                      <select
-                        value={editFormData.statusDosen}
-                        onChange={(e) => setEditFormData({ ...editFormData, statusDosen: e.target.value as 'Tetap' | 'Tidak Tetap' })}
-                        className="w-full h-10 px-3 text-xs bg-background border border-border/70 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
-                      >
-                        <option value="Tetap">Tetap</option>
-                        <option value="Tidak Tetap">Tidak Tetap</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">Kategori Peran</label>
-                      <select
-                        value={editFormData.peran}
-                        onChange={(e) => setEditFormData({ ...editFormData, peran: e.target.value as 'Akademisi' | 'Praktisi' })}
-                        className="w-full h-10 px-3 text-xs bg-background border border-border/70 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
-                      >
-                        <option value="Akademisi">Akademisi</option>
-                        <option value="Praktisi">Praktisi</option>
-                      </select>
-                    </div>
-
-                    <div className="space-y-1.5 col-span-2">
-                      <label className="text-xs font-medium text-muted-foreground">Jabatan Akademik</label>
+                      <label className="text-xs font-semibold text-muted-foreground">Nama Dosen Beserta Gelar</label>
                       <Input
-                        value={editFormData.jabatan}
-                        onChange={(e) => setEditFormData({ ...editFormData, jabatan: e.target.value })}
-                        placeholder="Contoh: Lektor Kepala, Guru Besar, Asisten Ahli"
+                        value={editFormData.nama}
+                        onChange={(e) => setEditFormData({ ...editFormData, nama: e.target.value })}
+                        placeholder="Contoh: Dr. Ir. Fauzi, M.T."
                         className="bg-background rounded-xl"
                       />
                     </div>
 
-                    <div className="space-y-1.5 col-span-2">
-                      <label className="text-xs font-medium text-muted-foreground">Perusahaan / Institusi</label>
-                      <Input
-                        value={editFormData.institusi}
-                        onChange={(e) => setEditFormData({ ...editFormData, institusi: e.target.value })}
-                        placeholder="Contoh: Politeknik Negeri Semarang"
-                        className="bg-background rounded-xl"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section 2: Profil Latar Belakang Keahlian (Edit) */}
-                <div className="space-y-4 pt-4 border-t border-border/30">
-                  <h5 className="text-xs font-bold uppercase tracking-wider text-primary/80">
-                    Profil Latar Belakang Keahlian
-                  </h5>
-
-                  <div className="space-y-4">
-                    {/* Pendidikan Pasca Sarjana (Interactive Toggle Badges) */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-medium text-muted-foreground block">
-                        Pendidikan Pasca Sarjana (Pilih yang sesuai)
-                      </label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {OPSI_PENDIDIKAN_PASCA_SARJANA.map((tingkat) => {
-                          const isSelected = editFormData.pendidikanPascaSarjana?.includes(tingkat);
-                          return (
-                            <button
-                              key={tingkat}
-                              type="button"
-                              onClick={() => handleTogglePendidikan(tingkat)}
-                              className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-                                isSelected
-                                  ? 'bg-primary text-primary-foreground shadow-sm scale-102 border border-primary'
-                                  : 'bg-muted/40 text-muted-foreground border border-border/60 hover:bg-muted/70'
-                              }`}
-                            >
-                              {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
-                              <span>{tingkat}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Bidang Keahlian */}
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">Bidang Keahlian</label>
+                      <label className="text-xs font-semibold text-muted-foreground">NIDN / NIDK</label>
                       <Input
-                        value={editFormData.bidangKeahlian}
-                        onChange={(e) => setEditFormData({ ...editFormData, bidangKeahlian: e.target.value })}
-                        placeholder="Contoh: Manajemen Rekayasa Industri, Pemasaran Digital"
-                        className="bg-background rounded-xl"
-                      />
-                    </div>
-
-                    {/* Nomor Sertifikat Pendidik Profesional */}
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">Nomor Sertifikat Pendidik Profesional</label>
-                      <Input
-                        value={editFormData.sertifikatPendidik}
-                        onChange={(e) => setEditFormData({ ...editFormData, sertifikatPendidik: e.target.value })}
-                        placeholder="Masukkan nomor serdos atau '-' jika belum ada"
+                        value={editFormData.nidn}
+                        onChange={(e) => setEditFormData({ ...editFormData, nidn: e.target.value })}
+                        placeholder="Contoh: 0012087501"
                         className="bg-background rounded-xl font-mono text-xs"
                       />
                     </div>
+                  </div>
 
-                    {/* Sertifikat Kompetensi */}
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">Sertifikat Kompetensi (Pisahkan dengan koma)</label>
-                      <Input
-                        value={editFormData.sertifikatKompetensi}
-                        onChange={(e) => setEditFormData({ ...editFormData, sertifikatKompetensi: e.target.value })}
-                        placeholder="Contoh: MSDM, Ekspor Impor Expert, KWU"
-                        className="bg-background rounded-xl"
-                      />
+                  {/* Section 1: Profil Status Kepegawaian (Edit) */}
+                  <div className="space-y-4 pt-2">
+                    <h5 className="text-xs font-bold uppercase tracking-wider text-primary/80">
+                      Profil Status Kepegawaian
+                    </h5>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Status Dosen</label>
+                        <select
+                          value={editFormData.statusDosen}
+                          onChange={(e) => setEditFormData({ ...editFormData, statusDosen: e.target.value as 'Tetap' | 'Tidak Tetap' })}
+                          className="w-full h-10 px-3 text-xs bg-background border border-border/70 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+                        >
+                          <option value="Tetap">Tetap</option>
+                          <option value="Tidak Tetap">Tidak Tetap</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Kategori Peran</label>
+                        <select
+                          value={editFormData.peran}
+                          onChange={(e) => setEditFormData({ ...editFormData, peran: e.target.value as 'Akademisi' | 'Praktisi' })}
+                          className="w-full h-10 px-3 text-xs bg-background border border-border/70 rounded-xl focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+                        >
+                          <option value="Akademisi">Akademisi</option>
+                          <option value="Praktisi">Praktisi</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5 col-span-2">
+                        <label className="text-xs font-medium text-muted-foreground">Jabatan Akademik</label>
+                        <Input
+                          value={editFormData.jabatan}
+                          onChange={(e) => setEditFormData({ ...editFormData, jabatan: e.target.value })}
+                          placeholder="Contoh: Lektor Kepala, Guru Besar, Asisten Ahli"
+                          className="bg-background rounded-xl"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5 col-span-2">
+                        <label className="text-xs font-medium text-muted-foreground">Perusahaan / Institusi</label>
+                        <Input
+                          value={editFormData.institusi}
+                          onChange={(e) => setEditFormData({ ...editFormData, institusi: e.target.value })}
+                          placeholder="Contoh: Politeknik Negeri Semarang"
+                          className="bg-background rounded-xl"
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
+
+                  {/* Section 2: Profil Latar Belakang Keahlian (Edit) */}
+                  <div className="space-y-4 pt-4 border-t border-border/30">
+                    <h5 className="text-xs font-bold uppercase tracking-wider text-primary/80">
+                      Profil Latar Belakang Keahlian
+                    </h5>
+
+                    <div className="space-y-4">
+                      {/* Pendidikan Pasca Sarjana (Interactive Toggle Badges) */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-muted-foreground block">
+                          Pendidikan Pasca Sarjana (Pilih yang sesuai)
+                        </label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {OPSI_PENDIDIKAN_PASCA_SARJANA.map((tingkat) => {
+                            const isSelected = editFormData.pendidikanPascaSarjana?.includes(tingkat);
+                            return (
+                              <button
+                                key={tingkat}
+                                type="button"
+                                onClick={() => handleTogglePendidikan(tingkat)}
+                                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                                  isSelected
+                                    ? 'bg-primary text-primary-foreground shadow-sm scale-102 border border-primary'
+                                    : 'bg-muted/40 text-muted-foreground border border-border/60 hover:bg-muted/70'
+                                }`}
+                              >
+                                {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                                <span>{tingkat}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Bidang Keahlian */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Bidang Keahlian</label>
+                        <Input
+                          value={editFormData.bidangKeahlian}
+                          onChange={(e) => setEditFormData({ ...editFormData, bidangKeahlian: e.target.value })}
+                          placeholder="Contoh: Manajemen Rekayasa Industri, Pemasaran Digital"
+                          className="bg-background rounded-xl"
+                        />
+                      </div>
+
+                      {/* Nomor Sertifikat Pendidik Profesional */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Nomor Sertifikat Pendidik Profesional</label>
+                        <Input
+                          value={editFormData.sertifikatPendidik}
+                          onChange={(e) => setEditFormData({ ...editFormData, sertifikatPendidik: e.target.value })}
+                          placeholder="Masukkan nomor serdos atau '-' jika belum ada"
+                          className="bg-background rounded-xl font-mono text-xs"
+                        />
+                      </div>
+
+                      {/* Sertifikat Kompetensi */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground">Sertifikat Kompetensi (Pisahkan dengan koma)</label>
+                        <Input
+                          value={editFormData.sertifikatKompetensi}
+                          onChange={(e) => setEditFormData({ ...editFormData, sertifikatKompetensi: e.target.value })}
+                          placeholder="Contoh: MSDM, Ekspor Impor Expert, KWU"
+                          className="bg-background rounded-xl"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
 
-          {/* Footer Actions (Only in Edit Mode) */}
-          {isEditing && (
-            <div className="pt-6 border-t border-border/30 flex items-center justify-end gap-3 sticky bottom-0 bg-card/95 backdrop-blur-md py-4 mt-6">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleCancelEdit}
-                className="rounded-xl px-4 text-xs font-semibold"
+          {/* Footer Actions (Only in Edit Mode with Motion Animation) */}
+          <AnimatePresence>
+            {isEditing && (
+              <motion.div
+                key="edit-footer-actions"
+                variants={footerVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="pt-4 border-t border-border/30 flex items-center justify-end gap-3 sticky bottom-0 bg-card/95 backdrop-blur-md py-4 mt-6 z-10"
               >
-                <X className="w-3.5 h-3.5 mr-1.5" />
-                Batal
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleSaveEdit}
-                className="rounded-xl px-5 text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
-              >
-                <Save className="w-3.5 h-3.5 mr-1.5" />
-                Simpan Perubahan
-              </Button>
-            </div>
-          )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCancelEdit}
+                  className="rounded-xl px-4 text-xs font-semibold"
+                >
+                  <X className="w-3.5 h-3.5 mr-1.5" />
+                  Batal
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleSaveEdit}
+                  className="rounded-xl px-5 text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
+                >
+                  <Save className="w-3.5 h-3.5 mr-1.5" />
+                  Simpan Perubahan
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </SheetContent>
       </Sheet>
     </div>
