@@ -191,7 +191,7 @@ export default function AdminDosenDashboardPage() {
 
               {/* Section 1: Profil Dosen Utama */}
               <div className="space-y-4">
-                <h5 className="text-xs font-bold uppercase tracking-wider text-primary/80">Informasi Kepegawaian & Peran</h5>
+                <h5 className="text-xs font-bold uppercase tracking-wider text-primary/80">Profil Status Kepegawaian</h5>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Status Dosen</p>
@@ -234,10 +234,10 @@ export default function AdminDosenDashboardPage() {
                 </div>
               </div>
 
-              {/* Section 2: Profil Dosen Berdasarkan Latar Belakang Keahlian */}
+              {/* Section 2: Profil Latar Belakang Keahlian */}
               <div className="space-y-4 pt-4 border-t border-border/30">
                 <h5 className="text-xs font-bold uppercase tracking-wider text-primary/80">
-                  Profil Dosen Berdasarkan Latar Belakang Keahlian
+                  Profil Latar Belakang Keahlian
                 </h5>
 
                 <div className="grid grid-cols-2 gap-4 text-sm">
