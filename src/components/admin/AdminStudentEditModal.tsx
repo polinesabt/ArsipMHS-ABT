@@ -450,7 +450,7 @@ export function AdminStudentEditModal({
     };
 
     let savedTracer: ApiTracerStudy | null = null;
-    let tracerId = data.id;
+    const tracerId = data.id;
 
     if (tracerId) {
       const response = await updateTracerStudyViaAPI(tracerId, payload);
@@ -954,26 +954,30 @@ export function AdminStudentEditModal({
                               )}
                             </div>
                             <h5 className="font-medium">
-                              {(achievement as any).namaLomba || 
-                               (achievement as any).judulPublikasi ||
-                               (achievement as any).namaSeminar || 
-                               (achievement as any).judul || 
-                               (achievement as any).namaPerusahaan ||
-                               (achievement as any).namaUsaha ||
-                               (achievement as any).namaProgram ||
-                               (achievement as any).namaOrganisasi ||
-                               (achievement as any).judulProyek ||
-                               'Prestasi'}
-                            </h5>
-                            <p className="text-sm text-muted-foreground">
-                              {(achievement as any).penyelenggara || 
-                               (achievement as any).posisi ||
-                               (achievement as any).jabatan ||
-                               (achievement as any).mataKuliah ||
-                               ''}
-                              {(achievement as any).tahun && ` • ${(achievement as any).tahun}`}
-                              {(achievement as any).tahunPengajuan && ` • ${(achievement as any).tahunPengajuan}`}
-                            </p>
+                               {String(
+                                 (achievement as Record<string, unknown>).namaLomba || 
+                                 (achievement as Record<string, unknown>).judulPublikasi ||
+                                 (achievement as Record<string, unknown>).namaSeminar || 
+                                 (achievement as Record<string, unknown>).judul || 
+                                 (achievement as Record<string, unknown>).namaPerusahaan ||
+                                 (achievement as Record<string, unknown>).namaUsaha ||
+                                 (achievement as Record<string, unknown>).namaProgram ||
+                                 (achievement as Record<string, unknown>).namaOrganisasi ||
+                                 (achievement as Record<string, unknown>).judulProyek ||
+                                 'Prestasi'
+                               )}
+                             </h5>
+                             <p className="text-sm text-muted-foreground">
+                               {String(
+                                 (achievement as Record<string, unknown>).penyelenggara || 
+                                 (achievement as Record<string, unknown>).posisi ||
+                                 (achievement as Record<string, unknown>).jabatan ||
+                                 (achievement as Record<string, unknown>).mataKuliah ||
+                                 ''
+                               )}
+                               {Boolean((achievement as Record<string, unknown>).tahun) && ` • ${String((achievement as Record<string, unknown>).tahun)}`}
+                               {Boolean((achievement as Record<string, unknown>).tahunPengajuan) && ` • ${String((achievement as Record<string, unknown>).tahunPengajuan)}`}
+                             </p>
                           </div>
                           <div className="flex gap-1">
                             <Button

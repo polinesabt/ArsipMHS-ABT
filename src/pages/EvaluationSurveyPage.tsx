@@ -601,7 +601,7 @@ export default function EvaluationSurveyPage() {
               <CardDescription>{error || 'Data survey tidak ditemukan.'}</CardDescription>
             </CardHeader>
             <CardContent>
-              <Button onClick={() => navigate('/dashboard')}>Kembali ke Dashboard</Button>
+              <Button onClick={() => navigate('/student/dashboard')}>Kembali ke Dashboard</Button>
             </CardContent>
           </Card>
         </div>
@@ -972,7 +972,7 @@ export default function EvaluationSurveyPage() {
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   Kirim Survey Evaluasi
                 </Button>
-                <Button variant="outline" onClick={() => navigate('/dashboard')}>
+                <Button variant="outline" onClick={() => navigate('/student/dashboard')}>
                   Kembali ke Dashboard
                 </Button>
               </div>
@@ -1235,7 +1235,7 @@ export default function EvaluationSurveyPage() {
               )}
               Kirim Survey Evaluasi
             </Button>
-            <Button variant="outline" onClick={() => navigate('/dashboard')}>
+            <Button variant="outline" onClick={() => navigate('/student/dashboard')}>
               Kembali ke Dashboard
             </Button>
           </div>

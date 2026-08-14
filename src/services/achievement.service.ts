@@ -137,7 +137,7 @@ export const getHighestAchievementLevel = (masterId: string): string | null => {
   
   for (const achievement of studentAchievements) {
     if (achievement.category === 'lomba') {
-      const tingkat = (achievement as any).tingkat;
+      const tingkat = String((achievement as Record<string, unknown>).tingkat || '');
       const score = levelHierarchy[tingkat] || 0;
       if (score > highestScore) {
         highestScore = score;

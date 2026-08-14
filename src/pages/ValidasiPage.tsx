@@ -34,9 +34,9 @@ export default function ValidasiPage() {
   useEffect(() => {
     const hasToken = Boolean(localStorage.getItem('authToken'));
     if (hasToken && loggedInAdmin) {
-      navigate('/admin', { replace: true });
+      navigate('/admin/select-dashboard', { replace: true });
     } else if (hasToken && loggedInStudent) {
-      navigate('/dashboard', { replace: true });
+      navigate('/student/dashboard', { replace: true });
     }
   }, [loggedInAdmin, loggedInStudent, navigate]);
 
@@ -88,7 +88,7 @@ export default function ValidasiPage() {
         setLoginSuccess(true);
         setRedirectTarget(result.role);
         setTimeout(() => {
-          navigate(result.role === 'admin' ? '/admin' : '/dashboard');
+          navigate(result.role === 'admin' ? '/admin/select-dashboard' : '/student/dashboard');
         }, 1000);
       } else {
         setError(result.error || 'Username/NIM/email atau password salah');

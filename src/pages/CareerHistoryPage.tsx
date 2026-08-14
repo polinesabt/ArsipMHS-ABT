@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Navbar } from '@/components/layout/Navbar';
-import { Footer } from '@/components/layout/Footer';
+// Shared layout handles Navbar and Footer
 import { Button } from '@/components/ui/button';
 import { useAlumni } from '@/contexts/AlumniContext';
 import {
@@ -210,9 +209,9 @@ export default function CareerHistoryPage() {
       navigate('/validasi');
       return;
     }
-    const studentStatus: StudentStatus = (selectedAlumni as any).status || 'alumni';
+    const studentStatus: StudentStatus = ((selectedAlumni as Record<string, unknown>).status as StudentStatus) || 'alumni';
     if (!isCareerHistoryVisible(studentStatus)) {
-      navigate('/dashboard');
+      navigate('/student/dashboard');
     }
   }, [selectedAlumni, navigate]);
 
@@ -550,16 +549,13 @@ export default function CareerHistoryPage() {
   if (!selectedAlumni) return null;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <main className="pt-24 pb-20">
-        <div className="container mx-auto px-3 sm:px-4">
+    <div className="container mx-auto px-3 sm:px-4">
           <div className="max-w-6xl mx-auto">
             {/* Back Button */}
             <Button 
               variant="ghost" 
               className="mb-6 -ml-2"
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/student/dashboard')}
             >
               <ChevronLeft className="w-4 h-4 mr-1" />
               Kembali ke Dashboard
@@ -631,7 +627,7 @@ export default function CareerHistoryPage() {
                   {/* Add Career Button */}
                   <Button 
                     className="w-full mt-4"
-                    onClick={() => navigate('/form')}
+                    onClick={() => navigate('/student/form')}
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Tambah Karir
@@ -898,9 +894,6 @@ export default function CareerHistoryPage() {
               </div>
             </div>
           </div>
-        </div>
-      </main>
-      <Footer />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={(open) => !isDeleting && setDeleteDialogOpen(open)}>

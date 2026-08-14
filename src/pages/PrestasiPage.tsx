@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { Navbar } from '@/components/layout/Navbar';
-import { Footer } from '@/components/layout/Footer';
+// Shared layout handles Navbar and Footer
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -304,17 +303,14 @@ export default function PrestasiPage() {
   const formCategory: AchievementCategory = activeCategory === 'all' || activeCategory === 'unggulan' ? 'lomba' : activeCategory;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <main className="pt-24 pb-20">
-        <div className="container mx-auto px-3 sm:px-6">
+    <div className="container mx-auto px-3 sm:px-6">
           <div className="max-w-6xl mx-auto">
             {/* Back Button + Page Title */}
             <div className="mb-6 flex flex-wrap items-start gap-3 animate-fade-up">
               <Button 
                 variant="ghost" 
                 size="icon" 
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate('/student/dashboard')}
                 className="flex-shrink-0 -ml-2"
               >
                 <ChevronLeft className="w-5 h-5" />
@@ -438,9 +434,6 @@ export default function PrestasiPage() {
             )}
           </div>
         </div>
-      </main>
-      <Footer />
-    </div>
   );
 }
 

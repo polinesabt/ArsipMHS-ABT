@@ -10,7 +10,7 @@ const VALID_SECTIONS: DashboardSectionId[] = [
 export default function AdminInsightDashboard() {
   const { section: sectionParam } = useParams<{ section: string }>();
   if (sectionParam === 'job-relevance') {
-    return <Navigate to="/admin/dashboard/all" replace />;
+    return <Navigate to="/admin/mahasiswa/dashboard/all" replace />;
   }
   const section = sectionParam && VALID_SECTIONS.includes(sectionParam as DashboardSectionId)
     ? (sectionParam as DashboardSectionId)

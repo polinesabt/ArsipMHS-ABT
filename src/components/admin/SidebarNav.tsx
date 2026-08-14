@@ -1,7 +1,7 @@
 import React, { useState, type MouseEvent } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, PanelLeft, PanelLeftClose, Sun, Moon, LogOut } from 'lucide-react';
+import { ChevronRight, PanelLeft, PanelLeftClose, Sun, Moon, LogOut, LayoutGrid } from 'lucide-react';
 import type { AdminNavItem, AdminNavItemLeaf } from '@/components/admin/admin-nav.types';
 import { isNavParent } from '@/components/admin/admin-nav.types';
 import { cn } from '@/lib/utils';
@@ -162,10 +162,8 @@ export function SidebarNav({
             onClick={canUseHeaderAction ? handleHeaderAction : undefined}
             disabled={!canUseHeaderAction}
             className={cn(
-              'flex-shrink-0 w-10 h-10 min-w-10 min-h-10 rounded-lg flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--sidebar-bg))] cursor-pointer disabled:cursor-default disabled:opacity-90 box-border',
-              collapsed
-                ? 'bg-emerald-500/15 text-emerald-400/95 hover:bg-emerald-500/25 focus-visible:ring-emerald-500/50'
-                : 'bg-red-500/15 text-red-400/95 hover:bg-red-500/25 focus-visible:ring-red-500/50'
+              'flex-shrink-0 w-10 h-10 min-w-10 min-h-10 rounded-lg flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[hsl(var(--sidebar-bg))] cursor-pointer disabled:cursor-default disabled:opacity-90 box-border transition-colors duration-200',
+              'bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring'
             )}
             aria-label={
               onRequestClose
@@ -319,7 +317,9 @@ function SidebarFooter({
   navTransition: { type: 'tween'; duration: number; ease: readonly number[] };
   textRevealDelay: number;
 }) {
+  const navigate = useNavigate();
   const { darkMode, toggleDarkMode, logoutAdmin } = useAlumni();
+  const [portalHovered, setPortalHovered] = useState(false);
   const [themeHovered, setThemeHovered] = useState(false);
   const [logoutHovered, setLogoutHovered] = useState(false);
 
@@ -330,6 +330,85 @@ function SidebarFooter({
         collapsed ? 'flex flex-col items-center gap-0.5' : 'space-y-0.5'
       )}
     >
+      {/* Kembali ke Portal */}
+      <motion.button
+        type="button"
+        onClick={() => navigate('/admin/select-dashboard')}
+        whileTap={{ scale: 0.985 }}
+        onMouseEnter={() => setPortalHovered(true)}
+        onMouseLeave={() => setPortalHovered(false)}
+        className="relative w-full flex items-center rounded-lg py-1.5 overflow-hidden cursor-pointer"
+        aria-label="Kembali ke Portal"
+      >
+        <motion.div
+          className="absolute inset-0 rounded-lg bg-[hsl(var(--sidebar-hover)/0.6)] origin-left"
+          initial={false}
+          animate={{ scaleX: portalHovered ? 1 : 0 }}
+          transition={navTransition}
+          style={{ transformOrigin: 'left' }}
+        />
+        <span
+          className={cn(
+            'relative flex items-center w-full min-w-0',
+            collapsed ? 'justify-center px-0 gap-0' : 'gap-2 px-2'
+          )}
+        >
+          <motion.div
+            className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
+            animate={{
+              scale: portalHovered ? 1.05 : 1,
+              backgroundColor: portalHovered ? 'hsl(var(--sidebar-hover))' : 'transparent',
+            }}
+            transition={navTransition}
+          >
+            <span className="flex items-center justify-center text-[hsl(var(--sidebar-fg))]">
+              <LayoutGrid className="w-4 h-4" aria-hidden />
+            </span>
+          </motion.div>
+          <motion.span
+            className="text-xs font-medium whitespace-nowrap text-[hsl(var(--sidebar-fg))]"
+            animate={{
+              opacity: collapsed ? 0 : 1,
+              width: collapsed ? 0 : 'auto',
+              x: collapsed ? -8 : 0,
+            }}
+            transition={{
+              opacity: {
+                duration: widthTransition.duration,
+                ease: widthTransition.ease,
+                delay: collapsed ? 0 : textRevealDelay,
+              },
+              width: widthTransition,
+              x: { duration: widthTransition.duration, ease: widthTransition.ease },
+            }}
+            style={{
+              overflow: 'hidden',
+              pointerEvents: collapsed ? 'none' : 'auto',
+            }}
+            aria-hidden={collapsed}
+          >
+            Kembali ke Portal
+          </motion.span>
+        </span>
+        <AnimatePresence>
+          {collapsed && portalHovered && (
+            <motion.div
+              initial={{ opacity: 0, x: -4 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -4 }}
+              transition={navTransition}
+              className="absolute left-full top-1/2 -translate-y-1/2 ml-2 rounded-md shadow-lg px-2.5 py-1.5 text-xs font-medium z-50 pointer-events-none"
+              style={{
+                backgroundColor: 'hsl(var(--foreground))',
+                color: 'hsl(var(--background))',
+              }}
+            >
+              Kembali ke Portal
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.button>
+
       {/* Theme toggle */}
       <motion.button
         type="button"
@@ -357,7 +436,7 @@ function SidebarFooter({
             className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
             animate={{
               scale: themeHovered ? 1.05 : 1,
-              backgroundColor: themeHovered ? 'rgba(255,255,255,0.05)' : 'transparent',
+              backgroundColor: themeHovered ? 'hsl(var(--sidebar-hover))' : 'transparent',
             }}
             transition={navTransition}
           >
@@ -436,7 +515,7 @@ function SidebarFooter({
             className="flex-shrink-0 w-7 h-7 rounded-md flex items-center justify-center"
             animate={{
               scale: logoutHovered ? 1.05 : 1,
-              backgroundColor: logoutHovered ? 'rgba(239,68,68,0.15)' : 'transparent',
+              backgroundColor: logoutHovered ? 'hsl(var(--destructive) / 0.15)' : 'transparent',
             }}
             transition={navTransition}
           >
@@ -561,9 +640,9 @@ function LeafNavItem({
             animate={{
               scale: isHovered || isActive ? 1.05 : 1,
               backgroundColor: isActive
-                ? 'hsl(var(--sidebar-primary) / 0.25)'
+                ? 'hsl(var(--sidebar-primary) / 0.15)'
                 : isHovered
-                  ? 'rgba(255,255,255,0.05)'
+                  ? 'hsl(var(--sidebar-hover))'
                   : 'transparent',
             }}
             transition={navTransition}
@@ -572,7 +651,7 @@ function LeafNavItem({
               className="flex items-center justify-center"
               animate={{
                 x: isHovered && !isActive ? 4 : 0,
-                color: isActive ? 'hsl(0 0% 100%)' : 'hsl(var(--sidebar-fg))',
+                color: isActive ? 'hsl(var(--sidebar-primary))' : 'hsl(var(--sidebar-fg))',
               }}
               transition={navTransition}
             >
@@ -580,9 +659,12 @@ function LeafNavItem({
             </motion.div>
           </motion.div>
           <motion.span
-            className="text-sm font-medium whitespace-nowrap text-[hsl(var(--sidebar-fg))]"
+            className={cn(
+              "text-sm font-medium whitespace-nowrap transition-colors duration-200",
+              isActive ? "text-[hsl(var(--sidebar-primary))]" : "text-[hsl(var(--sidebar-fg))]"
+            )}
             animate={{
-              opacity: collapsed ? 0 : isActive || isHovered ? 1 : 0.7,
+              opacity: collapsed ? 0 : 1,
               width: collapsed ? 0 : 'auto',
               x: collapsed ? -8 : 0,
             }}
@@ -716,9 +798,9 @@ function ParentNavItem({
           animate={{
             scaleX: isHovered ? 1 : 0,
             backgroundColor: isHovered
-              ? 'hsl(var(--sidebar-hover) / 0.5)'
+              ? 'hsl(var(--sidebar-hover))'
               : isParentActive
-                ? 'hsl(var(--sidebar-primary) / 0.15)'
+                ? 'hsl(var(--sidebar-primary) / 0.12)'
                 : 'transparent',
           }}
           transition={navTransition}
@@ -736,8 +818,8 @@ function ParentNavItem({
             collapsed
               ? `Buka ${item.label}`
               : isParentExpanded
-                ? 'Tutup submenu Dashboard Admin'
-                : 'Buka submenu Dashboard Admin'
+                ? `Tutup submenu ${item.label}`
+                : `Buka submenu ${item.label}`
           }
         >
           <motion.div
@@ -745,23 +827,29 @@ function ParentNavItem({
             animate={{
               scale: isHovered ? 1.05 : 1,
               backgroundColor: isHovered
-                ? 'rgba(255,255,255,0.05)'
+                ? 'hsl(var(--sidebar-hover))'
                 : isParentActive
-                  ? 'hsl(var(--sidebar-primary) / 0.2)'
+                  ? 'hsl(var(--sidebar-primary) / 0.15)'
                   : 'transparent',
             }}
             transition={navTransition}
           >
             <motion.div
-              className="flex items-center justify-center text-[hsl(var(--sidebar-fg))]"
-              animate={{ x: isHovered ? 4 : 0 }}
+              className="flex items-center justify-center"
+              animate={{
+                x: isHovered ? 4 : 0,
+                color: isParentActive ? 'hsl(var(--sidebar-primary))' : 'hsl(var(--sidebar-fg))',
+              }}
               transition={navTransition}
             >
               <item.icon className="w-5 h-5" />
             </motion.div>
           </motion.div>
           <motion.span
-            className="text-sm whitespace-nowrap text-[hsl(var(--sidebar-fg))] min-w-0"
+            className={cn(
+              "text-sm whitespace-nowrap min-w-0 transition-colors duration-200 font-medium",
+              isParentActive ? "text-[hsl(var(--sidebar-primary))]" : "text-[hsl(var(--sidebar-fg))]"
+            )}
             animate={{
               opacity: collapsed ? 0 : 1,
               width: collapsed ? 0 : 'auto',
@@ -786,7 +874,10 @@ function ParentNavItem({
           </motion.span>
           {!collapsed && (
             <motion.span
-              className="ml-auto flex-shrink-0 text-[hsl(var(--sidebar-fg))]"
+              className={cn(
+                "ml-auto flex-shrink-0 transition-colors duration-200",
+                isParentActive ? "text-[hsl(var(--sidebar-primary))]" : "text-[hsl(var(--sidebar-fg))]"
+              )}
               animate={{ rotate: isParentExpanded ? 90 : 0 }}
               transition={navTransition}
             >
@@ -884,8 +975,8 @@ function ParentNavItem({
                           backgroundColor: isChildActive
                             ? 'hsl(var(--sidebar-primary) / 0.3)'
                             : isChildHovered
-                              ? 'rgba(255,255,255,0.05)'
-                              : 'hsl(var(--sidebar-hover) / 0.3)',
+                              ? 'hsl(var(--sidebar-hover))'
+                              : 'transparent',
                         }}
                         transition={navTransition}
                       >

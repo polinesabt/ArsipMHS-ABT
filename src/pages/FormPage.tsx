@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Navbar } from '@/components/layout/Navbar';
-import { Footer } from '@/components/layout/Footer';
+// Shared layout handles Navbar and Footer
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -254,7 +253,7 @@ export default function FormPage() {
         title: 'Data berhasil disimpan!',
         description: 'Terima kasih telah mengisi form Arsip Mahasiswa Prodi ABT.',
       });
-      navigate('/dashboard');
+      navigate('/student/dashboard');
     } catch (error) {
       toast({
         title: 'Gagal menyimpan data',
@@ -859,10 +858,7 @@ export default function FormPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <main className="pt-24 pb-20">
-        <div className="container mx-auto px-3 sm:px-4">
+    <div className="container mx-auto px-3 sm:px-4">
           <div className="max-w-2xl mx-auto">
             {/* Header */}
             <div className="text-center mb-8">
@@ -892,7 +888,7 @@ export default function FormPage() {
               <div className="flex justify-start">
                 <Button
                   variant="ghost"
-                  onClick={() => navigate('/dashboard')}
+                  onClick={() => navigate('/student/dashboard')}
                   className="text-muted-foreground hover:text-foreground"
                 >
                   <ArrowLeft className="w-4 h-4 mr-2" />
@@ -921,8 +917,5 @@ export default function FormPage() {
             </div>
           </div>
         </div>
-      </main>
-      <Footer />
-    </div>
   );
 }
