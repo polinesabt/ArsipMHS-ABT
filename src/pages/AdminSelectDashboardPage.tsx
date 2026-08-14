@@ -42,7 +42,9 @@ export default function AdminSelectDashboardPage() {
           </div>
 
           {/* Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto animate-scale-in">
+          <div className={`grid gap-6 mx-auto animate-scale-in ${
+            dosenModuleEnabled ? 'grid-cols-1 md:grid-cols-2 max-w-3xl' : 'grid-cols-1 max-w-md'
+          }`}>
             {/* Card 1: Mahasiswa & Alumni */}
             <div 
               onClick={() => handleSelect('/admin/mahasiswa/dashboard/all')}
@@ -68,60 +70,32 @@ export default function AdminSelectDashboardPage() {
               </div>
             </div>
 
-            {/* Card 2: Dosen */}
-            <div 
-              onClick={() => {
-                if (dosenModuleEnabled) {
-                  handleSelect('/admin/dosen/dashboard');
-                }
-              }}
-              className={`group relative glass-card rounded-3xl p-8 border border-border/50 bg-card/60 backdrop-blur-xl flex flex-col justify-between min-h-[260px] overflow-hidden transition-all duration-300 ${
-                dosenModuleEnabled
-                  ? 'cursor-pointer hover:bg-card/90 shadow-soft hover:shadow-glow transform hover:-translate-y-1.5'
-                  : 'opacity-55 cursor-not-allowed bg-muted/30 grayscale-[30%]'
-              }`}
-            >
-              {/* Card Accent Gradient */}
-              {dosenModuleEnabled && (
+            {/* Card 2: Dosen (Only shown when module is enabled) */}
+            {dosenModuleEnabled && (
+              <div 
+                onClick={() => handleSelect('/admin/dosen/dashboard')}
+                className="group relative cursor-pointer glass-card rounded-3xl p-8 border border-border/50 bg-card/60 backdrop-blur-xl hover:bg-card/90 shadow-soft hover:shadow-glow transition-all duration-300 transform hover:-translate-y-1.5 flex flex-col justify-between min-h-[260px] overflow-hidden"
+              >
+                {/* Card Accent Gradient */}
                 <div className="absolute top-0 left-0 right-0 h-[4px] bg-gradient-to-r from-info/60 to-emerald-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              )}
 
-              <div>
-                <div className="flex items-center justify-between mb-6">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${
-                    dosenModuleEnabled 
-                      ? 'bg-info/10 text-info group-hover:bg-info group-hover:text-white' 
-                      : 'bg-muted text-muted-foreground'
-                  }`}>
+                <div>
+                  <div className="w-14 h-14 rounded-2xl bg-info/10 flex items-center justify-center text-info group-hover:bg-info group-hover:text-white transition-all duration-300 mb-6">
                     <User className="w-7 h-7" />
                   </div>
-                  {!dosenModuleEnabled && (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                      <Lock className="w-3.5 h-3.5" />
-                      Modul Nonaktif
-                    </span>
-                  )}
+                  <h3 className="text-xl font-bold text-foreground group-hover:text-info transition-colors duration-200 mb-2">
+                    Dosen
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    Kelola metrik performa tridharma perguruan tinggi, riwayat publikasi ilmiah dosen, kinerja pengajaran, dan pengabdian masyarakat.
+                  </p>
                 </div>
-                <h3 className={`text-xl font-bold transition-colors duration-200 mb-2 ${
-                  dosenModuleEnabled ? 'text-foreground group-hover:text-info' : 'text-muted-foreground'
-                }`}>
-                  Dosen
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Kelola metrik performa tridharma perguruan tinggi, riwayat publikasi ilmiah dosen, kinerja pengajaran, dan pengabdian masyarakat.
-                </p>
-              </div>
 
-              <div className="mt-6 flex items-center text-xs font-semibold">
-                {dosenModuleEnabled ? (
-                  <span className="text-info group-hover:underline">Masuk ke Dashboard &rarr;</span>
-                ) : (
-                  <span className="text-muted-foreground flex items-center gap-1">
-                    <Lock className="w-3.5 h-3.5" /> Akses Dinonaktifkan oleh Developer
-                  </span>
-                )}
+                <div className="mt-6 flex items-center text-xs font-semibold text-info group-hover:underline">
+                  Masuk ke Dashboard &rarr;
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Action Footer */}
