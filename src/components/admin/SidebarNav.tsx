@@ -13,7 +13,7 @@ const KUSTOM_FORM_PATH = '/admin/kustom-form-kepuasan';
 const STORAGE_KEY = 'admin-sidebar-dashboard-expanded';
 
 /** Softer easing for all sidebar motion */
-const EASE_PREMIUM = [0.22, 1, 0.36, 1] as const;
+const EASE_PREMIUM: [number, number, number, number] = [0.22, 1, 0.36, 1];
 const WIDTH_SPRING = { type: 'spring' as const, stiffness: 280, damping: 28 };
 const WIDTH_DURATION_MS = 280;
 const TEXT_REVEAL_DURATION_MS = 200;
@@ -313,8 +313,8 @@ function SidebarFooter({
   textRevealDelay,
 }: {
   collapsed: boolean;
-  widthTransition: { type: 'tween'; duration: number; ease: readonly number[] };
-  navTransition: { type: 'tween'; duration: number; ease: readonly number[] };
+  widthTransition: { type: 'tween'; duration: number; ease: [number, number, number, number] };
+  navTransition: { type: 'tween'; duration: number; ease: [number, number, number, number] };
   textRevealDelay: number;
 }) {
   const navigate = useNavigate();
@@ -589,8 +589,8 @@ function LeafNavItem({
   hoveredId: string | null;
   setHoveredId: (id: string | null) => void;
   onSelect: (item: AdminNavItem) => void;
-  widthTransition: { type: 'tween'; duration: number; ease: readonly number[] };
-  navTransition: { type: 'tween'; duration: number; ease: readonly number[] };
+  widthTransition: { type: 'tween'; duration: number; ease: [number, number, number, number] };
+  navTransition: { type: 'tween'; duration: number; ease: [number, number, number, number] };
   textRevealDelay: number;
 }) {
   const isActive = activeId === item.id;
@@ -741,8 +741,8 @@ function ParentNavItem({
   onToggleDashboard: () => void;
   pathname: string;
   onSelect: (item: AdminNavItem) => void;
-  widthTransition: { type: 'tween'; duration: number; ease: readonly number[] };
-  navTransition: { type: 'tween'; duration: number; ease: readonly number[] };
+  widthTransition: { type: 'tween'; duration: number; ease: [number, number, number, number] };
+  navTransition: { type: 'tween'; duration: number; ease: [number, number, number, number] };
   textRevealDelay: number;
 }) {
   const isParentExactActive = activeId === item.id;
@@ -753,7 +753,7 @@ function ParentNavItem({
   const parentPath = 'path' in item ? item.path : undefined;
 
   const handleParentClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (isModifiedEventInner(e.nativeEvent as MouseEvent<HTMLAnchorElement>)) return;
+    if (isModifiedEventInner(e)) return;
     e.preventDefault();
     if (collapsed) {
       if (parentPath) onSelect(item as AdminNavItem);
@@ -943,7 +943,7 @@ function ParentNavItem({
                     <motion.a
                       href={child.path}
                       onClick={(e) => {
-                        if (isModifiedEventInner(e.nativeEvent as MouseEvent<HTMLAnchorElement>)) return;
+                        if (isModifiedEventInner(e)) return;
                         e.preventDefault();
                         onSelect(child as AdminNavItem);
                       }}
@@ -1010,7 +1010,7 @@ function ParentNavItem({
               <motion.a
                 href={activeChild.path}
                 onClick={(e) => {
-                  if (isModifiedEventInner(e.nativeEvent as MouseEvent<HTMLAnchorElement>)) return;
+                  if (isModifiedEventInner(e)) return;
                   e.preventDefault();
                   onSelect(activeChild as AdminNavItem);
                 }}
@@ -1061,7 +1061,7 @@ function ParentNavItem({
               <motion.a
                 href={activeChild.path}
                 onClick={(e) => {
-                  if (isModifiedEventInner(e.nativeEvent as MouseEvent<HTMLAnchorElement>)) return;
+                  if (isModifiedEventInner(e)) return;
                   e.preventDefault();
                   onSelect(activeChild as AdminNavItem);
                 }}
