@@ -6,13 +6,14 @@ import {
   GraduationCap, 
   LogOut, 
   User, 
-  ShieldCheck
+  ShieldCheck,
+  Lock
 } from 'lucide-react';
 
 
 export default function AdminSelectDashboardPage() {
   const navigate = useNavigate();
-  const { loggedInAdmin, logoutAdmin } = useAlumni();
+  const { loggedInAdmin, logoutAdmin, dosenModuleEnabled } = useAlumni();
 
   const handleSelect = (path: string) => {
     navigate(path);
@@ -69,17 +70,41 @@ export default function AdminSelectDashboardPage() {
 
             {/* Card 2: Dosen */}
             <div 
-              onClick={() => handleSelect('/admin/dosen/dashboard')}
-              className="group relative cursor-pointer glass-card rounded-3xl p-8 border border-border/50 bg-card/60 backdrop-blur-xl hover:bg-card/90 shadow-soft hover:shadow-glow transition-all duration-300 transform hover:-translate-y-1.5 flex flex-col justify-between min-h-[260px] overflow-hidden"
+              onClick={() => {
+                if (dosenModuleEnabled) {
+                  handleSelect('/admin/dosen/dashboard');
+                }
+              }}
+              className={`group relative glass-card rounded-3xl p-8 border border-border/50 bg-card/60 backdrop-blur-xl flex flex-col justify-between min-h-[260px] overflow-hidden transition-all duration-300 ${
+                dosenModuleEnabled
+                  ? 'cursor-pointer hover:bg-card/90 shadow-soft hover:shadow-glow transform hover:-translate-y-1.5'
+                  : 'opacity-55 cursor-not-allowed bg-muted/30 grayscale-[30%]'
+              }`}
             >
               {/* Card Accent Gradient */}
-              <div className="absolute top-0 left-0 right-0 h-[4px] bg-gradient-to-r from-info/60 to-emerald-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              {dosenModuleEnabled && (
+                <div className="absolute top-0 left-0 right-0 h-[4px] bg-gradient-to-r from-info/60 to-emerald-500/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              )}
 
               <div>
-                <div className="w-14 h-14 rounded-2xl bg-info/10 flex items-center justify-center text-info group-hover:bg-info group-hover:text-white transition-all duration-300 mb-6">
-                  <User className="w-7 h-7" />
+                <div className="flex items-center justify-between mb-6">
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${
+                    dosenModuleEnabled 
+                      ? 'bg-info/10 text-info group-hover:bg-info group-hover:text-white' 
+                      : 'bg-muted text-muted-foreground'
+                  }`}>
+                    <User className="w-7 h-7" />
+                  </div>
+                  {!dosenModuleEnabled && (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                      <Lock className="w-3.5 h-3.5" />
+                      Modul Nonaktif
+                    </span>
+                  )}
                 </div>
-                <h3 className="text-xl font-bold text-foreground group-hover:text-info transition-colors duration-200 mb-2">
+                <h3 className={`text-xl font-bold transition-colors duration-200 mb-2 ${
+                  dosenModuleEnabled ? 'text-foreground group-hover:text-info' : 'text-muted-foreground'
+                }`}>
                   Dosen
                 </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
@@ -87,8 +112,14 @@ export default function AdminSelectDashboardPage() {
                 </p>
               </div>
 
-              <div className="mt-6 flex items-center text-xs font-semibold text-info group-hover:underline">
-                Masuk ke Dashboard &rarr;
+              <div className="mt-6 flex items-center text-xs font-semibold">
+                {dosenModuleEnabled ? (
+                  <span className="text-info group-hover:underline">Masuk ke Dashboard &rarr;</span>
+                ) : (
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Lock className="w-3.5 h-3.5" /> Akses Dinonaktifkan oleh Developer
+                  </span>
+                )}
               </div>
             </div>
           </div>

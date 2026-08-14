@@ -17,7 +17,7 @@ const EASE_PREMIUM = [0.16, 1, 0.3, 1] as const;
 function AdminLayoutShell() {
   const { pathname, hash } = useLocation();
   const navigate = useNavigate();
-  const { loggedInAdmin } = useAlumni();
+  const { loggedInAdmin, dosenModuleEnabled } = useAlumni();
   const { collapsed, toggleCollapsed } = useAdminSidebar();
   const [isDesktop, setIsDesktop] = useState<boolean>(() => {
     if (typeof window === 'undefined') return true;
@@ -26,6 +26,13 @@ function AdminLayoutShell() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const isDosenMode = pathname.startsWith('/admin/dosen');
+
+  useEffect(() => {
+    if (isDosenMode && !dosenModuleEnabled) {
+      navigate('/admin/select-dashboard', { replace: true });
+    }
+  }, [isDosenMode, dosenModuleEnabled, navigate]);
+
   const navItems = isDosenMode ? DOSEN_NAV_ITEMS : ADMIN_NAV_ITEMS;
 
   const activeItem = useMemo((): AdminNavItem => {

@@ -5,6 +5,8 @@
 
 import { apiClient, ApiResponse } from '@/lib/api-client';
 
+import type { UserRole } from '@/types/student.types';
+
 export interface LoginRequest {
   username: string;
   password: string;
@@ -13,7 +15,7 @@ export interface LoginRequest {
 export interface AuthUser {
   id: string;
   username: string;
-  role: 'admin' | 'student';
+  role: UserRole;
   email?: string;
   name?: string;
   nama?: string;
@@ -45,7 +47,7 @@ export interface StudentData {
 
 export interface LoginResponse {
   user: AuthUser;
-  role: 'admin' | 'student';
+  role: UserRole;
   student?: StudentData;
   token?: string;
   jwt?: string;

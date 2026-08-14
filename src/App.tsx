@@ -23,6 +23,7 @@ import AdminDosenDashboardPage from "./pages/AdminDosenDashboardPage";
 import AdminDosenMainDashboardPage from "./pages/AdminDosenMainDashboardPage";
 import AdminDosenKontribusiPage from "./pages/AdminDosenKontribusiPage";
 import AdminKustomFormPreviewPage from "./pages/AdminKustomFormPreviewPage";
+import DeveloperDashboardPage from "./pages/DeveloperDashboardPage";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { StudentLayout } from "@/components/student/StudentLayout";
 import NotFound from "./pages/NotFound";
@@ -77,6 +78,13 @@ function App() {
             
             <Route path="/evaluasi-lulusan/survey/:token" element={<EvaluationSurveyPage />} />
             
+            {/* Developer protected routes */}
+            <Route path="/developer/dashboard" element={
+              <ProtectedRoute requiredRole="developer">
+                <DeveloperDashboardPage />
+              </ProtectedRoute>
+            } />
+
             {/* Admin protected routes */}
             <Route path="/admin/select-dashboard" element={
               <ProtectedRoute requiredRole="admin">

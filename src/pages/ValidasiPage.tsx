@@ -18,7 +18,7 @@ import { LogIn, Eye, EyeOff, AlertCircle, Shield, CheckCircle2, HelpCircle, Arro
 export default function ValidasiPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, loggedInStudent, loggedInAdmin } = useAlumni();
+  const { login, loggedInStudent, loggedInAdmin, loggedInDeveloper } = useAlumni();
   const { verifyToken, isVerifying } = useEmailLoginActivation();
 
   const [identifier, setIdentifier] = useState('');
@@ -29,16 +29,18 @@ export default function ValidasiPage() {
   const [verificationError, setVerificationError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loginSuccess, setLoginSuccess] = useState(false);
-  const [redirectTarget, setRedirectTarget] = useState<'student' | 'admin'>('student');
+  const [redirectTarget, setRedirectTarget] = useState<'student' | 'admin' | 'developer'>('student');
 
   useEffect(() => {
     const hasToken = Boolean(localStorage.getItem('authToken'));
-    if (hasToken && loggedInAdmin) {
+    if (hasToken && loggedInDeveloper) {
+      navigate('/developer/dashboard', { replace: true });
+    } else if (hasToken && loggedInAdmin) {
       navigate('/admin/select-dashboard', { replace: true });
     } else if (hasToken && loggedInStudent) {
       navigate('/student/dashboard', { replace: true });
     }
-  }, [loggedInAdmin, loggedInStudent, navigate]);
+  }, [loggedInAdmin, loggedInDeveloper, loggedInStudent, navigate]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -88,7 +90,13 @@ export default function ValidasiPage() {
         setLoginSuccess(true);
         setRedirectTarget(result.role);
         setTimeout(() => {
-          navigate(result.role === 'admin' ? '/admin/select-dashboard' : '/student/dashboard');
+          if (result.role === 'developer') {
+            navigate('/developer/dashboard');
+          } else if (result.role === 'admin') {
+            navigate('/admin/select-dashboard');
+          } else {
+            navigate('/student/dashboard');
+          }
         }, 1000);
       } else {
         setError(result.error || 'Username/NIM/email atau password salah');

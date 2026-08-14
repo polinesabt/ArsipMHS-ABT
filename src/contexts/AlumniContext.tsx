@@ -6,8 +6,9 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { AlumniMaster, AlumniData } from '@/types';
-import type { StudentProfile, StudentAccountInput, AdminProfile, StudentStatus, StudentStatusMode } from '@/types/student.types';
+import type { StudentProfile, StudentAccountInput, AdminProfile, DeveloperProfile, StudentStatus, StudentStatusMode, UserRole } from '@/types/student.types';
 import { loginAdmin, loginStudent, login as apiLogin, logout as apiLogout } from '@/services/api-auth.service';
+import { getSystemSettings, updateSystemSetting } from '@/services/settings.service';
 import {
   getAllStudentsFromAPI,
   getTracerStudyFromAPI,
@@ -31,6 +32,9 @@ interface AlumniContextState {
   // Logged in admin
   loggedInAdmin: AdminProfile | null;
   
+  // Logged in developer
+  loggedInDeveloper: DeveloperProfile | null;
+  
   // Student accounts (for admin management)
   studentAccounts: StudentProfile[];
   
@@ -43,6 +47,9 @@ interface AlumniContextState {
   
   // Loading states
   isLoading: boolean;
+
+  // System settings
+  dosenModuleEnabled: boolean;
 }
 
 interface AlumniContextActions {
@@ -56,6 +63,9 @@ interface AlumniContextActions {
   // Admin authentication
   loginAsAdmin: (username: string, password: string) => Promise<AuthResult>;
   logoutAdmin: () => void;
+
+  // Developer authentication
+  logoutDeveloper: () => void;
   
   /** Login satu form: identifier (username/NIM, huruf/angka, case-insensitive), redirect by role */
   login: (identifier: string, password: string) => Promise<AuthResult>;
@@ -78,6 +88,10 @@ interface AlumniContextActions {
 
   // Theme
   toggleDarkMode: () => void;
+
+  // Settings
+  refreshSystemSettings: () => Promise<void>;
+  updateDosenModuleEnabled: (enabled: boolean) => Promise<boolean>;
 }
 
 type AlumniContextType = AlumniContextState & AlumniContextActions;
@@ -86,7 +100,8 @@ interface AuthResult {
   success: boolean;
   student?: StudentProfile;
   admin?: AdminProfile;
-  role?: 'admin' | 'student';
+  developer?: DeveloperProfile;
+  role?: UserRole;
   error?: string;
 }
 
@@ -95,6 +110,7 @@ interface AuthResult {
 const AlumniContext = createContext<AlumniContextType | undefined>(undefined);
 const ADMIN_SESSION_KEY = 'sipal-admin-session';
 const STUDENT_SESSION_KEY = 'sipal-student-session';
+const DEV_SESSION_KEY = 'sipal-dev-session';
 const AUTH_TOKEN_KEY = 'authToken';
 
 // ============ Provider Component ============
@@ -258,33 +274,56 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
   const [selectedAlumni, setSelectedAlumni] = useState<AlumniMaster | null>(null);
   const [loggedInStudent, setLoggedInStudent] = useState<StudentProfile | null>(null);
   const [loggedInAdmin, setLoggedInAdmin] = useState<AdminProfile | null>(null);
+  const [loggedInDeveloper, setLoggedInDeveloper] = useState<DeveloperProfile | null>(null);
   const [studentAccounts, setStudentAccounts] = useState<StudentProfile[]>([]);
   const [masterData, setMasterData] = useState<AlumniMaster[]>([]);
   const [alumniData, setAlumniData] = useState<AlumniData[]>([]);
   const [darkMode, setDarkMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [dosenModuleEnabled, setDosenModuleEnabled] = useState<boolean>(true);
 
   const clearSessionState = useCallback(() => {
     setLoggedInStudent(null);
     setLoggedInAdmin(null);
+    setLoggedInDeveloper(null);
     setSelectedAlumni(null);
     localStorage.removeItem(STUDENT_SESSION_KEY);
     localStorage.removeItem(ADMIN_SESSION_KEY);
+    localStorage.removeItem(DEV_SESSION_KEY);
   }, []);
 
-  // Initialize dark mode and session from localStorage
+  const refreshSystemSettings = useCallback(async () => {
+    const settings = await getSystemSettings();
+    if (settings && typeof settings.dosen_module_enabled !== 'undefined') {
+      setDosenModuleEnabled(settings.dosen_module_enabled === 'true' || settings.dosen_module_enabled === '1');
+    }
+  }, []);
+
+  const updateDosenModuleEnabled = useCallback(async (enabled: boolean): Promise<boolean> => {
+    const val = enabled ? 'true' : 'false';
+    const ok = await updateSystemSetting('dosen_module_enabled', val);
+    if (ok) {
+      setDosenModuleEnabled(enabled);
+    }
+    return ok;
+  }, []);
+
+  // Initialize dark mode, settings, and session from localStorage
   useEffect(() => {
     const savedDarkMode = localStorage.getItem('sipal-dark-mode');
     if (savedDarkMode === 'true') {
       setDarkMode(true);
       document.documentElement.classList.add('dark');
     }
+
+    refreshSystemSettings();
     
     // Restore student session if exists
     const hasToken = Boolean(localStorage.getItem(AUTH_TOKEN_KEY));
     if (!hasToken) {
       localStorage.removeItem(STUDENT_SESSION_KEY);
       localStorage.removeItem(ADMIN_SESSION_KEY);
+      localStorage.removeItem(DEV_SESSION_KEY);
       return;
     }
 
@@ -316,7 +355,18 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
         localStorage.removeItem(ADMIN_SESSION_KEY);
       }
     }
-  }, []);
+
+    // Restore developer session if exists
+    const savedDevSession = localStorage.getItem(DEV_SESSION_KEY);
+    if (savedDevSession) {
+      try {
+        const dev = JSON.parse(savedDevSession) as DeveloperProfile;
+        setLoggedInDeveloper(dev);
+      } catch (e) {
+        localStorage.removeItem(DEV_SESSION_KEY);
+      }
+    }
+  }, [refreshSystemSettings]);
 
   useEffect(() => {
     const handleUnauthorized = (_event: Event) => {
@@ -500,9 +550,15 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     localStorage.removeItem(ADMIN_SESSION_KEY);
   }, []);
 
+  const logoutDeveloper = useCallback(() => {
+    setLoggedInDeveloper(null);
+    apiLogout();
+    localStorage.removeItem(DEV_SESSION_KEY);
+  }, []);
+
   /**
    * Login satu form: identifier (username atau NIM, huruf/angka, case-insensitive).
-   * Backend mengembalikan role; redirect ditangani di halaman (admin → /admin, student → /dashboard).
+   * Backend mengembalikan role; redirect ditangani di halaman (admin → /admin, student → /dashboard, developer → /developer/dashboard).
    */
   const login = useCallback(
     async (identifier: string, password: string): Promise<AuthResult> => {
@@ -516,7 +572,21 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
           };
         }
         const user = response.data.user;
-        const role = (user?.role ?? response.data.role) as 'admin' | 'student';
+        const role = (user?.role ?? response.data.role) as UserRole;
+
+        if (role === 'developer') {
+          const devProfile: DeveloperProfile = {
+            id: user.id,
+            username: user.username,
+            nama: user.nama || user.name || user.username,
+            role: 'developer',
+            createdAt: new Date(),
+            lastLogin: new Date(),
+          };
+          setLoggedInDeveloper(devProfile);
+          localStorage.setItem(DEV_SESSION_KEY, JSON.stringify(devProfile));
+          return { success: true, developer: devProfile, role: 'developer' };
+        }
 
         if (role === 'admin') {
           const adminProfile: AdminProfile = {
@@ -728,11 +798,13 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     selectedAlumni,
     loggedInStudent,
     loggedInAdmin,
+    loggedInDeveloper,
     studentAccounts,
     alumniData,
     masterData,
     darkMode,
     isLoading,
+    dosenModuleEnabled,
     
     // Actions
     setSelectedAlumni,
@@ -740,6 +812,7 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     logout,
     loginAsAdmin,
     logoutAdmin,
+    logoutDeveloper,
     login,
     addStudentAccount,
     deleteStudentAccount,
@@ -753,6 +826,8 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     toggleDarkMode,
     refreshData: loadInitialData,
     mergeLoggedInStudent,
+    refreshSystemSettings,
+    updateDosenModuleEnabled,
   };
 
   return (
@@ -772,6 +847,14 @@ export function useAlumni(): AlumniContextType {
   }
   
   return context;
+}
+
+/**
+ * Hook for logged in developer
+ */
+export function useLoggedInDeveloper() {
+  const { loggedInDeveloper, logoutDeveloper } = useAlumni();
+  return { loggedInDeveloper, logoutDeveloper };
 }
 
 // ============ Selector Hooks (for performance optimization) ============

@@ -13,12 +13,16 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
-  const { loggedInStudent, loggedInAdmin } = useAlumni();
+  const { loggedInStudent, loggedInAdmin, loggedInDeveloper } = useAlumni();
   const location = useLocation();
   const hasToken = Boolean(localStorage.getItem('authToken'));
 
   // Check authentication based on required role
-  if (requiredRole === 'admin') {
+  if (requiredRole === 'developer') {
+    if (!loggedInDeveloper || !hasToken) {
+      return <Navigate to="/validasi" state={{ from: location, role: 'developer' }} replace />;
+    }
+  } else if (requiredRole === 'admin') {
     if (!loggedInAdmin || !hasToken) {
       // Redirect to login with return URL
       return <Navigate to="/validasi" state={{ from: location, role: 'admin' }} replace />;

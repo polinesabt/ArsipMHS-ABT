@@ -17,7 +17,19 @@
 /**
  * User role for authentication
  */
-export type UserRole = 'admin' | 'student';
+export type UserRole = 'admin' | 'student' | 'developer';
+
+/**
+ * Developer profile for system developers
+ */
+export interface DeveloperProfile {
+  id: string;
+  username: string;
+  nama: string;
+  role: 'developer';
+  createdAt?: Date;
+  lastLogin?: Date;
+}
 
 /**
  * Admin profile for system administrators

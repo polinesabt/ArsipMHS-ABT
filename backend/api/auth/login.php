@@ -136,6 +136,10 @@ try {
                 $studentData = $studentRow ? auth_login_map_student_data($studentRow) : null;
             }
         }
+    } elseif ($role === 'developer') {
+        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE LOWER(TRIM(username)) = ? AND role = ? AND is_active = 1 LIMIT 1');
+        $stmt->execute([$usernameLower, 'developer']);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
     } elseif ($role === 'admin') {
         $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE LOWER(TRIM(username)) = ? AND role = ? AND is_active = 1 LIMIT 1');
         $stmt->execute([$usernameLower, 'admin']);
