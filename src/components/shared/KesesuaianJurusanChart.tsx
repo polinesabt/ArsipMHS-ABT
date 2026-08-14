@@ -34,7 +34,12 @@ function formatPercent(value: number): string {
   return `${Math.round(value)}%`;
 }
 
-function KesesuaianJurusanTooltip({ active, payload }: any) {
+interface TooltipProps {
+  active?: boolean;
+  payload?: Array<{ payload?: KesesuaianJurusanChartRow }>;
+}
+
+function KesesuaianJurusanTooltip({ active, payload }: TooltipProps) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload as KesesuaianJurusanChartRow | undefined;
   if (!row) return null;
@@ -77,7 +82,7 @@ export function KesesuaianJurusanChart({
             outerRadius={outerRadius}
             label={
               showLabels
-                ? ({ payload, value }: any) =>
+                ? ({ payload, value }: { payload?: KesesuaianJurusanChartRow; value?: number }) =>
                     `${payload?.displayLabel ?? payload?.label ?? '-'}: ${formatPercent(Number(value) || 0)}`
                 : undefined
             }
@@ -91,7 +96,7 @@ export function KesesuaianJurusanChart({
           </Pie>
           <Tooltip content={<KesesuaianJurusanTooltip />} />
           <Legend
-            formatter={(value: string, entry: any) => entry?.payload?.displayLabel ?? value}
+            formatter={(value: string, entry: { payload?: KesesuaianJurusanChartRow }) => entry?.payload?.displayLabel ?? value}
             align="center"
             verticalAlign={innerRadius != null ? 'bottom' : 'middle'}
             wrapperStyle={{ paddingTop: 8 }}

@@ -69,7 +69,7 @@ export default function AdminSelectDashboardPage() {
 
             {/* Card 2: Dosen */}
             <div 
-              onClick={() => handleSelect('/admin/dosen/pengelolaan')}
+              onClick={() => handleSelect('/admin/dosen/dashboard')}
               className="group relative cursor-pointer glass-card rounded-3xl p-8 border border-border/50 bg-card/60 backdrop-blur-xl hover:bg-card/90 shadow-soft hover:shadow-glow transition-all duration-300 transform hover:-translate-y-1.5 flex flex-col justify-between min-h-[260px] overflow-hidden"
             >
               {/* Card Accent Gradient */}
@@ -83,7 +83,7 @@ export default function AdminSelectDashboardPage() {
                   Dosen
                 </h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Kelola metrik performa tridharma perguruan tinggi, riwayat publikasi ilmiah dosen, kinerja pengajaran, pengabdian masyarakat, dan status BKD.
+                  Kelola metrik performa tridharma perguruan tinggi, riwayat publikasi ilmiah dosen, kinerja pengajaran, dan pengabdian masyarakat.
                 </p>
               </div>
 

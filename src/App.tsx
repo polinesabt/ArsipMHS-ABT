@@ -20,6 +20,8 @@ import AdminKustomFormKepuasanPage from "./pages/AdminKustomFormKepuasanPage";
 import AdminKustomFormBuilderPage from "./pages/AdminKustomFormBuilderPage";
 import AdminSelectDashboardPage from "./pages/AdminSelectDashboardPage";
 import AdminDosenDashboardPage from "./pages/AdminDosenDashboardPage";
+import AdminDosenMainDashboardPage from "./pages/AdminDosenMainDashboardPage";
+import AdminDosenKontribusiPage from "./pages/AdminDosenKontribusiPage";
 import AdminKustomFormPreviewPage from "./pages/AdminKustomFormPreviewPage";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { StudentLayout } from "@/components/student/StudentLayout";
@@ -91,8 +93,10 @@ function App() {
               
               {/* Dosen Section */}
               <Route path="dosen">
-                <Route index element={<Navigate to="pengelolaan" replace />} />
+                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route path="dashboard" element={<AdminDosenMainDashboardPage />} />
                 <Route path="pengelolaan" element={<AdminDosenDashboardPage />} />
+                <Route path="kontribusi" element={<AdminDosenKontribusiPage />} />
               </Route>
               
               {/* Mahasiswa Section */}

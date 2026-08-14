@@ -274,7 +274,7 @@ export default function UserDashboard() {
   if (!displayData) return null;
 
   // Determine student role - PRIMARY IDENTITY
-  const studentStatus: StudentStatus = (displayData as any).status || 'alumni';
+  const studentStatus: StudentStatus = (displayData as Record<string, unknown>).status as StudentStatus || 'alumni';
   const showCareerHistory = hasCareerAccess(studentStatus);
   const achievementsEditable = canEditAchievements(studentStatus);
 
@@ -902,35 +902,37 @@ export default function UserDashboard() {
 
 // Helper functions
 function getAchievementTitle(achievement: Achievement): string {
+  const a = achievement as Record<string, unknown>;
   switch (achievement.category) {
-    case 'lomba': return (achievement as any).namaLomba;
-    case 'seminar': return (achievement as any).judulPublikasi || (achievement as any).namaSeminar;
-    case 'pagelaran': return (achievement as any).judulPublikasi || (achievement as any).namaKegiatan;
-    case 'publikasi': return (achievement as any).judul;
-    case 'haki': return (achievement as any).judul;
-    case 'luaran_penelitian': return (achievement as any).judul;
-    case 'magang': return `${(achievement as any).posisi} - ${(achievement as any).namaPerusahaan}`;
-    case 'portofolio': return (achievement as any).judulProyek;
-    case 'produk_mahasiswa': return (achievement as any).namaProduk;
-    case 'wirausaha': return (achievement as any).namaUsaha;
-    case 'pengembangan': return (achievement as any).namaProgram;
-    case 'organisasi': return `${(achievement as any).jabatan} - ${(achievement as any).namaOrganisasi}`;
+    case 'lomba': return String(a.namaLomba || 'Lomba');
+    case 'seminar': return String(a.judulPublikasi || a.namaSeminar || 'Seminar');
+    case 'pagelaran': return String(a.judulPublikasi || a.namaKegiatan || 'Pagelaran');
+    case 'publikasi': return String(a.judul || 'Publikasi');
+    case 'haki': return String(a.judul || 'HAKI');
+    case 'luaran_penelitian': return String(a.judul || 'Luaran Penelitian');
+    case 'magang': return `${String(a.posisi || '')} - ${String(a.namaPerusahaan || '')}`;
+    case 'portofolio': return String(a.judulProyek || 'Portofolio');
+    case 'produk_mahasiswa': return String(a.namaProduk || 'Produk');
+    case 'wirausaha': return String(a.namaUsaha || 'Wirausaha');
+    case 'pengembangan': return String(a.namaProgram || 'Pengembangan');
+    case 'organisasi': return `${String(a.jabatan || '')} - ${String(a.namaOrganisasi || '')}`;
   }
 }
 
 function getAchievementYear(achievement: Achievement): number {
+  const a = achievement as Record<string, unknown>;
   switch (achievement.category) {
-    case 'lomba': return (achievement as any).tahun;
-    case 'seminar': return (achievement as any).tahun;
-    case 'pagelaran': return (achievement as any).tahun;
-    case 'publikasi': return (achievement as any).tahun;
-    case 'haki': return (achievement as any).tahunPengajuan;
-    case 'luaran_penelitian': return (achievement as any).tahun;
-    case 'magang': return new Date((achievement as any).tanggalMulai).getFullYear();
-    case 'portofolio': return (achievement as any).tahun;
-    case 'produk_mahasiswa': return new Date((achievement as any).tanggalAdopsi).getFullYear();
-    case 'wirausaha': return (achievement as any).tahunMulai;
-    case 'pengembangan': return new Date((achievement as any).tanggalMulai).getFullYear();
-    case 'organisasi': return new Date((achievement as any).periodeMulai).getFullYear();
+    case 'lomba': return Number(a.tahun || new Date().getFullYear());
+    case 'seminar': return Number(a.tahun || new Date().getFullYear());
+    case 'pagelaran': return Number(a.tahun || new Date().getFullYear());
+    case 'publikasi': return Number(a.tahun || new Date().getFullYear());
+    case 'haki': return Number(a.tahunPengajuan || new Date().getFullYear());
+    case 'luaran_penelitian': return Number(a.tahun || new Date().getFullYear());
+    case 'magang': return new Date(String(a.tanggalMulai || Date.now())).getFullYear();
+    case 'portofolio': return Number(a.tahun || new Date().getFullYear());
+    case 'produk_mahasiswa': return new Date(String(a.tanggalAdopsi || Date.now())).getFullYear();
+    case 'wirausaha': return Number(a.tahunMulai || new Date().getFullYear());
+    case 'pengembangan': return new Date(String(a.tanggalMulai || Date.now())).getFullYear();
+    case 'organisasi': return new Date(String(a.periodeMulai || Date.now())).getFullYear();
   }
 }

@@ -209,7 +209,7 @@ export default function CareerHistoryPage() {
       navigate('/validasi');
       return;
     }
-    const studentStatus: StudentStatus = (selectedAlumni as any).status || 'alumni';
+    const studentStatus: StudentStatus = ((selectedAlumni as Record<string, unknown>).status as StudentStatus) || 'alumni';
     if (!isCareerHistoryVisible(studentStatus)) {
       navigate('/student/dashboard');
     }

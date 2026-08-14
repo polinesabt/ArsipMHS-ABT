@@ -818,8 +818,8 @@ function ParentNavItem({
             collapsed
               ? `Buka ${item.label}`
               : isParentExpanded
-                ? 'Tutup submenu Dashboard Admin'
-                : 'Buka submenu Dashboard Admin'
+                ? `Tutup submenu ${item.label}`
+                : `Buka submenu ${item.label}`
           }
         >
           <motion.div

@@ -234,7 +234,7 @@ function getAchievementDetails(achievement: Achievement): {
       };
     }
     case 'luaran_penelitian': {
-      const a = achievement as any;
+      const a = achievement as Record<string, unknown>;
       const subtype = String(a.jenisLuaran || '');
       const subtypeLabel = RESEARCH_OUTPUT_SUBTYPE_LABELS[subtype as keyof typeof RESEARCH_OUTPUT_SUBTYPE_LABELS]
         || subtype.replace(/_/g, ' ');
@@ -302,11 +302,11 @@ function getAchievementDetails(achievement: Achievement): {
     }
     default: {
       // Legacy/unknown achievement shapes (e.g., old seed data category: 'kegiatan')
-      const anyA = achievement as any;
-      const year = anyA?.tahun ?? (typeof anyA?.year === 'number' ? anyA.year : new Date().getFullYear());
+      const anyA = achievement as Record<string, unknown>;
+      const year = typeof anyA?.tahun === 'number' ? anyA.tahun : (typeof anyA?.year === 'number' ? anyA.year : new Date().getFullYear());
       return {
-        title: anyA?.namaKegiatan || anyA?.title || anyA?.judul || 'Prestasi',
-        subtitle: anyA?.penyelenggara || anyA?.subtitle || 'Dokumentasi prestasi',
+        title: String(anyA?.namaKegiatan || anyA?.title || anyA?.judul || 'Prestasi'),
+        subtitle: String(anyA?.penyelenggara || anyA?.subtitle || 'Dokumentasi prestasi'),
         year,
         level: anyA?.tingkat,
         result: anyA?.prestasi,
@@ -392,7 +392,7 @@ function getCategoryDetailFields(achievement: Achievement): { label: string; val
       ].filter(f => f.value && f.value !== '-');
     }
     case 'luaran_penelitian': {
-      const a = achievement as any;
+      const a = achievement as Record<string, unknown>;
       const subtype = String(a.jenisLuaran || '');
       const subtypeLabel = RESEARCH_OUTPUT_SUBTYPE_LABELS[subtype as keyof typeof RESEARCH_OUTPUT_SUBTYPE_LABELS]
         || subtype.replace(/_/g, ' ');
@@ -543,12 +543,12 @@ export function AchievementTimelineView({
   onDelete,
   onToggleFeatured
 }: AchievementTimelineViewProps) {
-  const [lightboxState, setLightboxState] = useState<{ images: any[]; index: number } | null>(null);
+  const [lightboxState, setLightboxState] = useState<{ images: Record<string, unknown>[]; index: number } | null>(null);
   const [resolvedAttachmentUrls, setResolvedAttachmentUrls] = useState<Record<string, string>>({});
   const resolvingAttachmentIdsRef = useRef<Set<string>>(new Set());
   const resolvedUrlsRef = useRef<Record<string, string>>({});
 
-  const openLightbox = useCallback((images: any[], index: number) => {
+  const openLightbox = useCallback((images: Record<string, unknown>[], index: number) => {
     setLightboxState({ images, index });
   }, []);
 
@@ -572,10 +572,11 @@ export function AchievementTimelineView({
   }, [resolvedAttachmentUrls]);
 
   useEffect(() => {
+    const resolvingIds = resolvingAttachmentIdsRef.current;
     return () => {
       Object.values(resolvedUrlsRef.current).forEach((url) => URL.revokeObjectURL(url));
       resolvedUrlsRef.current = {};
-      resolvingAttachmentIdsRef.current.clear();
+      resolvingIds.clear();
     };
   }, []);
 
@@ -1087,11 +1088,21 @@ export function AchievementTimelineView({
                             </div>
 
                             {/* Description if available */}
-                            {((achievement as any).deskripsi || (achievement as any).deskripsiTugas || (achievement as any).deskripsiProyek || (achievement as any).deskripsiUsaha) && (
+                            {Boolean(
+                              (achievement as Record<string, unknown>).deskripsi || 
+                              (achievement as Record<string, unknown>).deskripsiTugas || 
+                              (achievement as Record<string, unknown>).deskripsiProyek || 
+                              (achievement as Record<string, unknown>).deskripsiUsaha
+                            ) && (
                               <div className="mt-5 pt-5 border-t border-border">
                                 <p className="text-xs text-muted-foreground mb-2">Deskripsi</p>
                                 <p className="text-sm text-foreground leading-relaxed">
-                                  {(achievement as any).deskripsi || (achievement as any).deskripsiTugas || (achievement as any).deskripsiProyek || (achievement as any).deskripsiUsaha}
+                                  {String(
+                                    (achievement as Record<string, unknown>).deskripsi || 
+                                    (achievement as Record<string, unknown>).deskripsiTugas || 
+                                    (achievement as Record<string, unknown>).deskripsiProyek || 
+                                    (achievement as Record<string, unknown>).deskripsiUsaha
+                                  )}
                                 </p>
                               </div>
                             )}

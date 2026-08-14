@@ -31,7 +31,7 @@ const DASHBOARD_SUB_MENU: AdminNavItemLeaf[] = [
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
   {
     id: 'admin-dashboard',
-    label: 'Dashboard Admin',
+    label: 'Dashboard Mahasiswa',
     icon: LayoutDashboard,
     index: 0,
     path: '/admin',
@@ -70,11 +70,25 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
 
 export const DOSEN_NAV_ITEMS: AdminNavItem[] = [
   {
+    id: 'dosen-dashboard',
+    label: 'Dashboard Dosen',
+    icon: LayoutDashboard,
+    index: 0,
+    path: '/admin/dosen/dashboard',
+  },
+  {
     id: 'dosen-pengelolaan',
     label: 'Pengelolaan Dosen',
     icon: Users,
-    index: 0,
+    index: 1,
     path: '/admin/dosen/pengelolaan',
+  },
+  {
+    id: 'dosen-kontribusi',
+    label: 'Kontribusi Intelektual',
+    icon: BookOpen,
+    index: 2,
+    path: '/admin/dosen/kontribusi',
   },
 ];
 
