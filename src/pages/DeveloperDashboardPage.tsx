@@ -182,7 +182,7 @@ export default function DeveloperDashboardPage() {
               <h1 className="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
                 Developer Control Center
               </h1>
-              <p className="text-xs text-slate-400 font-mono">Arsip Mahasiswa ABT v2.0</p>
+              <p className="text-xs text-slate-400 font-mono">Arsip Mahasiswa ABT</p>
             </div>
           </div>
 
