@@ -406,6 +406,16 @@ export class ApiClient {
           }
         }
 
+        if (response.status >= 500 && endpoint !== 'logs/log_error.php') {
+          const errDetail = dataRecord && typeof dataRecord.error === 'string' ? dataRecord.error : `HTTP ${response.status}`;
+          import('@/services/error-logger.service').then(({ logSystemError }) => {
+            void logSystemError({
+              error_message: `[API ${response.status}] Endpoint: ${endpoint} - ${errDetail}`,
+              url: typeof window !== 'undefined' ? window.location.href : endpoint,
+            });
+          }).catch(() => {});
+        }
+
         return {
           success: false,
           error: dataRecord && typeof dataRecord.error === 'string'
