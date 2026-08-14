@@ -7,7 +7,7 @@ export interface SystemSettings {
 
 export async function getSystemSettings(): Promise<SystemSettings> {
   try {
-    const res = await apiClient.get<SystemSettings>('/backend/api/settings/get_settings.php');
+    const res = await apiClient.get<SystemSettings>('settings/get_settings.php');
     if (res.success && res.data) {
       return res.data;
     }
@@ -19,7 +19,7 @@ export async function getSystemSettings(): Promise<SystemSettings> {
 
 export async function updateSystemSetting(key: string, value: string): Promise<boolean> {
   try {
-    const res = await apiClient.post<{ key: string; value: string }>('/backend/api/settings/update_setting.php', {
+    const res = await apiClient.post<{ key: string; value: string }>('settings/update_setting.php', {
       key,
       value,
     });
