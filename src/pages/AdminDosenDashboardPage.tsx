@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Users, 
   BookOpen, 
@@ -11,7 +11,8 @@ import {
   Pencil,
   Save,
   X,
-  Check
+  Check,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
@@ -24,6 +25,16 @@ import {
   SheetTitle, 
   SheetDescription 
 } from '@/components/ui/sheet';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { INITIAL_DOSEN_DATA, type DosenItem } from '@/data/mockDosenData';
 import { useToast } from '@/hooks/use-toast';
 
@@ -91,6 +102,10 @@ export default function AdminDosenDashboardPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editFormData, setEditFormData] = useState<DosenItem | null>(null);
 
+  // Unsaved changes confirmation dialog state
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [pendingCloseTarget, setPendingCloseTarget] = useState<'sheet' | 'edit-mode' | null>(null);
+
   React.useEffect(() => {
     const hash = location.hash;
     if (hash) {
@@ -104,6 +119,23 @@ export default function AdminDosenDashboardPage() {
       }
     }
   }, [location.hash]);
+
+  // Check if current form has unsaved modifications
+  const isFormDirty = useMemo(() => {
+    if (!isEditing || !selectedDosen || !editFormData) return false;
+    return (
+      editFormData.nama !== selectedDosen.nama ||
+      editFormData.nidn !== selectedDosen.nidn ||
+      editFormData.statusDosen !== selectedDosen.statusDosen ||
+      editFormData.jabatan !== selectedDosen.jabatan ||
+      editFormData.peran !== selectedDosen.peran ||
+      editFormData.institusi !== selectedDosen.institusi ||
+      editFormData.bidangKeahlian !== selectedDosen.bidangKeahlian ||
+      editFormData.sertifikatPendidik !== selectedDosen.sertifikatPendidik ||
+      editFormData.sertifikatKompetensi !== selectedDosen.sertifikatKompetensi ||
+      JSON.stringify(editFormData.pendidikanPascaSarjana) !== JSON.stringify(selectedDosen.pendidikanPascaSarjana)
+    );
+  }, [isEditing, selectedDosen, editFormData]);
 
   // Filtered Dosen data
   const filteredDosen = dosenList.filter((dosen) => {
@@ -141,22 +173,56 @@ export default function AdminDosenDashboardPage() {
     setEditFormData({ ...editFormData, pendidikanPascaSarjana: updated });
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = (closeSheetAfter = false) => {
     if (!editFormData) return;
     setDosenList(prev => prev.map(d => d.nidn === editFormData.nidn ? editFormData : d));
     setSelectedDosen(editFormData);
     setIsEditing(false);
+    setShowUnsavedDialog(false);
+    if (closeSheetAfter) {
+      setIsDetailOpen(false);
+    }
     toast({
       title: 'Perubahan Disimpan',
       description: `Data profil dosen ${editFormData.nama} berhasil diperbarui.`,
     });
   };
 
-  const handleCancelEdit = () => {
+  const handleRequestCancel = () => {
+    if (isFormDirty) {
+      setPendingCloseTarget('edit-mode');
+      setShowUnsavedDialog(true);
+    } else {
+      if (selectedDosen) {
+        setEditFormData({ ...selectedDosen });
+      }
+      setIsEditing(false);
+    }
+  };
+
+  const handleSheetOpenChange = (open: boolean) => {
+    if (!open) {
+      if (isEditing && isFormDirty) {
+        setPendingCloseTarget('sheet');
+        setShowUnsavedDialog(true);
+        return;
+      }
+      setIsEditing(false);
+      setIsDetailOpen(false);
+    } else {
+      setIsDetailOpen(true);
+    }
+  };
+
+  const handleDiscardChanges = () => {
     if (selectedDosen) {
       setEditFormData({ ...selectedDosen });
     }
     setIsEditing(false);
+    setShowUnsavedDialog(false);
+    if (pendingCloseTarget === 'sheet') {
+      setIsDetailOpen(false);
+    }
   };
 
   return (
@@ -279,10 +345,7 @@ export default function AdminDosenDashboardPage() {
       </div>
 
       {/* Side Sheet View / Edit Mode */}
-      <Sheet open={isDetailOpen} onOpenChange={(open) => {
-        setIsDetailOpen(open);
-        if (!open) setIsEditing(false);
-      }}>
+      <Sheet open={isDetailOpen} onOpenChange={handleSheetOpenChange}>
         <SheetContent className="sm:max-w-lg overflow-y-auto bg-card/95 backdrop-blur-xl border-l border-border/40 text-foreground flex flex-col justify-between">
           <div>
             <SheetHeader className="pb-5 border-b border-border/30">
@@ -291,6 +354,7 @@ export default function AdminDosenDashboardPage() {
                   {isEditing ? 'Edit Profil Dosen' : 'Detail Profil Dosen'}
                 </SheetTitle>
 
+                {/* Animated Header Button */}
                 <AnimatePresence mode="wait" initial={false}>
                   {!isEditing && selectedDosen ? (
                     <motion.button
@@ -310,17 +374,19 @@ export default function AdminDosenDashboardPage() {
                       <span>Edit Profil</span>
                     </motion.button>
                   ) : (
-                    <motion.span
-                      key="badge-edit-mode"
+                    <motion.button
+                      key="btn-cancel-action"
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.9 }}
                       transition={{ duration: 0.16 }}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                      onClick={handleRequestCancel}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white border border-rose-500/30 transition-all shadow-sm"
+                      title="Batalkan Edit"
                     >
-                      <Pencil className="w-3 h-3" />
-                      <span>Mode Edit</span>
-                    </motion.span>
+                      <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>Batal</span>
+                    </motion.button>
                   )}
                 </AnimatePresence>
               </div>
@@ -635,7 +701,7 @@ export default function AdminDosenDashboardPage() {
             </AnimatePresence>
           </div>
 
-          {/* Footer Actions (Only in Edit Mode with Motion Animation) */}
+          {/* Footer Actions (Only in Edit Mode: Simpan Perubahan Button) */}
           <AnimatePresence>
             {isEditing && (
               <motion.div
@@ -644,25 +710,15 @@ export default function AdminDosenDashboardPage() {
                 initial="initial"
                 animate="animate"
                 exit="exit"
-                className="pt-4 border-t border-border/30 flex items-center justify-end gap-3 sticky bottom-0 bg-card/95 backdrop-blur-md py-4 mt-6 z-10"
+                className="pt-4 border-t border-border/30 flex items-center justify-end sticky bottom-0 bg-card/95 backdrop-blur-md py-4 mt-6 z-10"
               >
                 <Button
                   type="button"
-                  variant="outline"
                   size="sm"
-                  onClick={handleCancelEdit}
-                  className="rounded-xl px-4 text-xs font-semibold"
+                  onClick={() => handleSaveEdit(false)}
+                  className="w-full rounded-xl py-2.5 text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
                 >
-                  <X className="w-3.5 h-3.5 mr-1.5" />
-                  Batal
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={handleSaveEdit}
-                  className="rounded-xl px-5 text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-md"
-                >
-                  <Save className="w-3.5 h-3.5 mr-1.5" />
+                  <Save className="w-4 h-4 mr-2" />
                   Simpan Perubahan
                 </Button>
               </motion.div>
@@ -670,6 +726,47 @@ export default function AdminDosenDashboardPage() {
           </AnimatePresence>
         </SheetContent>
       </Sheet>
+
+      {/* Confirmation Dialog for Unsaved Changes */}
+      <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
+        <AlertDialogContent className="rounded-2xl border-border/60 bg-card/95 backdrop-blur-xl shadow-2xl">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <AlertDialogTitle className="text-lg font-bold text-foreground">
+                Simpan Perubahan Data?
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed pt-1">
+              Terdapat perubahan pada data profil dosen yang belum disimpan. Apakah Anda ingin menyimpan perubahan tersebut atau membuangnya?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-3">
+            <AlertDialogCancel 
+              onClick={() => setShowUnsavedDialog(false)}
+              className="rounded-xl text-xs font-medium border-border/60 hover:bg-muted/60"
+            >
+              Lanjut Edit
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleDiscardChanges}
+              className="rounded-xl text-xs font-medium text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 border-rose-500/30"
+            >
+              Buang Perubahan
+            </Button>
+            <AlertDialogAction
+              onClick={() => handleSaveEdit(pendingCloseTarget === 'sheet')}
+              className="rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+            >
+              Simpan Perubahan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
