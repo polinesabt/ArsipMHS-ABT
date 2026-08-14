@@ -1,4 +1,22 @@
-export const INITIAL_DOSEN_DATA = [
+export interface DosenItem {
+  nidn: string;
+  nama: string;
+  statusDosen: 'Tetap' | 'Tidak Tetap';
+  jabatan: string;
+  peran: 'Akademisi' | 'Praktisi';
+  institusi: string;
+  pendidikanPascaSarjana: string[];
+  bidangKeahlian: string;
+  sertifikatPendidik: string;
+  sertifikatKompetensi: string;
+  email: string;
+  telepon: string;
+  pengajaran: number;
+  penelitian: number;
+  pengabdian: number;
+}
+
+export const INITIAL_DOSEN_DATA: DosenItem[] = [
   { 
     nidn: '0012087501', 
     nama: 'Dr. Ir. Fauzi, M.T.', 
@@ -6,8 +24,8 @@ export const INITIAL_DOSEN_DATA = [
     jabatan: 'Lektor Kepala', 
     peran: 'Akademisi', 
     institusi: 'Politeknik Negeri Semarang',
-    pendidikanPascaSarjana: 'Doktor', 
-    bidangKeahlian: 'Manajemen Rekayasa',
+    pendidikanPascaSarjana: ['Magister (S2)', 'Doktor (S3)'], 
+    bidangKeahlian: 'Manajemen Rekayasa Industri',
     sertifikatPendidik: '19106100203492',
     sertifikatKompetensi: 'MSDM, Ekspor Impor Expert',
     email: 'fauzi@polines.ac.id',
@@ -23,10 +41,10 @@ export const INITIAL_DOSEN_DATA = [
     jabatan: 'Lektor', 
     peran: 'Akademisi', 
     institusi: 'Politeknik Negeri Semarang',
-    pendidikanPascaSarjana: 'Magister',
-    bidangKeahlian: 'Manajemen Pemasaran',
+    pendidikanPascaSarjana: ['Magister (S2)', 'Spesialis (Sp-1)'],
+    bidangKeahlian: 'Manajemen Pemasaran & Bisnis Digital',
     sertifikatPendidik: '20108200104810',
-    sertifikatKompetensi: 'Kewirausahaan, MSDM',
+    sertifikatKompetensi: 'Kewirausahaan (KWU), MSDM',
     email: 'siti.aminah@polines.ac.id',
     telepon: '081234567891',
     pengajaran: 10,
@@ -40,7 +58,7 @@ export const INITIAL_DOSEN_DATA = [
     jabatan: 'Guru Besar', 
     peran: 'Akademisi', 
     institusi: 'Politeknik Negeri Semarang',
-    pendidikanPascaSarjana: 'Doktor',
+    pendidikanPascaSarjana: ['Magister (S2)', 'Doktor (S3)'],
     bidangKeahlian: 'Ilmu Ekonomi & Kebijakan Publik',
     sertifikatPendidik: '15104200801290',
     sertifikatKompetensi: 'Ekspor Impor Expert, Analisis Finansial',
@@ -57,10 +75,10 @@ export const INITIAL_DOSEN_DATA = [
     jabatan: 'Asisten Ahli', 
     peran: 'Praktisi', 
     institusi: 'Politeknik Negeri Semarang',
-    pendidikanPascaSarjana: 'Magister',
-    bidangKeahlian: 'Bisnis Internasional',
+    pendidikanPascaSarjana: ['Magister Terapan (S2 Terapan)'],
+    bidangKeahlian: 'Bisnis Internasional & Bahasa Inggris Bisnis',
     sertifikatPendidik: '-',
-    sertifikatKompetensi: 'Administrasi Ekspor Impor',
+    sertifikatKompetensi: 'Bahasa Inggris Bisnis, Administrasi Ekspor Impor',
     email: 'rina.wijaya@polines.ac.id',
     telepon: '081234567893',
     pengajaran: 14,
@@ -74,7 +92,7 @@ export const INITIAL_DOSEN_DATA = [
     jabatan: 'Lektor', 
     peran: 'Akademisi', 
     institusi: 'Politeknik Negeri Semarang',
-    pendidikanPascaSarjana: 'Magister',
+    pendidikanPascaSarjana: ['Magister (S2)'],
     bidangKeahlian: 'Teknologi Informasi & Sistem Informasi Bisnis',
     sertifikatPendidik: '21105300702581',
     sertifikatKompetensi: 'IT Governance, MSDM',
@@ -91,8 +109,8 @@ export const INITIAL_DOSEN_DATA = [
     jabatan: 'Lektor Kepala', 
     peran: 'Akademisi', 
     institusi: 'Politeknik Negeri Semarang',
-    pendidikanPascaSarjana: 'Doktor',
-    bidangKeahlian: 'Teknik Komputer',
+    pendidikanPascaSarjana: ['Magister Terapan (S2 Terapan)', 'Doktor Terapan (S3 Terapan)'],
+    bidangKeahlian: 'Teknik Rekayasa Komputer & Jaringan',
     sertifikatPendidik: '18107200403192',
     sertifikatKompetensi: 'Jaringan Komunikasi, IoT Specialist',
     email: 'ahmad.syarif@polines.ac.id',
@@ -108,10 +126,10 @@ export const INITIAL_DOSEN_DATA = [
     jabatan: 'Asisten Ahli', 
     peran: 'Praktisi', 
     institusi: 'Politeknik Negeri Semarang',
-    pendidikanPascaSarjana: 'Magister',
-    bidangKeahlian: 'Statistika & Analitik Data',
+    pendidikanPascaSarjana: ['Magister (S2)'],
+    bidangKeahlian: 'Statistika Terapan & Analitik Data',
     sertifikatPendidik: '-',
-    sertifikatKompetensi: 'Data Scientist, Administrasi Ekspor Impor',
+    sertifikatKompetensi: 'Data Science, Kewirausahaan (KWU)',
     email: 'dewi.lestari@polines.ac.id',
     telepon: '081234567896',
     pengajaran: 10,

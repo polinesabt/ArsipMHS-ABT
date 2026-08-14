@@ -233,6 +233,96 @@ export default function AdminDosenDashboardPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Section 2: Profil Dosen Berdasarkan Latar Belakang Keahlian */}
+              <div className="space-y-4 pt-5 border-t border-border/40">
+                <div>
+                  <h5 className="text-xs font-bold uppercase tracking-wider text-primary/90">
+                    Profil Dosen Berdasarkan Latar Belakang Keahlian
+                  </h5>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Kualifikasi pendidikan pasca sarjana, kepakaran keilmuan, dan sertifikasi profesional dosen.
+                  </p>
+                </div>
+
+                <div className="space-y-3 pt-1">
+                  {/* 1. Pendidikan Pasca Sarjana */}
+                  <div className="p-3.5 rounded-xl bg-muted/20 border border-border/40 space-y-2">
+                    <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                      <GraduationCap className="w-4 h-4 text-primary" />
+                      Pendidikan Pasca Sarjana
+                    </p>
+                    <div className="flex flex-wrap gap-1.5 pl-5">
+                      {Array.isArray(selectedDosen.pendidikanPascaSarjana) ? (
+                        selectedDosen.pendidikanPascaSarjana.map((tingkat: string, idx: number) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary/10 text-primary border border-primary/20"
+                          >
+                            {tingkat}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                          {selectedDosen.pendidikanPascaSarjana || 'Magister (S2)'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 2. Bidang Keahlian */}
+                  <div className="p-3.5 rounded-xl bg-muted/20 border border-border/40 space-y-1">
+                    <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                      <BookOpen className="w-4 h-4 text-sky-500" />
+                      Bidang Keahlian
+                    </p>
+                    <p className="font-semibold text-foreground text-xs pl-5">
+                      {selectedDosen.bidangKeahlian}
+                    </p>
+                  </div>
+
+                  {/* 3. Nomor Sertifikat Pendidik Profesional */}
+                  <div className="p-3.5 rounded-xl bg-muted/20 border border-border/40 space-y-1">
+                    <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                      <FileText className="w-4 h-4 text-emerald-500" />
+                      Nomor Sertifikat Pendidik Profesional
+                    </p>
+                    <div className="pl-5">
+                      {selectedDosen.sertifikatPendidik && selectedDosen.sertifikatPendidik !== '-' ? (
+                        <span className="font-mono font-semibold text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20">
+                          {selectedDosen.sertifikatPendidik}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground italic">Belum Ada / Belum Tersertifikasi</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 4. Sertifikat Kompetensi */}
+                  <div className="p-3.5 rounded-xl bg-muted/20 border border-border/40 space-y-1.5">
+                    <p className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
+                      <Award className="w-4 h-4 text-purple-500" />
+                      Sertifikat Kompetensi
+                    </p>
+                    <div className="pl-5 flex flex-wrap gap-1.5">
+                      {typeof selectedDosen.sertifikatKompetensi === 'string' && selectedDosen.sertifikatKompetensi.includes(',') ? (
+                        selectedDosen.sertifikatKompetensi.split(',').map((cert: string, idx: number) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-purple-500/10 text-purple-600 dark:text-purple-300 border border-purple-500/20"
+                          >
+                            {cert.trim()}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="font-medium text-foreground text-xs">
+                          {selectedDosen.sertifikatKompetensi || '-'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </SheetContent>
