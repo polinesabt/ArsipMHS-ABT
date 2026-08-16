@@ -1,77 +1,50 @@
-export interface MataKuliahItem {
+export interface MatkulItem {
   id: string;
-  nama: string;
   kode?: string;
-  sks: number;
+  nama: string;
+  sks?: number;
 }
 
-export interface BahanAjarItem {
+export interface MatkulPSLainItem {
   id: string;
-  judul: string;
-  jenis: 'Buku Ajar' | 'Diktat' | 'Modul Praktikum' | 'Petunjuk Praktikum' | 'Monograf';
-  isbn?: string;
-  penerbit?: string;
-  tahun: string;
+  kode?: string;
+  nama: string;
+  prodi: string;
+  sks?: number;
 }
 
-export interface BimbinganItem {
-  id: string;
-  nim: string;
-  namaMahasiswa: string;
-  judulTugasAkhir: string;
-  tahun: string;
-  status: 'Sedang Berjalan' | 'Lulus';
-}
-
-export interface RekognisiItem {
-  id: string;
-  bidangKeahlian: string;
-  namaRekognisi: string;
-  tingkat: 'Wilayah' | 'Nasional' | 'Internasional';
-  tahun: string;
-  buktiUrl?: string;
+export interface BimbinganDetail {
+  ps: number;
+  ps1: number;
+  ps2: number;
 }
 
 export interface KontribusiDosenItem {
   nidn: string;
-  mataKuliahPS: MataKuliahItem[];
-  mataKuliahLuar: MataKuliahItem[];
-  bahanAjar: BahanAjarItem[];
-  bimbinganUtamaPS: BimbinganItem[];
-  bimbinganUtamaLuar: BimbinganItem[];
-  bimbinganPendampingPS: BimbinganItem[];
-  bimbinganPendampingLuar: BimbinganItem[];
-  rekognisi: RekognisiItem[];
+  nama: string;
+  matkulABT: MatkulItem[];
+  matkulPSLain: MatkulPSLainItem[];
+  bahanAjar: string[];
+  bimbingan: {
+    psABT: BimbinganDetail;
+    psLain: BimbinganDetail;
+  };
+  rataBimbingan: number;
+  rekognisi: string[];
+  avatarColor: string;
 }
+
+// Rumus Rata-rata Bimbingan: (PS + PS-1 + PS-2) / 3
+export const getDosenOverallAvgNum = (dosen: KontribusiDosenItem): number => {
+  const totalPS = (dosen.bimbingan?.psABT?.ps || 0) + (dosen.bimbingan?.psLain?.ps || 0);
+  const totalPS1 = (dosen.bimbingan?.psABT?.ps1 || 0) + (dosen.bimbingan?.psLain?.ps1 || 0);
+  const totalPS2 = (dosen.bimbingan?.psABT?.ps2 || 0) + (dosen.bimbingan?.psLain?.ps2 || 0);
+  return (totalPS + totalPS1 + totalPS2) / 3;
+};
+
+export const getDosenOverallAvgStr = (dosen: KontribusiDosenItem): string => {
+  const avg = getDosenOverallAvgNum(dosen);
+  return Number.isInteger(avg) ? avg.toString() : avg.toFixed(1);
+};
 
 export const INITIAL_KONTRIBUSI_DOSEN_DATA: KontribusiDosenItem[] = [];
-
-export function calculateTotalSksPS(dosen: KontribusiDosenItem): number {
-  if (!dosen || !dosen.mataKuliahPS) return 0;
-  return dosen.mataKuliahPS.reduce((sum, item) => sum + (Number(item.sks) || 0), 0);
-}
-
-export function calculateTotalSksLuar(dosen: KontribusiDosenItem): number {
-  if (!dosen || !dosen.mataKuliahLuar) return 0;
-  return dosen.mataKuliahLuar.reduce((sum, item) => sum + (Number(item.sks) || 0), 0);
-}
-
-export function calculateTotalBimbingan(dosen: KontribusiDosenItem): number {
-  if (!dosen) return 0;
-  return (
-    (dosen.bimbinganUtamaPS?.length || 0) +
-    (dosen.bimbinganUtamaLuar?.length || 0) +
-    (dosen.bimbinganPendampingPS?.length || 0) +
-    (dosen.bimbinganPendampingLuar?.length || 0)
-  );
-}
-
-export function getDosenOverallAvgNum(dosenList: KontribusiDosenItem[]): number {
-  if (!dosenList || dosenList.length === 0) return 0;
-  const totalBimbingan = dosenList.reduce((sum, d) => sum + calculateTotalBimbingan(d), 0);
-  return parseFloat((totalBimbingan / dosenList.length).toFixed(2));
-}
-
-export function getDosenOverallAvgStr(dosenList: KontribusiDosenItem[]): string {
-  return getDosenOverallAvgNum(dosenList).toFixed(2);
-}
