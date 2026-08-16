@@ -203,19 +203,45 @@ try {
         $stmt->execute([$user['id']]);
     }
 
+    $canEditDosen = null;
+    $canEditMahasiswa = null;
+    if ($user['role'] === 'admin') {
+        try {
+            $stmtAdmin = $pdo->prepare('SELECT can_edit_dosen, can_edit_mahasiswa FROM admins WHERE id = ? LIMIT 1');
+            $stmtAdmin->execute([$user['id']]);
+            $adminRow = $stmtAdmin->fetch(PDO::FETCH_ASSOC);
+            if ($adminRow) {
+                $canEditDosen = (bool)$adminRow['can_edit_dosen'];
+                $canEditMahasiswa = (bool)$adminRow['can_edit_mahasiswa'];
+            } else {
+                $canEditDosen = true;
+                $canEditMahasiswa = true;
+            }
+        } catch (Throwable $ignore) {
+            $canEditDosen = true;
+            $canEditMahasiswa = true;
+        }
+    }
+
+    $userResponse = [
+        'id' => $user['id'],
+        'username' => $user['username'],
+        'nama' => $user['nama'],
+        'role' => $user['role'],
+        'student' => $studentData,
+    ];
+    if ($user['role'] === 'admin') {
+        $userResponse['can_edit_dosen'] = $canEditDosen ?? true;
+        $userResponse['can_edit_mahasiswa'] = $canEditMahasiswa ?? true;
+    }
+
     echo json_encode([
         'success' => true,
         'data' => [
             'token' => $accessToken,
             'jwt' => $accessToken,
             'refreshToken' => $refreshToken,
-            'user' => [
-                'id' => $user['id'],
-                'username' => $user['username'],
-                'nama' => $user['nama'],
-                'role' => $user['role'],
-                'student' => $studentData,
-            ],
+            'user' => $userResponse,
         ],
         'message' => 'Login berhasil',
     ]);

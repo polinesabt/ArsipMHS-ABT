@@ -595,14 +595,14 @@ export default function AdminEvaluasiLulusanPage() {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) {
       window.scrollTo({ top: targetY, behavior: 'auto' });
-      return () => {};
+      return () => { };
     }
 
     const startY = window.scrollY;
     // Lock ke satu arah: hanya turun, jangan pernah naik.
     const safeTargetY = Math.max(startY, targetY);
     const distance = safeTargetY - startY;
-    if (Math.abs(distance) < 2) return () => {};
+    if (Math.abs(distance) < 2) return () => { };
 
     const durationMs = 800;
     const startTime = performance.now();
@@ -1017,8 +1017,8 @@ export default function AdminEvaluasiLulusanPage() {
                     <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground shrink-0" />
                     {createForm.start_at
                       ? format(new Date(createForm.start_at), 'd MMM yyyy, HH:mm', {
-                          locale: idLocale,
-                        })
+                        locale: idLocale,
+                      })
                       : 'Pilih tanggal & waktu mulai'}
                   </Button>
                 </PopoverTrigger>
@@ -1166,8 +1166,8 @@ export default function AdminEvaluasiLulusanPage() {
                     <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground shrink-0" />
                     {createForm.end_at
                       ? format(new Date(createForm.end_at), 'd MMM yyyy, HH:mm', {
-                          locale: idLocale,
-                        })
+                        locale: idLocale,
+                      })
                       : 'Pilih tanggal & waktu akhir'}
                   </Button>
                 </PopoverTrigger>
@@ -1841,9 +1841,9 @@ export default function AdminEvaluasiLulusanPage() {
                         className={cn(
                           'cursor-pointer border-2 transition-colors duration-200 min-w-[200px]',
                           !closedBatchMode &&
-                            'bg-background border-input hover:bg-green-500/10 hover:border-green-500/50 hover:text-green-700 dark:hover:bg-green-500/15 dark:hover:border-green-500/50 dark:hover:text-green-400',
+                          'bg-background border-input hover:bg-green-500/10 hover:border-green-500/50 hover:text-green-700 dark:hover:bg-green-500/15 dark:hover:border-green-500/50 dark:hover:text-green-400',
                           closedBatchMode &&
-                            'bg-red-500/10 border-red-500/50 text-red-700 dark:bg-red-500/15 dark:border-red-500/50 dark:text-red-400 hover:bg-red-500/20 hover:border-red-500/60 dark:hover:bg-red-500/25'
+                          'bg-red-500/10 border-red-500/50 text-red-700 dark:bg-red-500/15 dark:border-red-500/50 dark:text-red-400 hover:bg-red-500/20 hover:border-red-500/60 dark:hover:bg-red-500/25'
                         )}
                         onClick={() => {
                           setClosedBatchMode((b) => !b);

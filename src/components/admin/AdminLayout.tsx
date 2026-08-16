@@ -38,7 +38,19 @@ function AdminLayoutShell() {
   const activeItem = useMemo((): AdminNavItem => {
     if (isDosenMode) {
       const fullPath = pathname + hash;
-      const matched = DOSEN_NAV_ITEMS.find((item) => item.path === fullPath);
+      const matchedLeaf = DOSEN_NAV_ITEMS.find((item) => !isNavParent(item) && (item.path === fullPath || item.path === pathname));
+      if (matchedLeaf) return matchedLeaf;
+
+      for (const item of DOSEN_NAV_ITEMS) {
+        if (isNavParent(item)) {
+          const hasChild = item.children.some(
+            (c) => c.path === fullPath || c.path === pathname || (c.path !== '/admin' && pathname.startsWith(c.path))
+          );
+          if (hasChild) return item;
+        }
+      }
+
+      const matched = DOSEN_NAV_ITEMS.find((item) => item.path === fullPath || (item.path && pathname.startsWith(item.path)));
       return matched ?? DOSEN_NAV_ITEMS[0];
     }
     if (pathname === '/admin' || pathname.startsWith('/admin/mahasiswa/dashboard')) {
@@ -120,11 +132,19 @@ function AdminLayoutShell() {
 
     layoutShiftControls.stop();
     layoutShiftControls.set({ x: -delta });
-    void     layoutShiftControls.start({
+    void layoutShiftControls.start({
       x: 0,
       transition: { duration: 0.22, ease: EASE_PREMIUM },
     });
   }, [contentOffset, layoutShiftControls]);
+
+  useEffect(() => {
+    if (!hash) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }, [pathname, hash]);
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
@@ -207,19 +227,11 @@ function AdminLayoutShell() {
         </div>
 
         <div className="flex-1 min-w-0 px-3 sm:px-6 pt-4 sm:pt-6 pb-0">
-          <motion.div animate={layoutShiftControls} className="min-w-0 will-change-transform">
-            <motion.div
-              key={pathname}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={routeTransition}
-              className="min-w-0"
-            >
-              <AdminErrorBoundary>
-                <Outlet />
-              </AdminErrorBoundary>
-            </motion.div>
-          </motion.div>
+          <div className="min-w-0">
+            <AdminErrorBoundary>
+              <Outlet />
+            </AdminErrorBoundary>
+          </div>
         </div>
       </div>
     </div>

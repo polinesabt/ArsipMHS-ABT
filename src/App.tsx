@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { AlumniProvider } from "@/contexts/AlumniContext";
+import { DosenProvider } from "@/contexts/DosenContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import Index from "./pages/Index";
 import ValidasiPage from "./pages/ValidasiPage";
@@ -22,10 +23,16 @@ import AdminSelectDashboardPage from "./pages/AdminSelectDashboardPage";
 import AdminDosenDashboardPage from "./pages/AdminDosenDashboardPage";
 import AdminDosenMainDashboardPage from "./pages/AdminDosenMainDashboardPage";
 import AdminDosenKontribusiPage from "./pages/AdminDosenKontribusiPage";
+import AdminDosenPenelitianPage from "./pages/AdminDosenPenelitianPage";
+import AdminDosenPengabdianPage from "./pages/AdminDosenPengabdianPage";
+import AdminDosenWaktuMengajarPage from "./pages/AdminDosenWaktuMengajarPage";
+import AdminTenagaKependidikanPage from "./pages/AdminTenagaKependidikanPage";
+import AdminLuaranPenelitianPKMPage from "./pages/AdminLuaranPenelitianPKMPage";
 import AdminKustomFormPreviewPage from "./pages/AdminKustomFormPreviewPage";
 import DeveloperDashboardPage from "./pages/DeveloperDashboardPage";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { StudentLayout } from "@/components/student/StudentLayout";
+import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import NotFound from "./pages/NotFound";
 
 // Redirect helpers with params matching for backward compatibility
@@ -47,102 +54,117 @@ function NavigateToEditId() {
 function App() {
   return (
     <AlumniProvider>
-      <TooltipProvider>
-        <BrowserRouter basename={(import.meta.env.BASE_URL || "/").replace(/\/+$/, "")}>
-          <Toaster />
-          <Sonner />
-          <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<Index />} />
-            <Route path="/validasi" element={<ValidasiPage />} />
-            <Route path="/evaluasi" element={<EvaluationSurveyPage />} />
-            
-            {/* Student protected routes */}
-            <Route path="/student" element={
-              <ProtectedRoute requiredRole="student">
-                <StudentLayout />
-              </ProtectedRoute>
-            }>
-              <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard" element={<UserDashboard />} />
-              <Route path="form" element={<FormPage />} />
-              <Route path="prestasi" element={<PrestasiPage />} />
-              <Route path="riwayat-karir" element={<CareerHistoryPage />} />
-            </Route>
-
-            {/* Student redirects for backward compatibility */}
-            <Route path="/dashboard" element={<Navigate to="/student/dashboard" replace />} />
-            <Route path="/form" element={<Navigate to="/student/form" replace />} />
-            <Route path="/prestasi" element={<Navigate to="/student/prestasi" replace />} />
-            <Route path="/riwayat-karir" element={<Navigate to="/student/riwayat-karir" replace />} />
-            
-            <Route path="/evaluasi-lulusan/survey/:token" element={<EvaluationSurveyPage />} />
-            
-            {/* Developer protected routes */}
-            <Route path="/developer/dashboard" element={
-              <ProtectedRoute requiredRole="developer">
-                <DeveloperDashboardPage />
-              </ProtectedRoute>
-            } />
-
-            {/* Admin protected routes */}
-            <Route path="/admin/select-dashboard" element={
-              <ProtectedRoute requiredRole="admin">
-                <AdminSelectDashboardPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/admin" element={
-              <ProtectedRoute requiredRole="admin">
-                <AdminLayout />
-              </ProtectedRoute>
-            }>
-              <Route index element={<Navigate to="/admin/select-dashboard" replace />} />
+      <DosenProvider>
+        <TooltipProvider>
+          <BrowserRouter basename={(import.meta.env.BASE_URL || "/").replace(/\/+$/, "")}>
+            <ScrollToTop />
+            <Toaster />
+            <Sonner />
+            <Routes>
+              {/* Public routes */}
+              <Route path="/" element={<Index />} />
+              <Route path="/validasi" element={<ValidasiPage />} />
+              <Route path="/evaluasi" element={<EvaluationSurveyPage />} />
               
-              {/* Dosen Section */}
-              <Route path="dosen">
+              {/* Student protected routes */}
+              <Route path="/student" element={
+                <ProtectedRoute requiredRole="student">
+                  <StudentLayout />
+                </ProtectedRoute>
+              }>
                 <Route index element={<Navigate to="dashboard" replace />} />
-                <Route path="dashboard" element={<AdminDosenMainDashboardPage />} />
-                <Route path="pengelolaan" element={<AdminDosenDashboardPage />} />
-                <Route path="kontribusi" element={<AdminDosenKontribusiPage />} />
-              </Route>
-              
-              {/* Mahasiswa Section */}
-              <Route path="mahasiswa">
-                <Route index element={<Navigate to="dashboard/all" replace />} />
-                <Route path="dashboard/:section" element={<AdminInsightDashboard />} />
-                <Route path="pengelola" element={<AdminDashboard />} />
-                <Route path="ai-insight" element={<AIInsightPage />} />
-                <Route path="evaluasi" element={<AdminEvaluasiLulusanPage />} />
-                <Route path="kustom-form/preview/:id" element={<AdminKustomFormPreviewPage />} />
-                <Route path="kustom-form/preview" element={<AdminKustomFormPreviewPage />} />
-                <Route path="kustom-form/edit/:id" element={<AdminKustomFormBuilderPage />} />
-                <Route path="kustom-form/new" element={<AdminKustomFormBuilderPage />} />
-                <Route path="kustom-form" element={<AdminKustomFormKepuasanPage />} />
-                <Route path="history-logbook" element={<AdminHistoryLogbookPage />} />
+                <Route path="dashboard" element={<UserDashboard />} />
+                <Route path="form" element={<FormPage />} />
+                <Route path="prestasi" element={<PrestasiPage />} />
+                <Route path="riwayat-karir" element={<CareerHistoryPage />} />
               </Route>
 
-              {/* Admin redirects for backward compatibility */}
-              <Route path="dosen-dashboard/pengelolaan-dosen" element={<Navigate to="/admin/dosen/pengelolaan" replace />} />
-              <Route path="dosen-dashboard" element={<Navigate to="/admin/dosen/pengelolaan" replace />} />
-              <Route path="mahasiswa-dashboard/:section" element={<NavigateToInsightDashboard />} />
-              <Route path="pengelola-mahasiswa" element={<Navigate to="/admin/mahasiswa/pengelola" replace />} />
-              <Route path="ai-insight" element={<Navigate to="/admin/mahasiswa/ai-insight" replace />} />
-              <Route path="evaluasi-lulusan" element={<Navigate to="/admin/mahasiswa/evaluasi" replace />} />
-              <Route path="kustom-form-kepuasan/preview/:id" element={<NavigateToPreviewId />} />
-              <Route path="kustom-form-kepuasan/preview" element={<Navigate to="/admin/mahasiswa/kustom-form/preview" replace />} />
-              <Route path="kustom-form-kepuasan/edit/:id" element={<NavigateToEditId />} />
-              <Route path="kustom-form-kepuasan/new" element={<Navigate to="/admin/mahasiswa/kustom-form/new" replace />} />
-              <Route path="kustom-form-kepuasan" element={<Navigate to="/admin/mahasiswa/kustom-form" replace />} />
-              <Route path="history-logbook" element={<Navigate to="/admin/mahasiswa/history-logbook" replace />} />
-              <Route path="import-prestasi" element={<Navigate to="/admin/mahasiswa/dashboard/student-achievements" replace />} />
-              <Route path="insight-dashboard" element={<Navigate to="/admin/mahasiswa/pengelola" replace />} />
-            </Route>
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+              {/* Student redirects for backward compatibility */}
+              <Route path="/dashboard" element={<Navigate to="/student/dashboard" replace />} />
+              <Route path="/form" element={<Navigate to="/student/form" replace />} />
+              <Route path="/prestasi" element={<Navigate to="/student/prestasi" replace />} />
+              <Route path="/riwayat-karir" element={<Navigate to="/student/riwayat-karir" replace />} />
+              
+              <Route path="/evaluasi-lulusan/survey/:token" element={<EvaluationSurveyPage />} />
+              
+              {/* Developer protected routes */}
+              <Route path="/developer/dashboard" element={
+                <ProtectedRoute requiredRole="developer">
+                  <DeveloperDashboardPage />
+                </ProtectedRoute>
+              } />
+
+              {/* Admin protected routes */}
+              <Route path="/admin/select-dashboard" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminSelectDashboardPage />
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/admin" element={
+                <ProtectedRoute requiredRole="admin">
+                  <AdminLayout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<Navigate to="/admin/select-dashboard" replace />} />
+                
+                {/* Dosen Section */}
+                <Route path="dosen">
+                  <Route index element={<Navigate to="dashboard" replace />} />
+                  <Route path="dashboard" element={<AdminDosenMainDashboardPage />} />
+                  <Route path="pengelolaan" element={<AdminDosenDashboardPage />} />
+                  <Route path="tenaga-kependidikan" element={<AdminTenagaKependidikanPage />} />
+                  <Route path="luaran-penelitian-pkm" element={<AdminLuaranPenelitianPKMPage />} />
+                  <Route path="waktu-mengajar" element={<AdminDosenWaktuMengajarPage />} />
+                  <Route path="kontribusi">
+                    <Route index element={<AdminDosenKontribusiPage />} />
+                    <Route path="pengajaran" element={<AdminDosenKontribusiPage />} />
+                    <Route path="penelitian" element={<AdminDosenPenelitianPage />} />
+                    <Route path="pengabdian" element={<AdminDosenPengabdianPage />} />
+                  </Route>
+                </Route>
+                
+                {/* Mahasiswa Section */}
+                <Route path="mahasiswa">
+                  <Route index element={<Navigate to="dashboard/all" replace />} />
+                  <Route path="dashboard/:section" element={<AdminInsightDashboard />} />
+                  <Route path="pengelola" element={<AdminDashboard />} />
+                  <Route path="ai-insight" element={<AIInsightPage />} />
+                  <Route path="evaluasi" element={<AdminEvaluasiLulusanPage />} />
+                  <Route path="kustom-form/preview/:id" element={<AdminKustomFormPreviewPage />} />
+                  <Route path="kustom-form/preview" element={<AdminKustomFormPreviewPage />} />
+                  <Route path="kustom-form/edit/:id" element={<AdminKustomFormBuilderPage />} />
+                  <Route path="kustom-form/new" element={<AdminKustomFormBuilderPage />} />
+                  <Route path="kustom-form" element={<AdminKustomFormKepuasanPage />} />
+                  <Route path="history-logbook" element={<AdminHistoryLogbookPage />} />
+                </Route>
+
+                {/* Admin redirects for backward compatibility */}
+                <Route path="insight-dashboard" element={<Navigate to="pengelola" replace />} />
+                <Route path="insight-dashboard/*" element={<NavigateToInsightDashboard />} />
+                <Route path="kustom-form/preview/:id" element={<NavigateToPreviewId />} />
+                <Route path="kustom-form/edit/:id" element={<NavigateToEditId />} />
+                <Route path="dosen-dashboard/pengelolaan-dosen" element={<Navigate to="/admin/dosen/pengelolaan" replace />} />
+                <Route path="dosen-dashboard" element={<Navigate to="/admin/dosen/pengelolaan" replace />} />
+                <Route path="mahasiswa-dashboard/:section" element={<NavigateToInsightDashboard />} />
+                <Route path="pengelola-mahasiswa" element={<Navigate to="/admin/mahasiswa/pengelola" replace />} />
+                <Route path="ai-insight" element={<Navigate to="/admin/mahasiswa/ai-insight" replace />} />
+                <Route path="evaluasi-lulusan" element={<Navigate to="/admin/mahasiswa/evaluasi" replace />} />
+                <Route path="kustom-form-kepuasan/preview/:id" element={<NavigateToPreviewId />} />
+                <Route path="kustom-form-kepuasan/preview" element={<Navigate to="/admin/mahasiswa/kustom-form/preview" replace />} />
+                <Route path="kustom-form-kepuasan/edit/:id" element={<NavigateToEditId />} />
+                <Route path="kustom-form-kepuasan/new" element={<Navigate to="/admin/mahasiswa/kustom-form/new" replace />} />
+                <Route path="kustom-form-kepuasan" element={<Navigate to="/admin/mahasiswa/kustom-form" replace />} />
+                <Route path="history-logbook" element={<Navigate to="/admin/mahasiswa/history-logbook" replace />} />
+                <Route path="import-prestasi" element={<Navigate to="/admin/mahasiswa/dashboard/student-achievements" replace />} />
+              </Route>
+
+              {/* Catch all */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </DosenProvider>
     </AlumniProvider>
   );
 }

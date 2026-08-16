@@ -20,6 +20,8 @@ export interface AuthUser {
   name?: string;
   nama?: string;
   student?: StudentData;
+  can_edit_dosen?: boolean;
+  can_edit_mahasiswa?: boolean;
 }
 
 export interface StudentData {

@@ -524,6 +524,8 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
           role: 'admin',
           createdAt: new Date(),
           lastLogin: new Date(),
+          canEditDosen: user.can_edit_dosen !== undefined ? Boolean(user.can_edit_dosen) : true,
+          canEditMahasiswa: user.can_edit_mahasiswa !== undefined ? Boolean(user.can_edit_mahasiswa) : true,
         };
         
         setLoggedInAdmin(adminProfile);
@@ -597,6 +599,8 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
             role: 'admin',
             createdAt: new Date(),
             lastLogin: new Date(),
+            canEditDosen: user.can_edit_dosen !== undefined ? Boolean(user.can_edit_dosen) : true,
+            canEditMahasiswa: user.can_edit_mahasiswa !== undefined ? Boolean(user.can_edit_mahasiswa) : true,
           };
           setLoggedInAdmin(adminProfile);
           localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(adminProfile));

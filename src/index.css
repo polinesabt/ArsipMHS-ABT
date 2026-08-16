@@ -217,35 +217,40 @@
     @apply border-border;
   }
 
-  /* Hindari teks buram saat elemen punya transform/animasi — render teks di layer tajam */
   html {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    text-rendering: geometricPrecision;
+    -webkit-text-size-adjust: 100%;
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-    /* Kejernihan teks di seluruh halaman — kurangi efek buram */
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    @apply bg-background text-foreground font-sans;
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    text-rendering: geometricPrecision;
   }
 
-  /* Konsisten di tema gelap */
-  .dark,
-  .dark body {
-    text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+  /* Render ikon SVG dan shape secara tajam dan presisi */
+  svg {
+    shape-rendering: geometricPrecision;
   }
 
+  /* Hilangkan spinner tombol panah naik-turun pada input type number */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
 }
 
 @layer components {
-  /* Glass morphism card */
+
+  /* Card beresolusi tinggi dan jernih */
   .glass-card {
-    @apply bg-card/80 backdrop-blur-xl border border-border/50;
+    @apply bg-card border border-border/70;
     box-shadow: var(--shadow-card);
   }
 
@@ -323,8 +328,7 @@
 
   /* Admin sidebar item */
   .sidebar-item {
-    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-sidebar-foreground/80 
-           hover:bg-sidebar-accent hover:text-sidebar-foreground transition-all duration-200;
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-all duration-200;
   }
 
   .sidebar-item-active {
@@ -413,6 +417,7 @@
 }
 
 @layer utilities {
+
   /* Animations */
   .animate-fade-up {
     animation: fadeUp var(--motion-duration-enter) var(--motion-ease-standard) both;
@@ -474,6 +479,7 @@
   .line-clamp-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
@@ -507,6 +513,7 @@
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -518,6 +525,7 @@
     opacity: 0;
     transform: translateY(4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -528,6 +536,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -538,6 +547,7 @@
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -549,6 +559,7 @@
     opacity: 0;
     transform: translateX(12px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -556,6 +567,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .animate-fade-up,
   .animate-fade-up-smooth,
   .animate-fade-in,
@@ -570,18 +582,24 @@
 }
 
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-10px);
   }
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.7;
   }
@@ -592,6 +610,7 @@
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -602,6 +621,7 @@
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
@@ -613,6 +633,7 @@
     opacity: 0;
     transform: scale(0.85) translateY(6px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -625,6 +646,7 @@
     opacity: 0.8;
     transform: translate(-50%, -50%) scale(0.4);
   }
+
   to {
     opacity: 0;
     transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1.1);
@@ -682,11 +704,13 @@
     outline: 2px solid transparent;
     outline-offset: 2px;
   }
+
   50% {
     box-shadow: 0 0 0 4px hsl(var(--primary)), 0 0 20px hsl(var(--primary) / 0.4);
     outline: 2px solid hsl(var(--primary));
     outline-offset: 2px;
   }
+
   100% {
     box-shadow: 0 0 0 2px hsl(var(--primary));
     outline: 2px solid hsl(var(--primary));
@@ -696,4 +720,15 @@
 
 .liquid-select {
   animation: liquidSelect 0.8s ease-out forwards;
+}
+
+/* Fix browser autofill background on dark inputs & developer dashboard */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #020617 inset !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  caret-color: #f8fafc !important;
+  transition: background-color 5000s ease-in-out 0s;
 }

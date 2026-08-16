@@ -42,6 +42,31 @@ export interface AdminProfile {
   role: 'admin';
   createdAt: Date;
   lastLogin?: Date;
+  canEditDosen?: boolean;
+  canEditMahasiswa?: boolean;
+}
+
+/**
+ * Admin account item for Developer Dashboard management
+ */
+export interface AdminAccountItem {
+  id: string;
+  username: string;
+  nama: string;
+  role: 'admin';
+  is_active: boolean;
+  created_at: string;
+  last_login?: string | null;
+  can_edit_dosen: boolean;
+  can_edit_mahasiswa: boolean;
+}
+
+export interface CreateAdminInput {
+  username: string;
+  nama: string;
+  password: string;
+  can_edit_dosen?: boolean;
+  can_edit_mahasiswa?: boolean;
 }
 
 // ============ Core Enums ============

@@ -39,6 +39,8 @@ function isModifiedEvent(event: MouseEvent<HTMLAnchorElement>) {
   return event.button !== 0 || event.metaKey || event.altKey || event.ctrlKey || event.shiftKey;
 }
 
+const STORAGE_PREFIX = 'admin-sidebar-parent-';
+
 function readStoredDashboardExpanded(): boolean {
   try {
     const v = sessionStorage.getItem(STORAGE_KEY);
@@ -56,16 +58,40 @@ function writeStoredDashboardExpanded(value: boolean) {
   }
 }
 
+function readStoredParentExpanded(parentId: string, defaultValue = false): boolean {
+  try {
+    const v = sessionStorage.getItem(`${STORAGE_PREFIX}${parentId}`);
+    if (v === null) return defaultValue;
+    return v === '1';
+  } catch {
+    return defaultValue;
+  }
+}
+
+function writeStoredParentExpanded(parentId: string, value: boolean) {
+  try {
+    sessionStorage.setItem(`${STORAGE_PREFIX}${parentId}`, value ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
+}
+
 function getActiveChildForParent(
   pathname: string,
   children: AdminNavItemLeaf[]
 ): { activeChild: AdminNavItemLeaf | null; parentHasActiveChild: boolean } {
-  const activeChild =
-    children.find(
-      (c) =>
-        pathname === c.path ||
-        (c.path !== '/admin' && pathname.startsWith(c.path))
-    ) ?? null;
+  let activeChild = children.find((c) => pathname === c.path) ?? null;
+
+  if (!activeChild && (pathname === '/admin' || pathname === '/admin/mahasiswa/dashboard' || pathname === '/admin/mahasiswa/dashboard/' || pathname === '/admin/mahasiswa')) {
+    activeChild = children[0] ?? null;
+  }
+
+  if (!activeChild) {
+    const matching = children
+      .filter((c) => c.path !== '/admin' && pathname.startsWith(c.path))
+      .sort((a, b) => b.path.length - a.path.length);
+    activeChild = matching[0] ?? null;
+  }
   return {
     activeChild,
     parentHasActiveChild: activeChild !== null,
@@ -88,22 +114,40 @@ export function SidebarNav({
   const { pathname } = useLocation();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [subHoveredId, setSubHoveredId] = useState<string | null>(null);
-  const [dashboardExpanded, setDashboardExpanded] = useState(readStoredDashboardExpanded);
+  const [expandedParents, setExpandedParents] = useState<Record<string, boolean>>(() => ({
+    [DASHBOARD_PARENT_ID]: readStoredDashboardExpanded(),
+    'dosen-kontribusi': readStoredParentExpanded('dosen-kontribusi', false),
+  }));
 
-  const toggleDashboard = () => {
-    setDashboardExpanded((prev) => {
-      const next = !prev;
-      writeStoredDashboardExpanded(next);
-      return next;
+  const toggleParent = (parentId: string) => {
+    setExpandedParents((prev) => {
+      const current = prev[parentId] !== undefined
+        ? prev[parentId]
+        : readStoredParentExpanded(parentId, false);
+      const next = !current;
+      writeStoredParentExpanded(parentId, next);
+      if (parentId === DASHBOARD_PARENT_ID) {
+        writeStoredDashboardExpanded(next);
+      }
+      return {
+        ...prev,
+        [parentId]: next,
+      };
     });
   };
 
-  const isParentExpanded = (item: AdminNavItem, parentHasActiveChild: boolean) =>
-    item.id === DASHBOARD_PARENT_ID
-      ? dashboardExpanded
-      : item.id === EVALUASI_LULUSAN_ID
-        ? parentHasActiveChild
-        : false;
+  const isParentExpanded = (item: AdminNavItem, parentHasActiveChild: boolean) => {
+    if (expandedParents[item.id] !== undefined) {
+      return expandedParents[item.id];
+    }
+    if (item.id === DASHBOARD_PARENT_ID) {
+      return readStoredDashboardExpanded();
+    }
+    if (item.id === EVALUASI_LULUSAN_ID) {
+      return parentHasActiveChild;
+    }
+    return readStoredParentExpanded(item.id, false);
+  };
 
   const widthTransition = {
     type: 'tween' as const,
@@ -260,7 +304,7 @@ export function SidebarNav({
                   setHoveredId={setHoveredId}
                   setSubHoveredId={setSubHoveredId}
                   isParentExpanded={isParentExpanded(item, parentHasActiveChild)}
-                  onToggleDashboard={toggleDashboard}
+                  onToggleParent={() => toggleParent(item.id)}
                   pathname={pathname}
                   onSelect={onSelect}
                   widthTransition={widthTransition}
@@ -720,7 +764,7 @@ function ParentNavItem({
   setHoveredId,
   setSubHoveredId,
   isParentExpanded,
-  onToggleDashboard,
+  onToggleParent,
   pathname,
   onSelect,
   widthTransition,
@@ -738,7 +782,7 @@ function ParentNavItem({
   setHoveredId: (id: string | null) => void;
   setSubHoveredId: (id: string | null) => void;
   isParentExpanded: boolean;
-  onToggleDashboard: () => void;
+  onToggleParent: () => void;
   pathname: string;
   onSelect: (item: AdminNavItem) => void;
   widthTransition: { type: 'tween'; duration: number; ease: [number, number, number, number] };
@@ -752,66 +796,38 @@ function ParentNavItem({
 
   const parentPath = 'path' in item ? item.path : undefined;
 
-  const handleParentClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (isModifiedEventInner(e)) return;
+  const handleParentClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     if (collapsed) {
-      if (parentPath) onSelect(item as AdminNavItem);
-    } else if (item.id === DASHBOARD_PARENT_ID) {
-      onToggleDashboard();
-    } else if (parentPath) {
-      onSelect(item as AdminNavItem);
+      if (item.children && item.children.length > 0) {
+        onSelect(item.children[0] as AdminNavItem);
+      }
+      return;
+    }
+
+    if (!isParentExpanded) {
+      onToggleParent();
+      if (!activeChild && item.children && item.children.length > 0) {
+        onSelect(item.children[0] as AdminNavItem);
+      }
+    } else {
+      onToggleParent();
     }
   };
 
   return (
     <li>
-      <div
-        className="relative w-full flex items-center rounded-lg overflow-hidden font-medium"
-        onMouseEnter={() => setHoveredId(item.id)}
-        onMouseLeave={() => setHoveredId(null)}
-      >
-        {isParentExactActive && (
-          <motion.div
-            layoutId="sidebar-active-rail"
-            className="absolute left-0 top-[20%] bottom-[20%] w-[3px] rounded-r-full bg-[hsl(var(--sidebar-primary))] origin-top"
-            initial={{ scaleY: 0 }}
-            animate={{ scaleY: 1 }}
-            transition={{
-              layout: { duration: 0.22, ease: EASE_PREMIUM },
-              scaleY: { duration: 0.2, ease: EASE_PREMIUM },
-            }}
-          />
-        )}
-        {parentHasActiveChild && !isParentExactActive && (
-          <motion.div
-            className="absolute left-0 top-[22%] bottom-[22%] w-[2px] rounded-r-full bg-[hsl(var(--sidebar-primary)/0.6)] origin-top"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.18, ease: EASE_PREMIUM }}
-            aria-hidden
-          />
-        )}
-        <motion.div
-          className="absolute inset-0 rounded-lg origin-left"
-          initial={false}
-          animate={{
-            scaleX: isHovered ? 1 : 0,
-            backgroundColor: isHovered
-              ? 'hsl(var(--sidebar-hover))'
-              : isParentActive
-                ? 'hsl(var(--sidebar-primary) / 0.12)'
-                : 'transparent',
-          }}
-          transition={navTransition}
-          style={{ transformOrigin: 'left' }}
-        />
-        <motion.a
-          href={collapsed && parentPath ? parentPath : '#'}
+      <div className="relative w-full">
+        <motion.button
+          type="button"
           onClick={handleParentClick}
+          whileTap={{ scale: 0.985 }}
+          onMouseEnter={() => setHoveredId(item.id)}
+          onMouseLeave={() => setHoveredId(null)}
           className={cn(
-            'relative flex flex-1 items-center min-w-0 py-2.5 cursor-pointer',
-            collapsed ? 'justify-center px-0 gap-0' : 'pl-3 gap-3'
+            'relative w-full flex items-center rounded-lg py-2.5 overflow-hidden cursor-pointer font-medium text-left select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            collapsed ? 'justify-center px-0 gap-0' : 'pl-3 pr-3 gap-3'
           )}
           aria-expanded={!collapsed ? isParentExpanded : undefined}
           aria-label={
@@ -822,69 +838,113 @@ function ParentNavItem({
                 : `Buka submenu ${item.label}`
           }
         >
+          {isParentExactActive && (
+            <motion.div
+              layoutId="sidebar-active-rail"
+              className="absolute left-0 top-[20%] bottom-[20%] w-[3px] rounded-r-full bg-[hsl(var(--sidebar-primary))] origin-top pointer-events-none"
+              initial={{ scaleY: 0 }}
+              animate={{ scaleY: 1 }}
+              transition={{
+                layout: { duration: 0.22, ease: EASE_PREMIUM },
+                scaleY: { duration: 0.2, ease: EASE_PREMIUM },
+              }}
+            />
+          )}
+          {parentHasActiveChild && !isParentExactActive && (
+            <motion.div
+              className="absolute left-0 top-[22%] bottom-[22%] w-[2px] rounded-r-full bg-[hsl(var(--sidebar-primary)/0.6)] origin-top pointer-events-none"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.18, ease: EASE_PREMIUM }}
+              aria-hidden
+            />
+          )}
+          {/* Hover background (scaleX left → right) */}
           <motion.div
-            className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center"
+            className="absolute inset-0 rounded-lg bg-[hsl(var(--sidebar-hover)/0.6)] origin-left pointer-events-none z-0"
+            initial={false}
             animate={{
-              scale: isHovered ? 1.05 : 1,
-              backgroundColor: isHovered
-                ? 'hsl(var(--sidebar-hover))'
-                : isParentActive
-                  ? 'hsl(var(--sidebar-primary) / 0.15)'
-                  : 'transparent',
+              scaleX: isHovered && !isParentExactActive ? 1 : 0,
             }}
             transition={navTransition}
+            style={{ transformOrigin: 'left' }}
+          />
+
+          <span
+            className={cn(
+              'relative z-10 flex items-center w-full min-w-0',
+              collapsed ? 'justify-center px-0 gap-0' : 'gap-3 px-0'
+            )}
           >
+            {/* Icon */}
             <motion.div
-              className="flex items-center justify-center"
+              className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center pointer-events-none"
               animate={{
-                x: isHovered ? 4 : 0,
-                color: isParentActive ? 'hsl(var(--sidebar-primary))' : 'hsl(var(--sidebar-fg))',
+                scale: isHovered || isParentActive ? 1.05 : 1,
+                backgroundColor: isParentActive
+                  ? 'hsl(var(--sidebar-primary) / 0.15)'
+                  : isHovered
+                    ? 'hsl(var(--sidebar-hover))'
+                    : 'transparent',
               }}
               transition={navTransition}
             >
-              <item.icon className="w-5 h-5" />
+              <motion.div
+                className="flex items-center justify-center pointer-events-none"
+                animate={{
+                  x: isHovered && !isParentActive ? 4 : 0,
+                  color: isParentActive ? 'hsl(var(--sidebar-primary))' : 'hsl(var(--sidebar-fg))',
+                }}
+                transition={navTransition}
+              >
+                <item.icon className="w-5 h-5" />
+              </motion.div>
             </motion.div>
-          </motion.div>
-          <motion.span
-            className={cn(
-              "text-sm whitespace-nowrap min-w-0 transition-colors duration-200 font-medium",
-              isParentActive ? "text-[hsl(var(--sidebar-primary))]" : "text-[hsl(var(--sidebar-fg))]"
-            )}
-            animate={{
-              opacity: collapsed ? 0 : 1,
-              width: collapsed ? 0 : 'auto',
-              x: collapsed ? -8 : 0,
-            }}
-            transition={{
-              opacity: {
-                duration: TEXT_REVEAL_DURATION_MS / 1000,
-                ease: EASE_PREMIUM,
-                delay: collapsed ? 0 : textRevealDelay,
-              },
-              width: widthTransition,
-              x: { duration: widthTransition.duration, ease: EASE_PREMIUM },
-            }}
-            style={{
-              overflow: 'hidden',
-              pointerEvents: collapsed ? 'none' : 'auto',
-            }}
-            aria-hidden={collapsed}
-          >
-            {item.label}
-          </motion.span>
-          {!collapsed && (
+
+            {/* Label */}
             <motion.span
               className={cn(
-                "ml-auto flex-shrink-0 transition-colors duration-200",
+                "text-sm font-medium whitespace-nowrap min-w-0 transition-colors duration-200 pointer-events-none",
                 isParentActive ? "text-[hsl(var(--sidebar-primary))]" : "text-[hsl(var(--sidebar-fg))]"
               )}
-              animate={{ rotate: isParentExpanded ? 90 : 0 }}
-              transition={navTransition}
+              animate={{
+                opacity: collapsed ? 0 : 1,
+                width: collapsed ? 0 : 'auto',
+                x: collapsed ? -8 : 0,
+              }}
+              transition={{
+                opacity: {
+                  duration: TEXT_REVEAL_DURATION_MS / 1000,
+                  ease: EASE_PREMIUM,
+                  delay: collapsed ? 0 : textRevealDelay,
+                },
+                width: widthTransition,
+                x: { duration: widthTransition.duration, ease: EASE_PREMIUM },
+              }}
+              style={{
+                overflow: 'hidden',
+                pointerEvents: collapsed ? 'none' : 'auto',
+              }}
+              aria-hidden={collapsed}
             >
-              <ChevronRight className="h-4 w-4" />
+              {item.label}
             </motion.span>
-          )}
-        </motion.a>
+
+            {/* Chevron */}
+            {!collapsed && (
+              <motion.span
+                className={cn(
+                  "ml-auto flex-shrink-0 transition-colors duration-200 pointer-events-none",
+                  isParentActive ? "text-[hsl(var(--sidebar-primary))]" : "text-[hsl(var(--sidebar-fg))]"
+                )}
+                animate={{ rotate: isParentExpanded ? 90 : 0 }}
+                transition={navTransition}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </motion.span>
+            )}
+          </span>
+        </motion.button>
         <AnimatePresence>
           {collapsed && isHovered && (
             <motion.div
@@ -927,8 +987,7 @@ function ParentNavItem({
             >
               {item.children.map((child) => {
                 const isChildActive =
-                  pathname === child.path ||
-                  (child.path !== '/admin' && pathname.startsWith(child.path));
+                  activeChild?.id === child.id || pathname === child.path;
                 const isChildHovered = subHoveredId === child.id;
                 const subBg = isChildActive
                   ? 'hsl(var(--sidebar-active) / 0.9)'
@@ -1000,49 +1059,53 @@ function ParentNavItem({
           </motion.div>
 
           {/* Saat dropdown parent ditutup: tampilkan hanya child yang aktif (indent, tetap active) */}
-          {!isParentExpanded && activeChild && (
-            <motion.div
-              initial={{ opacity: 0, y: -2 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.18, ease: EASE_PREMIUM }}
-              className="pt-0.5"
-            >
-              <motion.a
-                href={activeChild.path}
-                onClick={(e) => {
-                  if (isModifiedEventInner(e)) return;
-                  e.preventDefault();
-                  onSelect(activeChild as AdminNavItem);
-                }}
-                whileTap={{ scale: 0.985 }}
-                onMouseEnter={() => setSubHoveredId(activeChild.id)}
-                onMouseLeave={() => setSubHoveredId(null)}
-                className="relative flex items-center gap-3 rounded-lg py-2 pl-9 pr-3 text-sm w-full overflow-hidden cursor-pointer bg-[hsl(var(--sidebar-active)/0.9)] text-[hsl(0_0%_100%)]"
+          <AnimatePresence>
+            {!isParentExpanded && activeChild && (
+              <motion.div
+                key="closed-active-child"
+                initial={{ opacity: 0, height: 0, y: -2 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -2 }}
+                transition={{ duration: 0.2, ease: EASE_PREMIUM }}
+                className="overflow-hidden pt-0.5"
               >
-                <motion.div
-                  className="absolute inset-0 rounded-lg bg-[hsl(var(--sidebar-hover)/0.6)] origin-left"
-                  initial={false}
-                  animate={{ scaleX: subHoveredId === activeChild.id ? 1 : 0 }}
-                  transition={navTransition}
-                  style={{ transformOrigin: 'left' }}
-                />
-                <span
-                  className="absolute left-0 top-[18%] bottom-[18%] w-[3px] rounded-r-full bg-[hsl(var(--sidebar-primary))]"
-                  aria-hidden
-                />
-                <motion.span
-                  className="relative flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center bg-[hsl(var(--sidebar-primary)/0.3)]"
-                  animate={{
-                    scale: subHoveredId === activeChild.id ? 1.05 : 1,
+                <motion.a
+                  href={activeChild.path}
+                  onClick={(e) => {
+                    if (isModifiedEventInner(e)) return;
+                    e.preventDefault();
+                    onSelect(activeChild as AdminNavItem);
                   }}
-                  transition={navTransition}
+                  whileTap={{ scale: 0.985 }}
+                  onMouseEnter={() => setSubHoveredId(activeChild.id)}
+                  onMouseLeave={() => setSubHoveredId(null)}
+                  className="relative flex items-center gap-3 rounded-lg py-2 pl-9 pr-3 text-sm w-full overflow-hidden cursor-pointer bg-[hsl(var(--sidebar-active)/0.9)] text-[hsl(0_0%_100%)]"
                 >
-                  <ChildIcon className="w-4 h-4" />
-                </motion.span>
-                <span className="relative font-medium truncate">{activeChild.label}</span>
-              </motion.a>
-            </motion.div>
-          )}
+                  <motion.div
+                    className="absolute inset-0 rounded-lg bg-[hsl(var(--sidebar-hover)/0.6)] origin-left"
+                    initial={false}
+                    animate={{ scaleX: subHoveredId === activeChild.id ? 1 : 0 }}
+                    transition={navTransition}
+                    style={{ transformOrigin: 'left' }}
+                  />
+                  <span
+                    className="absolute left-0 top-[18%] bottom-[18%] w-[3px] rounded-r-full bg-[hsl(var(--sidebar-primary))]"
+                    aria-hidden
+                  />
+                  <motion.span
+                    className="relative flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center bg-[hsl(var(--sidebar-primary)/0.3)]"
+                    animate={{
+                      scale: subHoveredId === activeChild.id ? 1.05 : 1,
+                    }}
+                    transition={navTransition}
+                  >
+                    <ChildIcon className="w-4 h-4" />
+                  </motion.span>
+                  <span className="relative font-medium truncate">{activeChild.label}</span>
+                </motion.a>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </>
       )}
 
