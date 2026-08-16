@@ -23,20 +23,15 @@ const STORAGE_KEYS = {
   ARCHIVE: 'arsipmhs_ssot_dosen_archives',
 };
 
-const SEED_FLAG_KEY = 'arsipmhs_dummy_seeded_v3';
+const PURGE_FLAG_KEY = 'arsipmhs_dummy_clean_production_v2';
 
-// Automatically seed demo storage on startup
+// Automatically purge dummy storage on startup
 if (typeof window !== 'undefined') {
   try {
-    if (localStorage.getItem(SEED_FLAG_KEY) !== 'true') {
-      localStorage.setItem(STORAGE_KEYS.MASTER, JSON.stringify(INITIAL_DOSEN_DATA));
-      localStorage.setItem(STORAGE_KEYS.PENGAJARAN, JSON.stringify(INITIAL_KONTRIBUSI_DOSEN_DATA));
-      localStorage.setItem(STORAGE_KEYS.PENELITIAN, JSON.stringify(INITIAL_PENELITIAN_DOSEN_DATA));
-      localStorage.setItem(STORAGE_KEYS.PENGABDIAN, JSON.stringify(INITIAL_PENGABDIAN_DOSEN_DATA));
-      localStorage.setItem(STORAGE_KEYS.WAKTU_MENGAJAR, JSON.stringify(INITIAL_WAKTU_MENGAJAR_DATA));
-      localStorage.setItem(STORAGE_KEYS.LUARAN, JSON.stringify(INITIAL_DOSEN_LUARAN_DATA));
-      localStorage.setItem(STORAGE_KEYS.ARCHIVE, JSON.stringify([]));
-      localStorage.setItem(SEED_FLAG_KEY, 'true');
+    if (localStorage.getItem(PURGE_FLAG_KEY) !== 'true') {
+      Object.values(STORAGE_KEYS).forEach((key) => localStorage.removeItem(key));
+      localStorage.removeItem('tendik_master_data');
+      localStorage.setItem(PURGE_FLAG_KEY, 'true');
     }
   } catch (e) {
     // Ignore storage access errors

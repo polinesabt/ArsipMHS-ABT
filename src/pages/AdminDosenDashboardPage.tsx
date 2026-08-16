@@ -475,7 +475,7 @@ export default function AdminDosenDashboardPage() {
                       </div>
                       <p className="font-semibold text-foreground text-sm mt-1">Belum Ada Data Dosen</p>
                       <p className="text-xs text-muted-foreground">
-                        {searchTerm 
+                        {searchTerm
                           ? `Tidak ada dosen yang sesuai dengan pencarian "${searchTerm}".`
                           : 'Belum ada data dosen terdaftar di dalam sistem. Klik tombol di bawah untuk menambahkan data pertama.'}
                       </p>
@@ -516,8 +516,8 @@ export default function AdminDosenDashboardPage() {
                         <Badge
                           variant="outline"
                           className={`text-[10px] px-1.5 py-0 rounded font-normal ${dosen.statusDosen === 'Tetap'
-                              ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'
-                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800'
+                            ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'
+                            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800'
                             }`}
                         >
                           {dosen.statusDosen}
@@ -589,7 +589,7 @@ export default function AdminDosenDashboardPage() {
                 </div>
                 <p className="font-semibold text-foreground text-sm mt-1">Belum Ada Data Dosen</p>
                 <p className="text-xs text-muted-foreground">
-                  {searchTerm 
+                  {searchTerm
                     ? `Tidak ada dosen yang sesuai dengan pencarian "${searchTerm}".`
                     : 'Belum ada data dosen terdaftar di dalam sistem.'}
                 </p>
@@ -632,11 +632,10 @@ export default function AdminDosenDashboardPage() {
                   </div>
                   <Badge
                     variant="outline"
-                    className={`text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0 ${
-                      dosen.statusDosen === 'Tetap'
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-medium shrink-0 ${dosen.statusDosen === 'Tetap'
                         ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'
                         : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800'
-                    }`}
+                      }`}
                   >
                     {dosen.statusDosen}
                   </Badge>
@@ -823,8 +822,8 @@ export default function AdminDosenDashboardPage() {
                         type="button"
                         onClick={() => handleTogglePendidikanAdd(opsi)}
                         className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${isSelected
-                            ? 'bg-primary/10 border-primary text-primary font-medium'
-                            : 'bg-muted/30 border-border/60 text-muted-foreground hover:bg-muted/60'
+                          ? 'bg-primary/10 border-primary text-primary font-medium'
+                          : 'bg-muted/30 border-border/60 text-muted-foreground hover:bg-muted/60'
                           }`}
                       >
                         {opsi}
@@ -1369,8 +1368,8 @@ export default function AdminDosenDashboardPage() {
                               type="button"
                               onClick={() => handleTogglePendidikan(opsi)}
                               className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${isSelected
-                                  ? 'bg-primary/10 border-primary text-primary font-medium'
-                                  : 'bg-muted/30 border-border/60 text-muted-foreground hover:bg-muted/60'
+                                ? 'bg-primary/10 border-primary text-primary font-medium'
+                                : 'bg-muted/30 border-border/60 text-muted-foreground hover:bg-muted/60'
                                 }`}
                             >
                               {opsi}
