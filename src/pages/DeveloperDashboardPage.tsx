@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAlumni, useLoggedInDeveloper } from '@/contexts/AlumniContext';
+import { DemoModeBanner } from '@/components/sandbox/DemoModeBanner';
 import { 
   getErrorLogs, 
   clearErrorLogs, 
@@ -143,6 +144,16 @@ export default function DeveloperDashboardPage() {
       );
     });
   }, [logs, roleFilter, searchQuery]);
+
+  const currentEnvironment = useMemo(() => {
+    if (typeof window === 'undefined') return 'Production Server';
+    const hostname = window.location.hostname.toLowerCase();
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+    if (isLocalhost) {
+      return 'Local XAMPP';
+    }
+    return `Production Hosting (${hostname})`;
+  }, []);
 
   const handleToggleDosenModule = async (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
@@ -334,6 +345,7 @@ export default function DeveloperDashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white relative font-sans">
+      <DemoModeBanner />
       {/* Background Glows & Patterns (Isolated overflow container to prevent window scroll jitter) */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
         <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-[128px]" />
@@ -544,7 +556,10 @@ export default function DeveloperDashboardPage() {
                   <Power className="w-4 h-4 text-emerald-400" />
                   <span>Environment</span>
                 </div>
-                <span className="font-mono text-slate-400">Production / Local XAMPP</span>
+                <span className="font-mono text-emerald-400 font-semibold flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                  {currentEnvironment}
+                </span>
               </div>
             </div>
           </div>

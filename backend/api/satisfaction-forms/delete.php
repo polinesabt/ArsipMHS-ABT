@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../config/auth.php';
 
 try {
     $auth = requireAuth('admin');
+    requireProductionWrite($auth);
     $adminId = (string)($auth['sub'] ?? '');
 
     $input = json_decode(file_get_contents('php://input'), true);

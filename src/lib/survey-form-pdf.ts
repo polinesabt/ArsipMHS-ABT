@@ -35,6 +35,7 @@ const MUTED_COLOR = { r: 40, g: 40, b: 40 };
 type CustomSection = {
   id: string;
   title?: string;
+  required?: boolean;
   type?: string;
   placeholder?: string;
   options?: string[];
@@ -69,9 +70,9 @@ function addSignatureBlock(doc: jsPDF, y: number): number {
 
   // Area kosong untuk tanda tangan (kotak putus-putus agar jelas)
   const sigBoxW = 45;
-  doc.setLineDash([2, 2]);
+  doc.setLineDashPattern([2, 2], 0);
   doc.rect(MARGIN, y, sigBoxW, SIGNATURE_AREA_HEIGHT, 'S');
-  doc.setLineDash([]);
+  doc.setLineDashPattern([], 0);
   y += SIGNATURE_AREA_HEIGHT + 6;
 
   doc.text('Tanda Tangan Atasan / Pimpinan Perusahaan', MARGIN, y + 4);

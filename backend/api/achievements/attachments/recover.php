@@ -22,6 +22,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 
 try {
     $auth = requireAuth('admin');
+    requireProductionWrite($auth);
     $adminId = (string)($auth['sub'] ?? '');
 
     $input = json_decode(file_get_contents('php://input'), true);

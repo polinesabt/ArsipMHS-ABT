@@ -53,7 +53,12 @@ $output[] = "-- ================================================================
 
 $columnUpdates = [
     // users role
-    ["users", "role", "ALTER TABLE users MODIFY COLUMN role ENUM('admin', 'student', 'developer') NOT NULL DEFAULT 'student'"],
+    ["users", "role", "ALTER TABLE users MODIFY COLUMN role ENUM('admin', 'student', 'developer', 'dosen') NOT NULL DEFAULT 'student'"],
+    ["users", "nama", "ALTER TABLE users MODIFY COLUMN nama VARCHAR(150) NOT NULL"],
+    // dosen
+    ["dosen", "user_id", "ALTER TABLE dosen ADD COLUMN user_id VARCHAR(36) NULL AFTER id"],
+    // tendik
+    ["tenaga_kependidikan", "golongan", "ALTER TABLE tenaga_kependidikan ADD COLUMN golongan VARCHAR(100) NULL AFTER jabatan"],
     // admins
     ["admins", "can_edit_dosen", "ALTER TABLE admins ADD COLUMN can_edit_dosen TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Permission to edit dosen data'"],
     ["admins", "can_edit_mahasiswa", "ALTER TABLE admins ADD COLUMN can_edit_mahasiswa TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Permission to edit mahasiswa data'"],

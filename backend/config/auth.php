@@ -321,6 +321,133 @@ function auth_pick_best_failure_reason(array $reasons): string {
  * @param string|null $requiredRole e.g. 'admin' or 'student'
  * @return array token payload
  */
+function auth_role_allows(string $actualRole, string $requiredRole): bool {
+    if ($actualRole === $requiredRole) {
+        return true;
+    }
+
+    // Demo mode is a read-capable facade for both privileged portals. Persistence
+    // is guarded separately by requireProductionWrite().
+    return $actualRole === 'demo' && in_array($requiredRole, ['admin', 'developer'], true);
+}
+
+function auth_is_demo(?array $payload): bool {
+    return is_array($payload)
+        && (($payload['role'] ?? null) === 'demo' || ($payload['demo_mode'] ?? false) === true);
+}
+
+function auth_get_capabilities($userOrRole): array {
+    $role = is_array($userOrRole) ? ($userOrRole['role'] ?? '') : (string)$userOrRole;
+    $isDemo = is_array($userOrRole) ? auth_is_demo($userOrRole) : ($role === 'demo');
+
+    if ($isDemo) {
+        // Demo mode has read capabilities for Admin and Developer, but NEVER persistence
+        return [
+            'read:admin',
+            'read:developer',
+            'read:student',
+            'read:dosen',
+            'read:tendik',
+        ];
+    }
+
+    switch ($role) {
+        case 'admin':
+            return [
+                'read:admin',
+                'read:developer',
+                'read:student',
+                'read:dosen',
+                'read:tendik',
+                'write:admin',
+                'write:student',
+                'write:dosen',
+                'write:tendik',
+                'write:persistence',
+            ];
+        case 'developer':
+            return [
+                'read:admin',
+                'read:developer',
+                'read:student',
+                'read:dosen',
+                'read:tendik',
+                'write:admin',
+                'write:developer',
+                'write:student',
+                'write:dosen',
+                'write:tendik',
+                'write:persistence',
+            ];
+        case 'dosen':
+            return [
+                'read:dosen',
+                'write:dosen',
+                'write:persistence',
+            ];
+        case 'tendik':
+            return [
+                'read:tendik',
+                'write:tendik',
+                'write:persistence',
+            ];
+        case 'student':
+            return [
+                'read:student',
+                'write:student',
+                'write:persistence',
+            ];
+        default:
+            return [];
+    }
+}
+
+function auth_has_capability($userOrRole, string $capability): bool {
+    $capabilities = auth_get_capabilities($userOrRole);
+    return in_array($capability, $capabilities, true);
+}
+
+function auth_optional(): ?array {
+    foreach (auth_get_bearer_tokens() as $token) {
+        $payload = auth_verify_token($token);
+        if (is_array($payload)) {
+            return $payload;
+        }
+    }
+    return null;
+}
+
+/**
+ * Stop any server-side persistence attempted by a demo session. Call this
+ * before SQL writes, filesystem writes, email, exports with audit logs, or jobs.
+ */
+function requireProductionWrite(?array $payload = null): void {
+    $resolvedPayload = $payload ?? auth_optional();
+    if (!auth_is_demo($resolvedPayload)) {
+        return;
+    }
+
+    http_response_code(403);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Perubahan Demo Mode hanya boleh disimpan di cache sesi browser.',
+        'code' => 'DEMO_WRITE_BLOCKED',
+        'demo_mode' => true,
+    ]);
+    exit();
+}
+
+function requireCapability(string $capability): array {
+    $payload = requireAuth();
+    if (!auth_has_capability($payload, $capability)) {
+        if (str_starts_with($capability, 'write') || $capability === 'persistence') {
+            requireProductionWrite($payload);
+        }
+        auth_abort_from_reason('role_forbidden');
+    }
+    return $payload;
+}
+
 function requireAuth(?string $requiredRole = null): array {
     $tokens = auth_get_bearer_tokens();
     $authDebug = auth_env('AUTH_DEBUG', '') === '1';
@@ -349,7 +476,7 @@ function requireAuth(?string $requiredRole = null): array {
             continue;
         }
 
-        if ($requiredRole !== null && ($payload['role'] ?? null) !== $requiredRole) {
+        if ($requiredRole !== null && !auth_role_allows((string)($payload['role'] ?? ''), $requiredRole)) {
             $hasRoleMismatch = true;
             continue;
         }

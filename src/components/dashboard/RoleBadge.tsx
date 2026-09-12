@@ -63,7 +63,7 @@ export function RoleBadge({
             )}
           >
             {showIcon && <User className={cn(iconSizes[size])} />}
-            <span>{config.icon}</span>
+            <span className={cn('rounded-full shrink-0', config.dotColor, size === 'sm' ? 'w-1.5 h-1.5' : 'w-2 h-2')} />
             <span>{config.label}</span>
           </span>
         </TooltipTrigger>

@@ -17,7 +17,39 @@
 /**
  * User role for authentication
  */
-export type UserRole = 'admin' | 'student' | 'developer';
+export type UserRole = 'admin' | 'student' | 'developer' | 'dosen' | 'tendik' | 'demo';
+
+export interface DosenProfile {
+  id: string;
+  userId?: string | null;
+  nidn: string;
+  nama: string;
+  statusDosen: 'Tetap' | 'Tidak Tetap';
+  jabatan: string;
+  institusi: string;
+  pendidikanPascaSarjana: string[];
+  bidangKeahlian: string;
+  sertifikatPendidik: string;
+  sertifikatKompetensi: string;
+  peran?: 'Akademisi' | 'Praktisi';
+  email?: string;
+  telepon?: string;
+}
+
+export interface TendikProfile {
+  id: string;
+  userId?: string | null;
+  nip: string;
+  nama: string;
+  status: 'Tetap' | 'Tidak Tetap';
+  jabatan: string;
+  golongan: string;
+  pendidikanD3?: string;
+  pendidikanS1?: string;
+  pendidikanS2?: string;
+  pendidikanS3?: string;
+  sertifikatKompetensi: string[];
+}
 
 /**
  * Developer profile for system developers

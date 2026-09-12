@@ -398,10 +398,10 @@ function PublicationsTotalsLabels({ formattedGraphicalItems, offset, data }: Pub
 }
 
 type PublicationsPercentLabelProps = {
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
+  x?: string | number;
+  y?: string | number;
+  width?: string | number;
+  height?: string | number;
   value?: unknown;
   fill?: unknown;
 };
@@ -713,8 +713,9 @@ export function Publications({ activeTab, onActiveTabChange }: PublicationsProps
         let totalKolaborasi = 0;
 
         levelConfig.forEach((level) => {
-          const mandiriValue = Number((row as Record<string, unknown>)[level.mandiriKey] ?? 0);
-          const kolaborasiValue = Number((row as Record<string, unknown>)[level.kolaborasiKey] ?? 0);
+          const rowRecord = row as unknown as Record<string, unknown>;
+          const mandiriValue = Number(rowRecord[level.mandiriKey] ?? 0);
+          const kolaborasiValue = Number(rowRecord[level.kolaborasiKey] ?? 0);
 
           mapped[level.mandiriKey] = mandiriValue;
           mapped[level.kolaborasiKey] = kolaborasiValue;

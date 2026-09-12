@@ -405,10 +405,11 @@ export default function PrestasiPage() {
             {/* Mobile FAB */}
             <Button
               onClick={() => { setEditingAchievement(null); setIsFormOpen(true); }}
-              className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-elevated sm:hidden"
+              className="fixed bottom-20 right-4 w-12 h-12 rounded-full shadow-elevated z-30 sm:hidden active:scale-95 transition-transform"
               size="icon"
+              aria-label="Tambah Prestasi"
             >
-              <Plus className="w-6 h-6" />
+              <Plus className="w-5 h-5" />
             </Button>
 
             {/* Form Modal */}
@@ -675,9 +676,10 @@ function AchievementForm({
         if (!response.success) {
           throw new Error(response.error || 'Gagal menambahkan prestasi');
         }
+        const resData = response.data as any;
         const createdId =
-          (response.data && typeof (response.data as Record<string, unknown>).id === 'string'
-            ? ((response.data as Record<string, unknown>).id as string)
+          (resData && typeof resData.id === 'string'
+            ? (resData.id as string)
             : '') ||
           (typeof (response as unknown as { id?: unknown }).id === 'string'
             ? ((response as unknown as { id?: string }).id as string)

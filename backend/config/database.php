@@ -30,6 +30,26 @@ try {
         PDO::ATTR_EMULATE_PREPARES => false, // Use native prepared statements
         PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES $charset"
     ]);
+
+    // Defense in depth: a valid Demo Mode token always receives a read-only
+    // database session. Controllers also reject demo persistence before side
+    // effects, but this prevents an overlooked SQL write from reaching prod.
+    require_once __DIR__ . '/auth.php';
+    $requestAuth = auth_optional();
+    if (auth_is_demo($requestAuth)) {
+        try {
+            $pdo->exec('SET SESSION TRANSACTION READ ONLY');
+        } catch (Throwable $readOnlyError) {
+            header('Content-Type: application/json');
+            http_response_code(503);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Proteksi read-only Demo Mode tidak dapat diaktifkan.',
+                'code' => 'DEMO_READ_ONLY_UNAVAILABLE',
+            ]);
+            exit();
+        }
+    }
 } catch (PDOException $e) {
     header('Content-Type: application/json');
     http_response_code(503);

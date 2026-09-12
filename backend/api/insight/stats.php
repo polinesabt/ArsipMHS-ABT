@@ -67,7 +67,7 @@ try {
     $adminId = $auth['sub'] ?? null;
 
     $section = isset($_GET['section']) ? trim((string)$_GET['section']) : '';
-    if ($section !== '') {
+    if ($section !== '' && !auth_is_demo($auth)) {
         ensureSectionSynced($pdo, $section, $adminId);
     }
     $year = isset($_GET['year']) ? (int)$_GET['year'] : null;
@@ -128,7 +128,9 @@ try {
         'meta' => $meta,
     ];
 
-    saveInsightStatsCache($cacheKey, $response);
+    if (!auth_is_demo($auth)) {
+        saveInsightStatsCache($cacheKey, $response);
+    }
     echo json_encode($response);
 } catch (Exception $e) {
     http_response_code(500);

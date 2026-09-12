@@ -16,7 +16,7 @@ import { DashboardCard } from '@/components/insight/dashboard/DashboardCard';
 import { ChartTooltip, PieChartTooltip } from '@/components/insight/dashboard/ChartTooltip';
 import { InsightDataEmpty } from '@/components/insight/InsightDataEmpty';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2 } from 'lucide-react';
+import { ChartRefreshOverlay, ChartSkeleton } from '@/components/ui/loading';
 import { useInsightDashboard } from '@/contexts/InsightDashboardContext';
 import { getAchievementStats, type AchievementStatsResponse } from '@/repositories/api-student.repository';
 import type { ChartMeta } from '@/repositories/insight.repository';
@@ -60,26 +60,33 @@ function sumBreakdown(input?: { local: number; national: number; international: 
   return (input.local ?? 0) + (input.national ?? 0) + (input.international ?? 0);
 }
 
-function BreakdownChart({ rows, total, isMobile }: { rows: BreakdownChartRow[]; total: number; isMobile: boolean }) {
+function BreakdownChart({
+  rows,
+  isMobile,
+}: {
+  rows: BreakdownChartRow[];
+  isMobile: boolean;
+}) {
   return (
-    <div className="mx-auto w-full max-w-[600px]">
-      <div className="h-[240px] w-full sm:h-[280px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={rows} margin={isMobile ? { top: 12, right: 8, left: 0, bottom: 0 } : { top: 20, right: 20, left: 10, bottom: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: isMobile ? 10 : 12 }} axisLine={{ stroke: 'hsl(var(--border))' }} />
-            <YAxis allowDecimals={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: isMobile ? 10 : 12 }} axisLine={{ stroke: 'hsl(var(--border))' }} />
-            <Tooltip content={<ChartTooltip />} />
-            <Bar activeBar dataKey="count" name="Jumlah" radius={[6, 6, 0, 0]}>
-              {rows.map((row) => (
-                <Cell key={row.key} fill={row.fill} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      <p className="mt-2 text-center text-xs text-muted-foreground">Total: {total}</p>
-    </div>
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={rows} margin={isMobile ? { top: 12, right: 8, left: 0, bottom: 0 } : { top: 20, right: 20, left: 10, bottom: 10 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+        <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: isMobile ? 10 : 12 }} axisLine={{ stroke: 'hsl(var(--border))' }} />
+        <YAxis allowDecimals={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: isMobile ? 10 : 12 }} axisLine={{ stroke: 'hsl(var(--border))' }} />
+        <Tooltip content={<ChartTooltip />} />
+        <Bar
+          activeBar
+          dataKey="count"
+          name="Jumlah"
+          radius={[6, 6, 0, 0]}
+          isAnimationActive={false}
+        >
+          {rows.map((row) => (
+            <Cell key={row.key} fill={row.fill} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
 
@@ -89,7 +96,7 @@ interface StudentAchievementsProps {
 }
 
 export function StudentAchievements({ activeTab, onActiveTabChange }: StudentAchievementsProps = {}) {
-  const { selectedYear } = useInsightDashboard();
+  const { selectedYear, refreshTrigger } = useInsightDashboard();
   const isMobile = useIsMobile();
   const [internalAnalysisMode, setInternalAnalysisMode] = useState<AnalysisMode>('all');
   const [data, setData] = useState<AchievementStatsResponse | null>(null);
@@ -98,7 +105,6 @@ export function StudentAchievements({ activeTab, onActiveTabChange }: StudentAch
   const [error, setError] = useState<string | null>(null);
   const yearParam = selectedYear === 'all' ? undefined : (selectedYear as number);
   const analysisMode: AnalysisMode = activeTab ?? internalAnalysisMode;
-
   const applyAnalysisMode = useCallback((nextMode: AnalysisMode) => {
     if (activeTab === undefined) {
       setInternalAnalysisMode(nextMode);
@@ -113,7 +119,7 @@ export function StudentAchievements({ activeTab, onActiveTabChange }: StudentAch
     setLoading(true);
     setError(null);
 
-    getAchievementStats(yearParam, analysisMode)
+    getAchievementStats(yearParam, 'all')
       .then((res) => {
         if (cancelled) return;
         const typedRes = res as ApiResponse<AchievementStatsResponse> & { meta?: ChartMeta | null };
@@ -134,7 +140,7 @@ export function StudentAchievements({ activeTab, onActiveTabChange }: StudentAch
     return () => {
       cancelled = true;
     };
-  }, [analysisMode, yearParam]);
+  }, [refreshTrigger, yearParam]);
 
   const academicBreakdown = useMemo(
     () => data?.academic_breakdown ?? { local: 0, national: 0, international: 0 },
@@ -260,82 +266,75 @@ export function StudentAchievements({ activeTab, onActiveTabChange }: StudentAch
             </p>
           </div>
 
-          <TabsContent value="all" className="mt-2 min-h-[320px]">
-            {loading ? (
-              <div className="flex h-[240px] items-center justify-center text-muted-foreground sm:h-[280px]">
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
+          <TabsContent value={analysisMode} className="mt-2 min-h-[320px]">
+            {loading && !data ? (
+              <ChartSkeleton kind="pie" className="min-h-0 h-[240px] sm:h-[280px]" />
             ) : !hasData ? (
               <div className="flex min-h-[240px] items-center justify-center sm:min-h-[280px]">
                 <InsightDataEmpty />
               </div>
             ) : (
               <>
-                <div className="relative mx-auto h-[240px] w-full max-w-[520px] sm:h-[280px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={allChartData}
-                        dataKey="value"
-                        nameKey="name"
-                        innerRadius={isMobile ? 52 : 62}
-                        outerRadius={isMobile ? 88 : 102}
-                        paddingAngle={3}
-                        onClick={(entry) => {
-                          if (entry?.type === 'academic') {
-                            applyAnalysisMode('academic');
-                          } else if (entry?.type === 'non_academic') {
-                            applyAnalysisMode('nonAcademic');
-                          }
-                        }}
-                      >
-                        {allChartData.map((entry) => (
-                          <Cell key={entry.type} fill={entry.fill} className="cursor-pointer" />
-                        ))}
-                      </Pie>
-                      <Tooltip content={(props) => <PieChartTooltip {...props} total={total} />} />
-                      <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: isMobile ? 10 : 12, lineHeight: 1.4 }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                      <p className="text-xl font-bold text-foreground sm:text-2xl">{total.toLocaleString()}</p>
-                      <p className="text-xs text-muted-foreground">Total Prestasi</p>
+                <div className="relative mx-auto h-[240px] w-full max-w-[620px] sm:h-[280px]">
+                  {analysisMode === 'all' ? (
+                    <div className="absolute inset-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={allChartData}
+                            dataKey="value"
+                            nameKey="name"
+                            innerRadius={isMobile ? 52 : 62}
+                            outerRadius={isMobile ? 88 : 102}
+                            paddingAngle={3}
+                            isAnimationActive={false}
+                            onClick={(entry) => {
+                              if (entry?.type === 'academic') {
+                                applyAnalysisMode('academic');
+                              } else if (entry?.type === 'non_academic') {
+                                applyAnalysisMode('nonAcademic');
+                              }
+                            }}
+                          >
+                            {allChartData.map((entry) => (
+                              <Cell key={entry.type} fill={entry.fill} className="cursor-pointer" />
+                            ))}
+                          </Pie>
+                          <Tooltip content={<PieChartTooltip total={total} />} />
+                          <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: isMobile ? 10 : 12, lineHeight: 1.4 }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                        <div className="text-center">
+                          <p className="text-xl font-bold text-foreground sm:text-2xl">{total.toLocaleString()}</p>
+                          <p className="text-xs text-muted-foreground">Total Prestasi</p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="absolute inset-0">
+                      {activeBreakdownTotal > 0 ? (
+                        <BreakdownChart
+                          rows={activeBreakdownRows}
+                          isMobile={isMobile}
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center">
+                          <InsightDataEmpty />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {loading && <ChartRefreshOverlay label="Memuat ulang data prestasi mahasiswa" />}
                 </div>
-                <p className="mt-2 text-center text-xs text-muted-foreground">
-                  Klik irisan untuk membuka mode detail Akademik atau Non Akademik.
-                </p>
+                <div className="mt-2 flex min-h-8 items-start justify-center text-center text-xs text-muted-foreground">
+                  {analysisMode === 'all' ? (
+                    <p>Klik irisan untuk membuka mode detail Akademik atau Non Akademik.</p>
+                  ) : (
+                    <p>Total: {activeBreakdownTotal}</p>
+                  )}
+                </div>
               </>
-            )}
-          </TabsContent>
-
-          <TabsContent value="academic" className="mt-2 min-h-[320px]">
-            {loading ? (
-              <div className="flex h-[240px] items-center justify-center text-muted-foreground sm:h-[280px]">
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
-            ) : academicTotal > 0 ? (
-              <BreakdownChart rows={activeBreakdownRows} total={activeBreakdownTotal} isMobile={isMobile} />
-            ) : (
-              <div className="flex min-h-[240px] items-center justify-center sm:min-h-[280px]">
-                <InsightDataEmpty />
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="nonAcademic" className="mt-2 min-h-[320px]">
-            {loading ? (
-              <div className="flex h-[240px] items-center justify-center text-muted-foreground sm:h-[280px]">
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
-            ) : nonAcademicTotal > 0 ? (
-              <BreakdownChart rows={activeBreakdownRows} total={activeBreakdownTotal} isMobile={isMobile} />
-            ) : (
-              <div className="flex min-h-[240px] items-center justify-center sm:min-h-[280px]">
-                <InsightDataEmpty />
-              </div>
             )}
           </TabsContent>
         </Tabs>

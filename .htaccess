@@ -4,6 +4,8 @@
   RewriteRule ^index\.html$ - [L]
   # Asset build: layani dari dist/assets/
   RewriteRule ^assets/(.*)$ dist/assets/$1 [L]
+  # Asset publik Vite: logo, favicon, dan robots.
+  RewriteRule ^(logo\.png|favicon\.png|favicon\.ico|robots\.txt)$ dist/$1 [L]
   # SPA fallback: route frontend (bukan file/dir, bukan backend) ke dist/index.html
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d

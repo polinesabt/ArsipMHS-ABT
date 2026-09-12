@@ -10,7 +10,6 @@ import {
   YAxis,
 } from 'recharts';
 import type { TooltipProps } from 'recharts';
-import type { Props as YAxisTickProps } from 'recharts/types/cartesian/CartesianAxis';
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 
 const MAX_CHARS_PER_LINE = 30;
@@ -103,7 +102,15 @@ function wrapLabel(text: string): string[] {
   return lines;
 }
 
-function DistribusiPenilaianYAxisTick({ x, y, payload }: YAxisTickProps) {
+interface DistribusiPenilaianYAxisTickProps {
+  x?: number;
+  y?: number;
+  payload?: {
+    value?: string | number;
+  };
+}
+
+function DistribusiPenilaianYAxisTick({ x = 0, y = 0, payload }: DistribusiPenilaianYAxisTickProps) {
   if (!payload?.value) return null;
   const lines = wrapLabel(String(payload.value));
   const fill = 'hsl(var(--muted-foreground))';
@@ -134,6 +141,7 @@ export interface DistribusiPenilaianRow {
 }
 
 type RatingKey = 'sangat_baik' | 'baik' | 'cukup_baik' | 'kurang_baik' | 'tidak_baik';
+type RatingPctKey = 'sangat_baik_pct' | 'baik_pct' | 'cukup_baik_pct' | 'kurang_baik_pct' | 'tidak_baik_pct';
 
 type DistribusiPenilaianChartRow = DistribusiPenilaianRow & {
   total_count: number;
@@ -144,7 +152,7 @@ type DistribusiPenilaianChartRow = DistribusiPenilaianRow & {
   tidak_baik_pct: number;
 };
 
-const RATING_CONFIG: Array<{ key: RatingKey; pctKey: keyof DistribusiPenilaianChartRow; name: string; fill: string }> = [
+const RATING_CONFIG: Array<{ key: RatingKey; pctKey: RatingPctKey; name: string; fill: string }> = [
   { key: 'sangat_baik', pctKey: 'sangat_baik_pct', name: 'Sangat Baik', fill: '#15803d' },
   { key: 'baik', pctKey: 'baik_pct', name: 'Baik', fill: '#0ea5e9' },
   { key: 'cukup_baik', pctKey: 'cukup_baik_pct', name: 'Cukup Baik', fill: '#eab308' },
@@ -236,8 +244,8 @@ function DistribusiPenilaianTooltip({ active, payload }: TooltipProps<ValueType,
       <p className="mb-2 text-sm font-semibold">{row.aspect_name}</p>
       <div className="space-y-1.5">
         {RATING_CONFIG.map((rating) => {
-          const count = row[rating.key] ?? 0;
-          const percent = row[rating.pctKey] ?? 0;
+          const count = Number(row[rating.key] ?? 0);
+          const percent = Number(row[rating.pctKey] ?? 0);
           if (count <= 0) return null;
           return (
             <div key={rating.key} className="flex items-center justify-between gap-3 text-xs">

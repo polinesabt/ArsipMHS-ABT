@@ -16,7 +16,7 @@ export type AchievementCategory =
 
 export type AchievementType = 'academic' | 'non_academic';
 
-export interface BaseAchievement {
+export interface BaseAchievement extends Record<string, unknown> {
   id: string;
   masterId: string; // Reference to student profile
   category: AchievementCategory;

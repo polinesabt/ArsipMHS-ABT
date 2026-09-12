@@ -19,6 +19,7 @@ try {
     }
 
     $payload = requireAuth('developer');
+    requireProductionWrite($payload);
 
     $pdo->exec("DELETE FROM system_error_logs");
 

@@ -11,6 +11,9 @@ import { INITIAL_PENELITIAN_DOSEN_DATA, type KontribusiPenelitianDosenItem } fro
 import { INITIAL_PENGABDIAN_DOSEN_DATA, type KontribusiPengabdianDosenItem } from '@/data/mockPengabdianDosenData';
 import { INITIAL_WAKTU_MENGAJAR_DATA, type WaktuMengajarItem } from '@/data/mockWaktuMengajarData';
 import { INITIAL_DOSEN_LUARAN_DATA, type DosenLuaranItem } from '@/data/mockLuaranPenelitianPkmData';
+import { INITIAL_TENAGA_KEPENDIDIKAN_DATA, type TenagaKependidikanItem } from '@/data/mockTenagaKependidikanData';
+import { dosenRepository } from '@/repositories/dosen.repository';
+import { useAlumni } from '@/contexts/AlumniContext';
 
 // Local storage keys
 const STORAGE_KEYS = {
@@ -20,12 +23,13 @@ const STORAGE_KEYS = {
   PENGABDIAN: 'arsipmhs_ssot_dosen_pengabdian',
   WAKTU_MENGAJAR: 'arsipmhs_ssot_dosen_waktu_mengajar',
   LUARAN: 'arsipmhs_ssot_dosen_luaran',
+  TENDIK: 'arsipmhs_ssot_tendik_master',
   ARCHIVE: 'arsipmhs_ssot_dosen_archives',
 };
 
-const PURGE_FLAG_KEY = 'arsipmhs_dummy_clean_production_v2';
+const PURGE_FLAG_KEY = 'arsipmhs_dataset_populated_v7';
 
-// Automatically purge dummy storage on startup
+// Automatically sync rich initial dataset on startup
 if (typeof window !== 'undefined') {
   try {
     if (localStorage.getItem(PURGE_FLAG_KEY) !== 'true') {
@@ -80,28 +84,38 @@ interface DosenContextState {
   kontribusiPengabdianList: KontribusiPengabdianDosenItem[];
   waktuMengajarList: WaktuMengajarItem[];
   luaranList: DosenLuaranItem[];
+  tendikList: TenagaKependidikanItem[];
   archivedDosenList: ArchivedDosenItem[];
   isLoading: boolean;
+  isDbConnected: boolean | null;
 }
 
 interface DosenContextActions {
   // Master SSOT Operations
-  addDosen: (dosenInput: Partial<DosenItem>) => { success: boolean; isRestored?: boolean; message?: string };
-  updateDosenProfile: (nidn: string, updated: Partial<DosenItem>) => void;
-  deleteDosen: (nidn: string) => void;
+  refreshFromDatabase: () => Promise<void>;
+  addDosen: (dosenInput: Partial<DosenItem>) => Promise<{ success: boolean; isRestored?: boolean; message?: string }>;
+  updateDosenProfile: (nidn: string, updated: Partial<DosenItem>) => Promise<void>;
+  deleteDosen: (nidn: string) => Promise<void>;
   
   // Archival & Recovery Operations
-  restoreDosen: (nidn: string, overrideData?: Partial<DosenItem>) => void;
-  permanentlyDeleteArchivedDosen: (nidn: string) => void;
+  restoreDosen: (nidn: string, overrideData?: Partial<DosenItem>) => Promise<void>;
+  permanentlyDeleteArchivedDosen: (nidn: string) => Promise<void>;
   checkArchiveRecovery: (nama: string, nidn: string) => RecoveryMatchResult | null;
 
   // Sub-module Direct Setters
   setDosenList: React.Dispatch<React.SetStateAction<DosenItem[]>>;
-  updateKontribusiPengajaran: (nidn: string, data: KontribusiDosenItem) => void;
-  updateKontribusiPenelitian: (nidn: string, data: KontribusiPenelitianDosenItem) => void;
-  updateKontribusiPengabdian: (nidn: string, data: KontribusiPengabdianDosenItem) => void;
-  updateWaktuMengajar: (nidn: string, data: WaktuMengajarItem) => void;
-  updateLuaran: (nidn: string, data: DosenLuaranItem) => void;
+  updateKontribusiPengajaran: (nidn: string, data: KontribusiDosenItem) => Promise<void>;
+  updateKontribusiPenelitian: (nidn: string, data: KontribusiPenelitianDosenItem) => Promise<void>;
+  updateKontribusiPengabdian: (nidn: string, data: KontribusiPengabdianDosenItem) => Promise<void>;
+  updateWaktuMengajar: (nidn: string, data: WaktuMengajarItem) => Promise<void>;
+  deleteWaktuMengajar: (nidn: string, tahunAkademik: string) => Promise<boolean>;
+  updateLuaran: (nidn: string, data: DosenLuaranItem) => Promise<void>;
+
+  // Tenaga Kependidikan Operations
+  addTendik: (tendik: Partial<TenagaKependidikanItem>) => Promise<void>;
+  updateTendik: (id: string, updated: Partial<TenagaKependidikanItem>) => Promise<void>;
+  deleteTendik: (id: string) => Promise<void>;
+  setTendikList: React.Dispatch<React.SetStateAction<TenagaKependidikanItem[]>>;
 
   // Reset to initial mock dataset
   resetAllDosenData: () => void;
@@ -129,13 +143,15 @@ function cleanNameForMatch(name: string): string {
   return name
     .toLowerCase()
     .replace(/^(dr\.|prof\.|ir\.|dra\.|drs\.)\s+/gi, '')
-    .replace(/,\s*[a-z\.\s]+$/gi, '')
+    .replace(/,\s*[a-z.\s]+$/gi, '')
     .replace(/[^a-z0-9]/g, '')
     .trim();
 }
 
 export const DosenProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { loggedInAdmin } = useAlumni();
   const [isLoading, setIsLoading] = useState(true);
+  const [isDbConnected, setIsDbConnected] = useState<boolean | null>(null);
 
   const [dosenList, setDosenList] = useState<DosenItem[]>(() =>
     loadFromStorage(STORAGE_KEYS.MASTER, INITIAL_DOSEN_DATA)
@@ -161,48 +177,55 @@ export const DosenProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     loadFromStorage(STORAGE_KEYS.LUARAN, INITIAL_DOSEN_LUARAN_DATA)
   );
 
+  const [tendikList, setTendikList] = useState<TenagaKependidikanItem[]>(() =>
+    loadFromStorage(STORAGE_KEYS.TENDIK, INITIAL_TENAGA_KEPENDIDIKAN_DATA)
+  );
+
   const [archivedDosenList, setArchivedDosenList] = useState<ArchivedDosenItem[]>(() => {
     const raw = loadFromStorage<ArchivedDosenItem[]>(STORAGE_KEYS.ARCHIVE, []);
     // Filter out expired archives on init (Auto-purge > 20 days)
     return raw.filter((item) => new Date(item.expiresAt).getTime() > Date.now());
   });
 
-  // Persist state changes
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.MASTER, JSON.stringify(dosenList));
-  }, [dosenList]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PENGAJARAN, JSON.stringify(kontribusiPengajaranList));
-  }, [kontribusiPengajaranList]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PENELITIAN, JSON.stringify(kontribusiPenelitianList));
-  }, [kontribusiPenelitianList]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.PENGABDIAN, JSON.stringify(kontribusiPengabdianList));
-  }, [kontribusiPengabdianList]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.WAKTU_MENGAJAR, JSON.stringify(waktuMengajarList));
-  }, [waktuMengajarList]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.LUARAN, JSON.stringify(luaranList));
-  }, [luaranList]);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.ARCHIVE, JSON.stringify(archivedDosenList));
-  }, [archivedDosenList]);
-
-  useEffect(() => {
-    setIsLoading(false);
+  // Fetch live SSOT data directly from MySQL database
+  const refreshFromDatabase = useCallback(async () => {
+    try {
+      const res = await dosenRepository.getAllDosenData();
+      if (res.success && res.data) {
+        setIsDbConnected(true);
+        setDosenList(res.data.dosenList ?? []);
+        setKontribusiPengajaranList(res.data.kontribusiPengajaranList ?? []);
+        setKontribusiPenelitianList(res.data.kontribusiPenelitianList ?? []);
+        setKontribusiPengabdianList(res.data.kontribusiPengabdianList ?? []);
+        setWaktuMengajarList(res.data.waktuMengajarList ?? []);
+        setLuaranList(res.data.luaranList ?? []);
+        setTendikList(res.data.tendikList ?? []);
+        setArchivedDosenList(res.data.archivedDosenList ?? []);
+      } else {
+        setIsDbConnected(false);
+      }
+    } catch (e) {
+      console.warn('Database fetch failed, keeping local state:', e);
+      setIsDbConnected(false);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  // Initial load from MySQL Database
+  useEffect(() => {
+    if (loggedInAdmin) void refreshFromDatabase();
+  }, [loggedInAdmin, refreshFromDatabase]);
+
+  useEffect(() => {
+    const refresh = () => { if (loggedInAdmin) void refreshFromDatabase(); };
+    window.addEventListener('dosen:refresh', refresh);
+    return () => window.removeEventListener('dosen:refresh', refresh);
+  }, [loggedInAdmin, refreshFromDatabase]);
 
   // 1. ADD DOSEN (Master SSOT) & Auto-Sync Clean State to all sub-modules
   const addDosen = useCallback(
-    (dosenInput: Partial<DosenItem>): { success: boolean; isRestored?: boolean; message?: string } => {
+    async (dosenInput: Partial<DosenItem>): Promise<{ success: boolean; isRestored?: boolean; message?: string }> => {
       const nidn = (dosenInput.nidn || '').trim();
       const nama = (dosenInput.nama || '').trim();
 
@@ -291,12 +314,13 @@ export const DosenProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           jabatan: newDosen.jabatan,
           statusDosen: newDosen.statusDosen,
           avatarColor,
-          pendidikanPsAbt: 0,
-          pendidikanPsLain: 0,
-          pendidikanPtLain: 0,
-          penelitian: 0,
-          pkm: 0,
-          tugasTambahan: 0,
+          tahunAkademik: `${new Date().getFullYear()}/${new Date().getFullYear() + 1}`,
+          sksPendidikanPS: 0,
+          sksPendidikanPSLain: 0,
+          sksPendidikanPTLain: 0,
+          sksPenelitian: 0,
+          sksPengabdian: 0,
+          sksTugasTambahan: 0,
         },
         ...prev,
       ]);
@@ -315,13 +339,19 @@ export const DosenProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // If this NIDN existed in archives, remove it
       setArchivedDosenList((prev) => prev.filter((a) => a.dosen.nidn !== nidn));
 
+      const result = await dosenRepository.syncDosenData('create_dosen', newDosen);
+      if (!result.success) {
+        await refreshFromDatabase();
+        return { success: false, message: result.error || 'Gagal menyimpan dosen ke database.' };
+      }
+
       return { success: true, message: `Dosen ${nama} berhasil ditambahkan ke master data.` };
     },
-    [dosenList]
+    [dosenList, refreshFromDatabase]
   );
 
   // 2. UPDATE DOSEN PROFILE (Master SSOT) & Synchronize across sub-modules
-  const updateDosenProfile = useCallback((nidn: string, updated: Partial<DosenItem>) => {
+  const updateDosenProfile = useCallback(async (nidn: string, updated: Partial<DosenItem>) => {
     const targetNidn = (updated.nidn && updated.nidn.trim()) ? updated.nidn.trim() : nidn;
 
     setDosenList((prev) =>
@@ -375,11 +405,13 @@ export const DosenProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         return item;
       })
     );
-  }, []);
+    const result = await dosenRepository.syncDosenData('update_dosen', { ...dosenList.find((item) => item.nidn === nidn), ...updated, nidn: targetNidn }, nidn);
+    if (!result.success) await refreshFromDatabase();
+  }, [dosenList, refreshFromDatabase]);
 
   // 3. DELETE DOSEN (Soft Delete 20 Days Archival)
   const deleteDosen = useCallback(
-    (nidn: string) => {
+    async (nidn: string) => {
       const dosen = dosenList.find((d) => d.nidn === nidn);
       if (!dosen) return;
 
@@ -414,13 +446,15 @@ export const DosenProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setKontribusiPengabdianList((prev) => prev.filter((d) => d.nidn !== nidn));
       setWaktuMengajarList((prev) => prev.filter((d) => d.nidn !== nidn));
       setLuaranList((prev) => prev.filter((d) => d.nidn !== nidn));
+      const result = await dosenRepository.syncDosenData('delete_dosen', {}, nidn);
+      if (!result.success) await refreshFromDatabase();
     },
-    [dosenList, kontribusiPengajaranList, kontribusiPenelitianList, kontribusiPengabdianList, waktuMengajarList, luaranList]
+    [dosenList, kontribusiPengajaranList, kontribusiPenelitianList, kontribusiPengabdianList, waktuMengajarList, luaranList, refreshFromDatabase]
   );
 
   // 4. RESTORE DOSEN (Recovery)
   const restoreDosen = useCallback(
-    (nidn: string, overrideData?: Partial<DosenItem>) => {
+    async (nidn: string, overrideData?: Partial<DosenItem>) => {
       const archived = archivedDosenList.find((a) => a.dosen.nidn === nidn);
       if (!archived) return;
 
@@ -474,14 +508,18 @@ export const DosenProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       // Remove from archives
       setArchivedDosenList((prev) => prev.filter((a) => a.dosen.nidn !== nidn));
+      const result = await dosenRepository.syncDosenData('restore_dosen', restoredDosen, nidn);
+      if (!result.success) await refreshFromDatabase();
     },
-    [archivedDosenList]
+    [archivedDosenList, refreshFromDatabase]
   );
 
   // 5. PERMANENTLY DELETE FROM ARCHIVE
-  const permanentlyDeleteArchivedDosen = useCallback((nidn: string) => {
+  const permanentlyDeleteArchivedDosen = useCallback(async (nidn: string) => {
     setArchivedDosenList((prev) => prev.filter((a) => a.dosen.nidn !== nidn));
-  }, []);
+    const result = await dosenRepository.syncDosenData('permanent_delete_dosen', {}, nidn);
+    if (!result.success) await refreshFromDatabase();
+  }, [refreshFromDatabase]);
 
   // 6. CHECK ARCHIVE RECOVERY (Evaluation "OR" Logic)
   const checkArchiveRecovery = useCallback(
@@ -519,37 +557,88 @@ export const DosenProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 
   // 7. SUB-MODULE DIRECT SETTERS
-  const updateKontribusiPengajaran = useCallback((nidn: string, data: KontribusiDosenItem) => {
+  const updateKontribusiPengajaran = useCallback(async (nidn: string, data: KontribusiDosenItem) => {
     setKontribusiPengajaranList((prev) =>
       prev.map((item) => (item.nidn === nidn ? data : item))
     );
-  }, []);
+    const result = await dosenRepository.syncDosenData('update_pengajaran', data, nidn);
+    if (!result.success) await refreshFromDatabase();
+  }, [refreshFromDatabase]);
 
-  const updateKontribusiPenelitian = useCallback((nidn: string, data: KontribusiPenelitianDosenItem) => {
+  const updateKontribusiPenelitian = useCallback(async (nidn: string, data: KontribusiPenelitianDosenItem) => {
     setKontribusiPenelitianList((prev) =>
       prev.map((item) => (item.nidn === nidn ? data : item))
     );
-  }, []);
+    const result = await dosenRepository.syncDosenData('update_penelitian', data, nidn);
+    if (!result.success) await refreshFromDatabase();
+  }, [refreshFromDatabase]);
 
-  const updateKontribusiPengabdian = useCallback((nidn: string, data: KontribusiPengabdianDosenItem) => {
+  const updateKontribusiPengabdian = useCallback(async (nidn: string, data: KontribusiPengabdianDosenItem) => {
     setKontribusiPengabdianList((prev) =>
       prev.map((item) => (item.nidn === nidn ? data : item))
     );
-  }, []);
+    const result = await dosenRepository.syncDosenData('update_pengabdian', data, nidn);
+    if (!result.success) await refreshFromDatabase();
+  }, [refreshFromDatabase]);
 
-  const updateWaktuMengajar = useCallback((nidn: string, data: WaktuMengajarItem) => {
+  const updateWaktuMengajar = useCallback(async (nidn: string, data: WaktuMengajarItem) => {
     setWaktuMengajarList((prev) =>
-      prev.map((item) => (item.nidn === nidn ? data : item))
+      prev.map((item) => (item.nidn === nidn && item.tahunAkademik === data.tahunAkademik ? data : item))
     );
-  }, []);
+    const result = await dosenRepository.syncDosenData('update_waktu_mengajar', data, nidn);
+    if (!result.success) await refreshFromDatabase();
+  }, [refreshFromDatabase]);
 
-  const updateLuaran = useCallback((nidn: string, data: DosenLuaranItem) => {
+  const deleteWaktuMengajar = useCallback(async (nidn: string, tahunAkademik: string): Promise<boolean> => {
+    const result = await dosenRepository.syncDosenData('delete_waktu_mengajar', { tahunAkademik }, nidn);
+    await refreshFromDatabase();
+    return result.success;
+  }, [refreshFromDatabase]);
+
+  const updateLuaran = useCallback(async (nidn: string, data: DosenLuaranItem) => {
     setLuaranList((prev) =>
       prev.map((item) => (item.nidn === nidn ? data : item))
     );
-  }, []);
+    const result = await dosenRepository.syncDosenData('update_luaran', data, nidn);
+    if (!result.success) await refreshFromDatabase();
+  }, [refreshFromDatabase]);
 
-  // 8. RESET ALL DOSEN DATA (Debug / Development helper)
+  // 8. TENAGA KEPENDIDIKAN ACTIONS
+  const addTendik = useCallback(async (tendikInput: Partial<TenagaKependidikanItem>) => {
+    const newTendik: TenagaKependidikanItem = {
+      id: tendikInput.id || `tendik-${Date.now()}`,
+      nama: tendikInput.nama || '',
+      nip: tendikInput.nip || '',
+      status: tendikInput.status || 'Tetap',
+      jabatan: tendikInput.jabatan || '',
+      golongan: tendikInput.golongan || '-',
+      pendidikanD3: tendikInput.pendidikanD3 || '',
+      pendidikanS1: tendikInput.pendidikanS1 || '',
+      pendidikanS2: tendikInput.pendidikanS2 || '',
+      pendidikanS3: tendikInput.pendidikanS3 || '',
+      sertifikatKompetensi: tendikInput.sertifikatKompetensi || [],
+    };
+    setTendikList((prev) => [newTendik, ...prev]);
+    const result = await dosenRepository.syncDosenData('create_tendik', newTendik);
+    if (!result.success) await refreshFromDatabase();
+  }, [refreshFromDatabase]);
+
+  const updateTendik = useCallback(async (id: string, updated: Partial<TenagaKependidikanItem>) => {
+    setTendikList((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...updated } : item))
+    );
+    const current = tendikList.find((item) => item.id === id);
+    const result = await dosenRepository.syncDosenData('update_tendik', { ...current, ...updated, id });
+    if (!result.success) await refreshFromDatabase();
+  }, [tendikList, refreshFromDatabase]);
+
+  const deleteTendik = useCallback(async (id: string) => {
+    setTendikList((prev) => prev.filter((item) => item.id !== id));
+    const result = await dosenRepository.syncDosenData('delete_tendik', { id });
+    if (!result.success) await refreshFromDatabase();
+  }, [refreshFromDatabase]);
+
+  // 9. RESET ALL DOSEN DATA (Debug / Development helper)
   const resetAllDosenData = useCallback(() => {
     setDosenList(INITIAL_DOSEN_DATA);
     setKontribusiPengajaranList(INITIAL_KONTRIBUSI_DOSEN_DATA);
@@ -557,6 +646,7 @@ export const DosenProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setKontribusiPengabdianList(INITIAL_PENGABDIAN_DOSEN_DATA);
     setWaktuMengajarList(INITIAL_WAKTU_MENGAJAR_DATA);
     setLuaranList(INITIAL_DOSEN_LUARAN_DATA);
+    setTendikList(INITIAL_TENAGA_KEPENDIDIKAN_DATA);
     setArchivedDosenList([]);
     localStorage.removeItem(STORAGE_KEYS.MASTER);
     localStorage.removeItem(STORAGE_KEYS.PENGAJARAN);
@@ -564,6 +654,7 @@ export const DosenProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.removeItem(STORAGE_KEYS.PENGABDIAN);
     localStorage.removeItem(STORAGE_KEYS.WAKTU_MENGAJAR);
     localStorage.removeItem(STORAGE_KEYS.LUARAN);
+    localStorage.removeItem(STORAGE_KEYS.TENDIK);
     localStorage.removeItem(STORAGE_KEYS.ARCHIVE);
   }, []);
 
@@ -575,8 +666,11 @@ export const DosenProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       kontribusiPengabdianList,
       waktuMengajarList,
       luaranList,
+      tendikList,
       archivedDosenList,
       isLoading,
+      isDbConnected,
+      refreshFromDatabase,
       addDosen,
       updateDosenProfile,
       deleteDosen,
@@ -588,7 +682,12 @@ export const DosenProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       updateKontribusiPenelitian,
       updateKontribusiPengabdian,
       updateWaktuMengajar,
+      deleteWaktuMengajar,
       updateLuaran,
+      addTendik,
+      updateTendik,
+      deleteTendik,
+      setTendikList,
       resetAllDosenData,
     }),
     [
@@ -598,8 +697,11 @@ export const DosenProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       kontribusiPengabdianList,
       waktuMengajarList,
       luaranList,
+      tendikList,
       archivedDosenList,
       isLoading,
+      isDbConnected,
+      refreshFromDatabase,
       addDosen,
       updateDosenProfile,
       deleteDosen,
@@ -610,7 +712,11 @@ export const DosenProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       updateKontribusiPenelitian,
       updateKontribusiPengabdian,
       updateWaktuMengajar,
+      deleteWaktuMengajar,
       updateLuaran,
+      addTendik,
+      updateTendik,
+      deleteTendik,
       resetAllDosenData,
     ]
   );

@@ -19,6 +19,7 @@ try {
     }
 
     $payload = requireAuth('developer');
+    requireProductionWrite($payload);
 
     $input = json_decode(file_get_contents('php://input'), true);
     if (!is_array($input) || empty($input['id'])) {

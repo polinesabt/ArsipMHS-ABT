@@ -20,6 +20,7 @@ function unique_array_values(array $items): array {
 
 try {
     $auth = requireAuth('admin');
+    requireProductionWrite($auth);
 
     $input = json_decode(file_get_contents('php://input'), true);
     if (!is_array($input)) {

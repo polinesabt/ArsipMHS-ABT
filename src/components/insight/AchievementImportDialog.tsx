@@ -438,6 +438,12 @@ export function AchievementImportDialog({ open, onOpenChange, scope, onImportCom
         nonInsertedDetails = detailResponse.data.details.filter((detail) => detail.status !== 'inserted');
         setRowDetails(nonInsertedDetails);
       }
+    } catch (error) {
+      toast({
+        title: 'Import gagal',
+        description: error instanceof Error ? error.message : 'Terjadi kesalahan saat import.',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoadingDetails(false);
       setIsImporting(false);
@@ -460,6 +466,7 @@ export function AchievementImportDialog({ open, onOpenChange, scope, onImportCom
             {dialogDescription}
           </p>
         </DialogHeader>
+
 
         <div className="space-y-5">
           {scope === 'all' && (
@@ -620,7 +627,7 @@ export function AchievementImportDialog({ open, onOpenChange, scope, onImportCom
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground">Detail baris non-inserted (error/duplikat/kosong):</p>
                 {isLoadingDetails ? (
-                  <p className="text-sm text-muted-foreground">Memuat detail baris...</p>
+                  <span className="text-sm text-muted-foreground">Memuat detail baris...</span>
                 ) : rowDetails.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Tidak ada baris bermasalah.</p>
                 ) : (

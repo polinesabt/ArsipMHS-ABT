@@ -234,16 +234,18 @@ function getAchievementDetails(achievement: Achievement): {
       };
     }
     case 'luaran_penelitian': {
-      const a = achievement as Record<string, unknown>;
+      const a = achievement as unknown as Record<string, unknown>;
       const subtype = String(a.jenisLuaran || '');
       const subtypeLabel = RESEARCH_OUTPUT_SUBTYPE_LABELS[subtype as keyof typeof RESEARCH_OUTPUT_SUBTYPE_LABELS]
         || subtype.replace(/_/g, ' ');
       return {
-        title: a.judul || 'Luaran Penelitian',
+        title: typeof a.judul === 'string' ? a.judul : 'Luaran Penelitian',
         subtitle: a.jenisPerolehan === 'kolaborasi_dosen'
-          ? `${subtypeLabel} - Kolaborasi Dosen${a.namaDosen ? ` (${a.namaDosen})` : ''}`
+          ? `${subtypeLabel} - Kolaborasi Dosen${typeof a.namaDosen === 'string' ? ` (${a.namaDosen})` : ''}`
           : `${subtypeLabel} - Mandiri`,
-        year: a.tahun || new Date(a.tanggalLuaran || Date.now()).getFullYear(),
+        year: typeof a.tahun === 'number'
+          ? a.tahun
+          : new Date(typeof a.tanggalLuaran === 'string' ? a.tanggalLuaran : Date.now()).getFullYear(),
         level: subtypeLabel,
       };
     }
@@ -302,14 +304,14 @@ function getAchievementDetails(achievement: Achievement): {
     }
     default: {
       // Legacy/unknown achievement shapes (e.g., old seed data category: 'kegiatan')
-      const anyA = achievement as Record<string, unknown>;
+      const anyA = achievement as unknown as Record<string, unknown>;
       const year = typeof anyA?.tahun === 'number' ? anyA.tahun : (typeof anyA?.year === 'number' ? anyA.year : new Date().getFullYear());
       return {
         title: String(anyA?.namaKegiatan || anyA?.title || anyA?.judul || 'Prestasi'),
         subtitle: String(anyA?.penyelenggara || anyA?.subtitle || 'Dokumentasi prestasi'),
         year,
-        level: anyA?.tingkat,
-        result: anyA?.prestasi,
+        level: typeof anyA?.tingkat === 'string' ? anyA.tingkat : undefined,
+        result: typeof anyA?.prestasi === 'string' ? anyA.prestasi : undefined,
       };
     }
   }
@@ -392,15 +394,15 @@ function getCategoryDetailFields(achievement: Achievement): { label: string; val
       ].filter(f => f.value && f.value !== '-');
     }
     case 'luaran_penelitian': {
-      const a = achievement as Record<string, unknown>;
+      const a = achievement as unknown as Record<string, unknown>;
       const subtype = String(a.jenisLuaran || '');
       const subtypeLabel = RESEARCH_OUTPUT_SUBTYPE_LABELS[subtype as keyof typeof RESEARCH_OUTPUT_SUBTYPE_LABELS]
         || subtype.replace(/_/g, ' ');
       return [
         { label: 'Jenis Luaran', value: subtypeLabel, icon: FlaskConical },
         { label: 'Jenis Perolehan', value: a.jenisPerolehan === 'kolaborasi_dosen' ? 'Kolaborasi Dosen' : 'Mandiri', icon: User },
-        ...(a.namaDosen ? [{ label: 'Nama Dosen', value: a.namaDosen, icon: User }] : []),
-        { label: 'Tanggal Luaran', value: a.tanggalLuaran || '-', icon: Calendar },
+        ...(typeof a.namaDosen === 'string' ? [{ label: 'Nama Dosen', value: a.namaDosen, icon: User }] : []),
+        { label: 'Tanggal Luaran', value: typeof a.tanggalLuaran === 'string' ? a.tanggalLuaran : '-', icon: Calendar },
         { label: 'Tahun', value: String(a.tahun || '-'), icon: Calendar },
       ].filter((f) => f.value && f.value !== '-');
     }
@@ -543,12 +545,12 @@ export function AchievementTimelineView({
   onDelete,
   onToggleFeatured
 }: AchievementTimelineViewProps) {
-  const [lightboxState, setLightboxState] = useState<{ images: Record<string, unknown>[]; index: number } | null>(null);
+  const [lightboxState, setLightboxState] = useState<{ images: AchievementAttachment[]; index: number } | null>(null);
   const [resolvedAttachmentUrls, setResolvedAttachmentUrls] = useState<Record<string, string>>({});
   const resolvingAttachmentIdsRef = useRef<Set<string>>(new Set());
   const resolvedUrlsRef = useRef<Record<string, string>>({});
 
-  const openLightbox = useCallback((images: Record<string, unknown>[], index: number) => {
+  const openLightbox = useCallback((images: AchievementAttachment[], index: number) => {
     setLightboxState({ images, index });
   }, []);
 
@@ -1089,19 +1091,19 @@ export function AchievementTimelineView({
 
                             {/* Description if available */}
                             {Boolean(
-                              (achievement as Record<string, unknown>).deskripsi || 
-                              (achievement as Record<string, unknown>).deskripsiTugas || 
-                              (achievement as Record<string, unknown>).deskripsiProyek || 
-                              (achievement as Record<string, unknown>).deskripsiUsaha
+                              (achievement as unknown as Record<string, unknown>).deskripsi || 
+                              (achievement as unknown as Record<string, unknown>).deskripsiTugas || 
+                              (achievement as unknown as Record<string, unknown>).deskripsiProyek || 
+                              (achievement as unknown as Record<string, unknown>).deskripsiUsaha
                             ) && (
                               <div className="mt-5 pt-5 border-t border-border">
                                 <p className="text-xs text-muted-foreground mb-2">Deskripsi</p>
                                 <p className="text-sm text-foreground leading-relaxed">
                                   {String(
-                                    (achievement as Record<string, unknown>).deskripsi || 
-                                    (achievement as Record<string, unknown>).deskripsiTugas || 
-                                    (achievement as Record<string, unknown>).deskripsiProyek || 
-                                    (achievement as Record<string, unknown>).deskripsiUsaha
+                                    (achievement as unknown as Record<string, unknown>).deskripsi || 
+                                    (achievement as unknown as Record<string, unknown>).deskripsiTugas || 
+                                    (achievement as unknown as Record<string, unknown>).deskripsiProyek || 
+                                    (achievement as unknown as Record<string, unknown>).deskripsiUsaha
                                   )}
                                 </p>
                               </div>

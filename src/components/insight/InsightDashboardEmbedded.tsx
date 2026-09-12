@@ -90,6 +90,7 @@ function AllSections() {
 }
 
 const SECTION_COMPONENTS: Record<DashboardSectionId, ComponentType<object>> = {
+  all: AllSections,
   overview: Overview,
   'student-achievements': StudentAchievements,
   'study-period': StudyPeriod,

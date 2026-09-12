@@ -9,7 +9,7 @@ import { HowItWorksSection } from '@/components/landing/HowItWorksSection';
  */
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-[100dvh] bg-background">
       <Navbar />
       <main className="pt-16">
         <HeroSection />

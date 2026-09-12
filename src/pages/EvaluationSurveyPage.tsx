@@ -177,8 +177,8 @@ function sanitizeCustomAnswers(
 
     if (sectionType === 'multiple_choice') {
       const options = section.options ?? [];
-      const allowOther = Boolean(section.allowOther);
-      const allowMultiple = Boolean(section.allowMultiple);
+      const allowOther = Boolean((section as any).allowOther);
+      const allowMultiple = Boolean((section as any).allowMultiple);
 
       if (allowMultiple) {
         if (!Array.isArray(value)) continue;
@@ -768,38 +768,89 @@ export default function EvaluationSurveyPage() {
                           }
 
                           return (
-                            <div className="overflow-x-auto rounded-md border">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead className="w-14">No</TableHead>
-                                    <TableHead>Aspek Penilaian</TableHead>
-                                    {columns.map((column) => (
-                                      <TableHead
-                                        key={`${secId}-head-${column.value}`}
-                                        className="min-w-[110px] text-center"
-                                      >
-                                        {column.label}
-                                      </TableHead>
-                                    ))}
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {questions.map((q, qIndex) => (
-                                    <TableRow key={q.id}>
-                                      <TableCell>{qIndex + 1}</TableCell>
-                                      <TableCell>{q.title || `Aspek ${qIndex + 1}`}</TableCell>
+                            <div className="space-y-4">
+                              {/* Desktop View (>= md) */}
+                              <div className="hidden md:block overflow-x-auto rounded-md border">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead className="w-14">No</TableHead>
+                                      <TableHead>Aspek Penilaian</TableHead>
                                       {columns.map((column) => (
-                                        <TableCell
-                                          key={`${q.id}-${column.value}`}
-                                          className="text-center"
+                                        <TableHead
+                                          key={`${secId}-head-${column.value}`}
+                                          className="min-w-[110px] text-center"
                                         >
-                                          <input
-                                            type="radio"
-                                            name={`${secId}-${q.id}`}
-                                            checked={scaleObj[q.id] === String(column.value)}
+                                          {column.label}
+                                        </TableHead>
+                                      ))}
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {questions.map((q, qIndex) => (
+                                      <TableRow key={q.id}>
+                                        <TableCell>{qIndex + 1}</TableCell>
+                                        <TableCell>{q.title || `Aspek ${qIndex + 1}`}</TableCell>
+                                        {columns.map((column) => (
+                                          <TableCell
+                                            key={`${q.id}-${column.value}`}
+                                            className="text-center"
+                                          >
+                                            <input
+                                              type="radio"
+                                              name={`${secId}-${q.id}`}
+                                              checked={scaleObj[q.id] === String(column.value)}
+                                              disabled={isSubmitted}
+                                              onChange={() =>
+                                                setCustomAnswers((prev) => {
+                                                  const prevObj =
+                                                    typeof prev[secId] === 'object' &&
+                                                    prev[secId] &&
+                                                    !Array.isArray(prev[secId])
+                                                      ? (prev[secId] as Record<string, string>)
+                                                      : {};
+                                                  return {
+                                                    ...prev,
+                                                    [secId]: {
+                                                      ...prevObj,
+                                                      [q.id]: String(column.value),
+                                                    },
+                                                  };
+                                                })
+                                              }
+                                            />
+                                          </TableCell>
+                                        ))}
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+
+                              {/* Mobile Touch Cards (< md) */}
+                              <div className="block md:hidden space-y-3">
+                                {questions.map((q, qIndex) => (
+                                  <div
+                                    key={q.id}
+                                    className="p-3.5 rounded-xl border border-border/80 bg-card/90 space-y-2.5 shadow-xs"
+                                  >
+                                    <div className="flex items-start gap-2.5">
+                                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[11px] font-bold text-primary">
+                                        {qIndex + 1}
+                                      </span>
+                                      <p className="text-xs font-semibold text-foreground leading-snug">
+                                        {q.title || `Aspek ${qIndex + 1}`}
+                                      </p>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-1.5 pt-1">
+                                      {columns.map((column) => {
+                                        const isSelected = scaleObj[q.id] === String(column.value);
+                                        return (
+                                          <button
+                                            key={`${q.id}-btn-${column.value}`}
+                                            type="button"
                                             disabled={isSubmitted}
-                                            onChange={() =>
+                                            onClick={() =>
                                               setCustomAnswers((prev) => {
                                                 const prevObj =
                                                   typeof prev[secId] === 'object' &&
@@ -816,13 +867,21 @@ export default function EvaluationSurveyPage() {
                                                 };
                                               })
                                             }
-                                          />
-                                        </TableCell>
-                                      ))}
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
+                                            className={cn(
+                                              "flex items-center justify-center min-h-[40px] px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all touch-manipulation text-center",
+                                              isSelected
+                                                ? "bg-primary text-primary-foreground border-primary shadow-xs font-semibold"
+                                                : "bg-background hover:bg-muted text-muted-foreground border-border active:scale-98"
+                                            )}
+                                          >
+                                            {column.label}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           );
                         })()}
@@ -1076,7 +1135,8 @@ export default function EvaluationSurveyPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border overflow-x-auto">
+            {/* Desktop Table View */}
+            <div className="hidden md:block rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -1121,6 +1181,57 @@ export default function EvaluationSurveyPage() {
                 </TableBody>
               </Table>
             </div>
+
+            {/* Mobile Touch Cards View */}
+            <div className="block md:hidden space-y-3">
+              {activeAspects.map((aspect, index) => {
+                const currentRating = form.ratings[aspect.id];
+                return (
+                  <div
+                    key={`mobile-aspect-${aspect.id}`}
+                    className="p-3 rounded-xl border bg-card/60 space-y-2.5 shadow-xs"
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary font-bold text-xs">
+                        {index + 1}
+                      </span>
+                      <p className="text-xs font-semibold text-foreground leading-snug">
+                        {aspect.name}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5 pt-1">
+                      {ratingOptions.map((opt) => {
+                        const isSelected = currentRating === String(opt.value);
+                        return (
+                          <button
+                            key={`mobile-aspect-${aspect.id}-${opt.value}`}
+                            type="button"
+                            disabled={isSubmitted}
+                            onClick={() =>
+                              setForm((prev) => ({
+                                ...prev,
+                                ratings: {
+                                  ...prev.ratings,
+                                  [aspect.id]: String(opt.value),
+                                },
+                              }))
+                            }
+                            className={cn(
+                              "flex items-center justify-center min-h-[40px] px-2.5 py-1.5 text-xs font-medium rounded-lg border transition-all touch-manipulation text-center",
+                              isSelected
+                                ? "bg-primary text-primary-foreground border-primary shadow-xs font-semibold"
+                                : "bg-background hover:bg-muted text-muted-foreground border-border active:scale-98"
+                            )}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </CardContent>
         </Card>
 
@@ -1131,10 +1242,17 @@ export default function EvaluationSurveyPage() {
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               {activeAspects.map((aspect, index) => (
-                <div key={aspect.id} className="grid grid-cols-[40px_1fr_180px] gap-3 rounded-md border p-2">
-                  <span>{index + 1}</span>
-                  <span>{aspect.name}</span>
-                  <span className="font-medium">
+                <div
+                  key={aspect.id}
+                  className="flex flex-col sm:grid sm:grid-cols-[40px_1fr_180px] gap-1 sm:gap-3 rounded-md border p-2.5"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-xs sm:text-sm text-muted-foreground sm:text-inherit">
+                      {index + 1}.
+                    </span>
+                    <span className="font-medium text-xs sm:text-sm">{aspect.name}</span>
+                  </div>
+                  <span className="font-medium text-xs sm:text-sm text-primary sm:text-foreground pl-5 sm:pl-0">
                     {scoreToLabel[Number(form.ratings[aspect.id])] || '-'}
                   </span>
                 </div>

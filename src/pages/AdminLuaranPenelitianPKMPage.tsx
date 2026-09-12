@@ -27,6 +27,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useDosen } from '@/contexts/DosenContext';
+import { DosenImportButton } from '@/components/admin/DosenImportButton';
+import { DosenImportLogsButton } from '@/components/admin/DosenImportLogsButton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -295,7 +297,7 @@ export default function AdminLuaranPenelitianPKMPage() {
   };
 
   // Save changes from Slide-Over Sheet
-  const handleSaveDrawer = () => {
+  const handleSaveDrawer = async () => {
     if (!activeDosen) return;
 
     // Validate that titles are not empty
@@ -309,7 +311,7 @@ export default function AdminLuaranPenelitianPKMPage() {
       return;
     }
 
-    updateLuaran(activeDosen.nidn, { ...activeDosen, luaran: draftLuaran });
+    await updateLuaran(activeDosen.nidn, { ...activeDosen, luaran: draftLuaran });
 
     toast({
       title: 'Data Luaran Berhasil Disimpan',
@@ -349,49 +351,8 @@ export default function AdminLuaranPenelitianPKMPage() {
 
   return (
     <div className="space-y-6 pb-16">
-      {/* 1. Header Banner */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl bg-gradient-to-r from-slate-900 via-blue-950/40 to-slate-900 border border-slate-800/80 p-6 md:p-8 backdrop-blur-xl shadow-xl relative overflow-hidden"
-      >
-        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-72 h-72 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
-          <div className="space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 shadow-inner">
-                <FileText className="w-7 h-7" />
-              </div>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white flex items-center gap-2.5">
-                  Luaran Penelitian & PKM Dosen ABT
-                </h1>
-                <p className="text-xs md:text-sm text-slate-400 mt-1">
-                  Rincian publikasi jurnal, prosiding seminar, tulisan media massa, dan pagelaran/pameran forum ilmiah dosen.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Quick Counter Badges on Header */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-blue-500/10 border border-blue-500/25 text-blue-300 text-xs font-semibold">
-              <FlaskConical className="w-4 h-4 text-blue-400" />
-              <span>{stats.totalPenelitian} Penelitian</span>
-            </div>
-            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs font-semibold">
-              <HeartHandshake className="w-4 h-4 text-emerald-400" />
-              <span>{stats.totalPkm} PKM</span>
-            </div>
-            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-200 text-xs font-semibold">
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              <span>Total: {stats.totalLuaran} Karya</span>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* 2. Key Stats Metrics Grid */}
+      <div className="flex justify-end gap-2"><DosenImportLogsButton /><DosenImportButton module="luaran" title="Luaran Penelitian/PKM" /></div>
+      {/* 1. Key Stats Metrics Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Metric 1: Total Dosen */}
         <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm flex items-center justify-between">

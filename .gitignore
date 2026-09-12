@@ -16,3 +16,7 @@ backend.zip
 *.temp
 .tmp-*
 .cursor/
+.agents/
+*.tsbuildinfo
+backend/storage/insight_stats_cache/
+skills-lock.json

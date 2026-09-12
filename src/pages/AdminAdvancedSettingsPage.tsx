@@ -805,12 +805,12 @@ export default function AdminAdvancedSettingsPage() {
                         </>
                       )}
                       {isPublicationsSection && publicationColumns.map((column) => {
-                        const value = getPublicationColumnValue({
+                        const value = String(getPublicationColumnValue({
                           key: column.key,
                           payload: record.payload ?? {},
                           tab: publicationTab,
                           year: record.tahun_pelaporan,
-                        });
+                        }) ?? '-');
 
                         if (column.key === 'judul') {
                           return (
@@ -840,11 +840,11 @@ export default function AdminAdvancedSettingsPage() {
                         return <td key={column.key} className="p-2">{value}</td>;
                       })}
                       {isResearchOutputsSection && researchOutputColumns.map((column) => {
-                        const value = getResearchOutputColumnValue({
+                        const value = String(getResearchOutputColumnValue({
                           key: column.key,
                           payload: record.payload ?? {},
                           year: record.tahun_pelaporan,
-                        });
+                        }) ?? '-');
 
                         if (column.key === 'judulLuaran') {
                           return (
@@ -875,8 +875,8 @@ export default function AdminAdvancedSettingsPage() {
                       })}
                       {isStudyPeriodSection && (
                         <>
-                          <td className="p-2">{record.payload?.tahun_masuk != null ? record.payload.tahun_masuk : '-'}</td>
-                          <td className="p-2">{record.payload?.tahun_lulus != null ? record.payload.tahun_lulus : '-'}</td>
+                          <td className="p-2">{String(record.payload?.tahun_masuk ?? '-')}</td>
+                          <td className="p-2">{String(record.payload?.tahun_lulus ?? '-')}</td>
                         </>
                       )}
                       {isWorkCoverageSection && (

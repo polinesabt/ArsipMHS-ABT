@@ -14,17 +14,19 @@ $method = $_SERVER['REQUEST_METHOD'] ?? '';
 
 if ($method === 'GET') {
     try {
-        requireAuth('admin');
-        $pdo->exec("CREATE TABLE IF NOT EXISTS active_students_semester_stats (
-          tahun INT NOT NULL,
-          semester ENUM('genap','ganjil') NOT NULL,
-          pd_dikti INT NOT NULL DEFAULT 0,
-          aktif INT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-          PRIMARY KEY (tahun, semester),
-          INDEX idx_tahun (tahun)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        $auth = requireAuth('admin');
+        if (!auth_is_demo($auth)) {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS active_students_semester_stats (
+              tahun INT NOT NULL,
+              semester ENUM('genap','ganjil') NOT NULL,
+              pd_dikti INT NOT NULL DEFAULT 0,
+              aktif INT NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+              PRIMARY KEY (tahun, semester),
+              INDEX idx_tahun (tahun)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        }
         $yearFilter = isset($_GET['year']) ? (int)$_GET['year'] : null;
         if ($yearFilter !== null && ($yearFilter < 1900 || $yearFilter > 2100)) {
             $yearFilter = null;
@@ -61,7 +63,8 @@ if ($method === 'GET') {
 
 if ($method === 'PUT' || $method === 'POST') {
     try {
-        requireAuth('admin');
+        $auth = requireAuth('admin');
+        requireProductionWrite($auth);
         $input = json_decode(file_get_contents('php://input'), true) ?: [];
         $tahun = isset($input['tahun']) ? (int)$input['tahun'] : null;
         $semester = isset($input['semester']) ? strtolower(trim((string)$input['semester'])) : '';
@@ -128,7 +131,8 @@ if ($method === 'PUT' || $method === 'POST') {
 
 if ($method === 'DELETE') {
     try {
-        requireAuth('admin');
+        $auth = requireAuth('admin');
+        requireProductionWrite($auth);
         $tahun = isset($_GET['tahun']) ? (int)$_GET['tahun'] : null;
         $semester = isset($_GET['semester']) ? strtolower(trim((string)$_GET['semester'])) : '';
         if ($tahun === null || $tahun < 1900 || $tahun > 2100) {

@@ -40,9 +40,11 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
-  INITIAL_TENAGA_KEPENDIDIKAN_DATA,
   type TenagaKependidikanItem
 } from '@/data/mockTenagaKependidikanData';
+import { useDosen } from '@/contexts/DosenContext';
+import { DosenImportButton } from '@/components/admin/DosenImportButton';
+import { DosenImportLogsButton } from '@/components/admin/DosenImportLogsButton';
 import { useToast } from '@/hooks/use-toast';
 
 const contentVariants = {
@@ -87,8 +89,7 @@ const footerVariants = {
 
 export default function AdminTenagaKependidikanPage() {
   const { toast } = useToast();
-
-  const [tendikList, setTendikList] = useState<TenagaKependidikanItem[]>(INITIAL_TENAGA_KEPENDIDIKAN_DATA);
+  const { tendikList, addTendik, updateTendik, deleteTendik, setTendikList } = useDosen();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTendik, setSelectedTendik] = useState<TenagaKependidikanItem | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -108,6 +109,7 @@ export default function AdminTenagaKependidikanPage() {
       editFormData.nip !== selectedTendik.nip ||
       editFormData.status !== selectedTendik.status ||
       editFormData.jabatan !== selectedTendik.jabatan ||
+      (editFormData.golongan || '') !== (selectedTendik.golongan || '') ||
       (editFormData.pendidikanD3 || '') !== (selectedTendik.pendidikanD3 || '') ||
       (editFormData.pendidikanS1 || '') !== (selectedTendik.pendidikanS1 || '') ||
       (editFormData.pendidikanS2 || '') !== (selectedTendik.pendidikanS2 || '') ||
@@ -115,6 +117,41 @@ export default function AdminTenagaKependidikanPage() {
       JSON.stringify(editFormData.sertifikatKompetensi) !== JSON.stringify(selectedTendik.sertifikatKompetensi)
     );
   }, [isEditing, selectedTendik, editFormData]);
+
+  // Dynamic Golongan Suggestions derived strictly from previously inputted tendik data
+  const availableGolonganSuggestions = useMemo(() => {
+    const existing = new Set<string>();
+
+    // Add ONLY existing tendik golongans in the database/context
+    tendikList.forEach((t) => {
+      const g = (t.golongan || '').trim();
+      if (g && g !== '-') {
+        const lower = g.toLowerCase();
+        const alreadyHas = Array.from(existing).some((item) => item.toLowerCase() === lower);
+        if (!alreadyHas) {
+          existing.add(g);
+        }
+      }
+    });
+
+    return Array.from(existing);
+  }, [tendikList]);
+
+  // Normalize golongan on blur to match previously recorded casing if matched
+  const handleGolonganBlur = () => {
+    if (!editFormData || !editFormData.golongan) return;
+    const current = editFormData.golongan.trim();
+    if (!current) return;
+
+    // Check if matches any existing suggestion case-insensitively
+    const match = availableGolonganSuggestions.find(
+      (s) => s.toLowerCase() === current.toLowerCase()
+    );
+
+    if (match && match !== current) {
+      setEditFormData({ ...editFormData, golongan: match });
+    }
+  };
 
   // Filtered Tendik data
   const filteredTendik = useMemo(() => {
@@ -126,6 +163,7 @@ export default function AdminTenagaKependidikanPage() {
         item.nama.toLowerCase().includes(q) ||
         item.nip.includes(q) ||
         item.jabatan.toLowerCase().includes(q) ||
+        (item.golongan && item.golongan.toLowerCase().includes(q)) ||
         (item.pendidikanD3 && item.pendidikanD3.toLowerCase().includes(q)) ||
         (item.pendidikanS1 && item.pendidikanS1.toLowerCase().includes(q)) ||
         (item.pendidikanS2 && item.pendidikanS2.toLowerCase().includes(q)) ||
@@ -141,6 +179,7 @@ export default function AdminTenagaKependidikanPage() {
     nip: '',
     status: 'Tetap',
     jabatan: '',
+    golongan: '',
     pendidikanD3: '',
     pendidikanS1: '',
     pendidikanS2: '',
@@ -193,23 +232,22 @@ export default function AdminTenagaKependidikanPage() {
     });
   };
 
-  const handleSaveEdit = (closeSheetAfter = false) => {
+  const handleSaveEdit = async (closeSheetAfter = false) => {
     if (!editFormData) return;
     if (!editFormData.id) {
+      const newId = `tendik-${Date.now()}`;
       const newTendik: TenagaKependidikanItem = {
         ...editFormData,
-        id: `tendik-${Date.now()}`,
+        id: newId,
       };
-      setTendikList((prev) => [newTendik, ...prev]);
+      await addTendik(newTendik);
       setSelectedTendik(newTendik);
       toast({
         title: 'Tenaga Kependidikan Ditambahkan',
         description: `Data profil ${newTendik.nama || 'baru'} berhasil ditambahkan.`,
       });
     } else {
-      setTendikList((prev) =>
-        prev.map((item) => (item.id === editFormData.id ? editFormData : item))
-      );
+      await updateTendik(editFormData.id, editFormData);
       setSelectedTendik(editFormData);
       toast({
         title: 'Perubahan Disimpan',
@@ -262,6 +300,7 @@ export default function AdminTenagaKependidikanPage() {
 
   return (
     <div className="space-y-6 pb-14 font-sans selection:bg-primary/20 selection:text-primary">
+      <div className="flex justify-end gap-2"><DosenImportLogsButton /><DosenImportButton module="tendik" title="Tenaga Kependidikan" /></div>
       {/* Main Interactive Table Section */}
       <div className="glass-card rounded-2xl border border-border/70 bg-card shadow-soft overflow-hidden">
         {/* Table Toolbar */}
@@ -317,7 +356,7 @@ export default function AdminTenagaKependidikanPage() {
                 <th className="py-3 px-2 text-center w-10">No</th>
                 <th className="py-3 px-3">Nama Tendik</th>
                 <th className="py-3 px-2 text-center w-24">Status</th>
-                <th className="py-3 px-3">Jabatan</th>
+                <th className="py-3 px-3">Jabatan &amp; Golongan</th>
                 <th className="py-3 px-3">Pendidikan Ditempuh</th>
                 <th className="py-3 px-3">Sertifikat Kompetensi</th>
                 <th className="py-3 px-2 text-center w-14">Aksi</th>
@@ -372,8 +411,18 @@ export default function AdminTenagaKependidikanPage() {
                           {tendik.status}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-muted-foreground font-medium text-xs leading-snug">
-                        {tendik.jabatan}
+                      <td className="py-3 px-3">
+                        <div>
+                          <span className="font-semibold text-foreground block text-xs leading-snug">
+                            {tendik.jabatan}
+                          </span>
+                          {tendik.golongan && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground mt-0.5">
+                              <Award className="w-3 h-3 text-amber-500/80 shrink-0" />
+                              {tendik.golongan}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3 px-3">
                         <div className="flex flex-col gap-0.5 text-xs">
@@ -530,6 +579,10 @@ export default function AdminTenagaKependidikanPage() {
                     <div className="flex items-center justify-between text-muted-foreground">
                       <span className="font-medium">Jabatan:</span>
                       <span className="text-foreground font-semibold text-right">{tendik.jabatan}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-muted-foreground pt-1 border-t border-border/20">
+                      <span className="font-medium">Pangkat/Golongan:</span>
+                      <span className="text-foreground font-mono font-semibold text-right">{tendik.golongan || '-'}</span>
                     </div>
                     {rawDegrees.length > 0 && (
                       <div className="flex items-start justify-between text-muted-foreground pt-1 border-t border-border/20">
@@ -700,10 +753,17 @@ export default function AdminTenagaKependidikanPage() {
                           </span>
                         </div>
                       </div>
-                      <div className="space-y-1 col-span-2">
-                        <p className="text-xs text-muted-foreground">Jabatan (termasuk Golongan)</p>
-                        <p className="font-semibold text-foreground flex items-center gap-1.5 text-xs">
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Pangkat / Golongan Ruang</p>
+                        <p className="font-semibold text-foreground flex items-center gap-1.5 text-xs font-mono">
                           <Award className="w-4 h-4 text-amber-500 shrink-0" />
+                          {selectedTendik.golongan || '-'}
+                        </p>
+                      </div>
+                      <div className="space-y-1 col-span-2">
+                        <p className="text-xs text-muted-foreground">Jabatan Fungsional / Penugasan</p>
+                        <p className="font-semibold text-foreground flex items-center gap-1.5 text-xs">
+                          <Briefcase className="w-4 h-4 text-primary shrink-0" />
                           {selectedTendik.jabatan}
                         </p>
                       </div>
@@ -815,8 +875,8 @@ export default function AdminTenagaKependidikanPage() {
                     <h5 className="text-xs font-bold uppercase tracking-wider text-primary/80">
                       Profil Status Kepegawaian
                     </h5>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5 col-span-2 sm:col-span-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1.5 sm:col-span-2">
                         <label className="text-xs font-medium text-muted-foreground">Status Tendik</label>
                         <select
                           value={editFormData.status}
@@ -828,16 +888,58 @@ export default function AdminTenagaKependidikanPage() {
                         </select>
                       </div>
 
-                      <div className="space-y-1.5 col-span-2">
+                      {/* Kolom 1: Jabatan */}
+                      <div className="space-y-1.5">
                         <label className="text-xs font-medium text-muted-foreground">
-                          Jabatan (termasuk Golongan)
+                          Jabatan Fungsional / Penugasan
                         </label>
                         <Input
                           value={editFormData.jabatan}
                           onChange={(e) => setEditFormData({ ...editFormData, jabatan: e.target.value })}
-                          placeholder="Contoh: Teknisi Lab Gol. III/b, Arsiparis Ahli Muda Gol. III/c"
+                          placeholder="Contoh: Teknisi Laboratorium Komputer"
                           className="bg-background rounded-xl text-xs"
                         />
+                      </div>
+
+                      {/* Kolom 2: Golongan */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-muted-foreground flex items-center justify-between">
+                          <span>Pangkat / Golongan Ruang</span>
+                          {availableGolonganSuggestions.length > 0 && (
+                            <span className="text-[10px] text-primary/80 font-normal">Pernah Diinput</span>
+                          )}
+                        </label>
+                        <Input
+                          value={editFormData.golongan || ''}
+                          onChange={(e) => setEditFormData({ ...editFormData, golongan: e.target.value })}
+                          onBlur={handleGolonganBlur}
+                          placeholder={availableGolonganSuggestions.length > 0 ? "Ketik atau klik saran di bawah..." : "Contoh: Gol. III/b"}
+                          className="bg-background rounded-xl text-xs font-mono"
+                        />
+
+                        {/* Interactive Quick-Pick Chips: Hanya muncul jika pernah ada data golongan yang diinput */}
+                        {availableGolonganSuggestions.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1 pt-1">
+                            <span className="text-[10px] text-muted-foreground mr-0.5">Saran Cepat:</span>
+                            {availableGolonganSuggestions.map((g) => {
+                              const isSelected = (editFormData.golongan || '').toLowerCase() === g.toLowerCase();
+                              return (
+                                <button
+                                  key={g}
+                                  type="button"
+                                  onClick={() => setEditFormData({ ...editFormData, golongan: g })}
+                                  className={`text-[10px] font-mono px-2 py-0.5 rounded-md border transition-all ${
+                                    isSelected
+                                      ? 'bg-primary/20 border-primary text-primary font-semibold shadow-xs'
+                                      : 'bg-muted/40 border-border/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                                  }`}
+                                >
+                                  {g}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -55,7 +55,7 @@ interface DataTableProps<T> {
   mobileRenderMode?: 'auto' | 'table' | 'cards';
 }
 
-export function DataTable<T extends Record<string, unknown>>({
+export function DataTable<T extends object>({
   data,
   columns,
   searchPlaceholder = 'Cari...',

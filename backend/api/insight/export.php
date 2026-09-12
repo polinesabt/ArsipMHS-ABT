@@ -133,9 +133,11 @@ try {
     if ($section === 'work_coverage') {
         $filters['tab'] = $tab !== '' ? $tab : null;
     }
-    $logId = bin2hex(random_bytes(18));
-    $insLog = $pdo->prepare('INSERT INTO export_logs (id, admin_id, menu_section, format, filters, exported_at) VALUES (?, ?, ?, ?, ?, NOW())');
-    $insLog->execute([$logId, $adminId, $section, $format, json_encode($filters)]);
+    if (!auth_is_demo($auth)) {
+        $logId = bin2hex(random_bytes(18));
+        $insLog = $pdo->prepare('INSERT INTO export_logs (id, admin_id, menu_section, format, filters, exported_at) VALUES (?, ?, ?, ?, ?, NOW())');
+        $insLog->execute([$logId, $adminId, $section, $format, json_encode($filters)]);
+    }
 
     if ($format === 'csv') {
         header('Content-Type: text/csv; charset=utf-8');

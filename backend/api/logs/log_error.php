@@ -25,13 +25,18 @@ try {
         exit();
     }
 
+    $requestAuth = auth_optional();
+    if (auth_is_demo($requestAuth)) {
+        requireProductionWrite($requestAuth);
+    }
+
     // Defensive DB Table Creation
     $pdo->exec("
         CREATE TABLE IF NOT EXISTS system_error_logs (
           id VARCHAR(36) PRIMARY KEY,
           user_id VARCHAR(36) NULL,
           username VARCHAR(100) NULL,
-          role ENUM('student', 'admin', 'developer', 'guest') NOT NULL DEFAULT 'guest',
+          role ENUM('student', 'admin', 'developer', 'demo', 'guest') NOT NULL DEFAULT 'guest',
           feature_name VARCHAR(100) NOT NULL,
           error_message TEXT NOT NULL,
           stack_trace TEXT NULL,

@@ -121,7 +121,7 @@ export const generateInsights = async (): Promise<InsightResult> => {
       : 'perlu ditingkatkan';
 
   insights.push(
-    `📊 **Tingkat Keterserapan Kerja**: ${metrics.employmentRate}% alumni saat ini berstatus bekerja, menunjukkan tingkat employability yang ${employmentQuality}.`
+    `**Tingkat Keterserapan Kerja**: ${metrics.employmentRate}% alumni saat ini berstatus bekerja, menunjukkan tingkat employability yang ${employmentQuality}.`
   );
 
   // Entrepreneurship insight
@@ -131,47 +131,47 @@ export const generateInsights = async (): Promise<InsightResult> => {
       : 'Kampus dapat mempertimbangkan program inkubasi bisnis untuk mendorong lebih banyak wirausaha.';
 
   insights.push(
-    `🚀 **Tren Kewirausahaan**: ${metrics.entrepreneurshipRate}% alumni memilih jalur wirausaha. ${entrepreneurInsight}`
+    `**Tren Kewirausahaan**: ${metrics.entrepreneurshipRate}% alumni memilih jalur wirausaha. ${entrepreneurInsight}`
   );
 
   // Industry insight
   if (metrics.topIndustry) {
     insights.push(
-      `🏭 **Industri Dominan**: Sektor ${metrics.topIndustry.name} menjadi pilihan terbanyak dengan ${metrics.topIndustry.count} alumni, menunjukkan kesesuaian kurikulum dengan kebutuhan industri tersebut.`
+      `**Industri Dominan**: Sektor ${metrics.topIndustry.name} menjadi pilihan terbanyak dengan ${metrics.topIndustry.count} alumni, menunjukkan kesesuaian kurikulum dengan kebutuhan industri tersebut.`
     );
   }
 
   // Location insight
   if (metrics.topLocation) {
     insights.push(
-      `📍 **Persebaran Lokasi Kerja**: ${metrics.topLocation.name} menjadi lokasi kerja terfavorit dengan ${metrics.topLocation.count} alumni. Hal ini dapat menjadi acuan untuk program kerjasama industri.`
+      `**Persebaran Lokasi Kerja**: ${metrics.topLocation.name} menjadi lokasi kerja terfavorit dengan ${metrics.topLocation.count} alumni. Hal ini dapat menjadi acuan untuk program kerjasama industri.`
     );
   }
 
   // Department insight
   if (metrics.topDepartment) {
     insights.push(
-      `🎓 **Jurusan Unggulan**: Alumni dari jurusan ${metrics.topDepartment.name} menunjukkan tingkat keterserapan kerja tertinggi dengan ${metrics.topDepartment.count} alumni bekerja.`
+      `**Jurusan Unggulan**: Alumni dari jurusan ${metrics.topDepartment.name} menunjukkan tingkat keterserapan kerja tertinggi dengan ${metrics.topDepartment.count} alumni bekerja.`
     );
   }
 
   // Study continuation insight
   if (metrics.studyCount > 0) {
     insights.push(
-      `📚 **Minat Studi Lanjut**: ${metrics.studyCount} alumni melanjutkan pendidikan ke jenjang yang lebih tinggi, menunjukkan komitmen untuk pengembangan akademik.`
+      `**Minat Studi Lanjut**: ${metrics.studyCount} alumni melanjutkan pendidikan ke jenjang yang lebih tinggi, menunjukkan komitmen untuk pengembangan akademik.`
     );
   }
 
   // Job seeking insight
   if (metrics.jobSeekingCount > 0) {
     insights.push(
-      `🔍 **Alumni Mencari Kerja**: Terdapat ${metrics.jobSeekingCount} alumni yang sedang aktif mencari pekerjaan. Kampus dapat membantu dengan program job fair atau career counseling.`
+      `**Alumni Mencari Kerja**: Terdapat ${metrics.jobSeekingCount} alumni yang sedang aktif mencari pekerjaan. Kampus dapat membantu dengan program job fair atau career counseling.`
     );
   }
 
   // Recommendation
   insights.push(
-    `💡 **Rekomendasi**: Berdasarkan analisis data, disarankan untuk memperkuat kerjasama dengan industri ${
+    `**Rekomendasi Strategis**: Berdasarkan analisis data, disarankan untuk memperkuat kerjasama dengan industri ${
       metrics.topIndustry?.name || 'unggulan'
     } dan mengembangkan program magang yang lebih intensif.`
   );

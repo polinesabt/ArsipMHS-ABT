@@ -4,7 +4,8 @@ require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/auth.php';
 
 try {
-    requireAuth('admin');
+    $auth = requireAuth('admin');
+    requireProductionWrite($auth);
 
     $input = json_decode(file_get_contents('php://input'), true);
     if (!is_array($input) || empty($input['id'])) {

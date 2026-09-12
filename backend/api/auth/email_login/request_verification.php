@@ -26,6 +26,7 @@ try {
     }
 
     $auth = requireAuth('student');
+    requireProductionWrite($auth);
     $userId = trim((string)($auth['sub'] ?? ''));
     if ($userId === '') {
         email_login_request_fail(401, 'Token autentikasi tidak valid', 'EMAIL_LOGIN_AUTH_INVALID');

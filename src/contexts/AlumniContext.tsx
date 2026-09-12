@@ -6,7 +6,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { AlumniMaster, AlumniData } from '@/types';
-import type { StudentProfile, StudentAccountInput, AdminProfile, DeveloperProfile, StudentStatus, StudentStatusMode, UserRole } from '@/types/student.types';
+import type { StudentProfile, StudentAccountInput, AdminProfile, DeveloperProfile, StudentStatus, StudentStatusMode, UserRole, DosenProfile, TendikProfile } from '@/types/student.types';
 import { loginAdmin, loginStudent, login as apiLogin, logout as apiLogout } from '@/services/api-auth.service';
 import { getSystemSettings, updateSystemSetting } from '@/services/settings.service';
 import {
@@ -19,6 +19,15 @@ import {
   type Student as ApiStudent,
   type TracerStudy as ApiTracerStudy,
 } from '@/repositories/api-student.repository';
+import {
+  sandboxSession,
+  setupSandboxSync,
+  teardownSandboxSync,
+  syncDemoFromProduction,
+  resetDemoChanges,
+  type DemoSessionState,
+  type SandboxConflictEvent,
+} from '@/lib/sandbox';
 
 // ============ Context Types ============
 
@@ -34,6 +43,20 @@ interface AlumniContextState {
   
   // Logged in developer
   loggedInDeveloper: DeveloperProfile | null;
+
+  // Logged in demo mode
+  loggedInDemo: AdminProfile | null;
+  isDemoMode: boolean;
+  demoSyncState: DemoSessionState;
+
+  // Logged in dosen
+  loggedInDosen: DosenProfile | null;
+
+  // Logged in tendik
+  loggedInTendik: TendikProfile | null;
+
+  // Session hydration status
+  sessionHydrated: boolean;
   
   // Student accounts (for admin management)
   studentAccounts: StudentProfile[];
@@ -66,6 +89,19 @@ interface AlumniContextActions {
 
   // Developer authentication
   logoutDeveloper: () => void;
+
+  // Demo mode authentication & sync
+  logoutDemo: () => void;
+  syncDemoFromProduction: (force?: boolean) => Promise<{ success: boolean; conflicts: SandboxConflictEvent[]; error?: string }>;
+  resetDemoChanges: () => Promise<void>;
+
+  // Dosen authentication & profile
+  logoutDosen: () => void;
+  mergeLoggedInDosen: (updates: Partial<DosenProfile>) => void;
+
+  // Tendik authentication & profile
+  logoutTendik: () => void;
+  mergeLoggedInTendik: (updates: Partial<TendikProfile>) => void;
   
   /** Login satu form: identifier (username/NIM, huruf/angka, case-insensitive), redirect by role */
   login: (identifier: string, password: string) => Promise<AuthResult>;
@@ -101,6 +137,9 @@ interface AuthResult {
   student?: StudentProfile;
   admin?: AdminProfile;
   developer?: DeveloperProfile;
+  demo?: AdminProfile;
+  dosen?: DosenProfile;
+  tendik?: TendikProfile;
   role?: UserRole;
   error?: string;
 }
@@ -111,6 +150,9 @@ const AlumniContext = createContext<AlumniContextType | undefined>(undefined);
 const ADMIN_SESSION_KEY = 'sipal-admin-session';
 const STUDENT_SESSION_KEY = 'sipal-student-session';
 const DEV_SESSION_KEY = 'sipal-dev-session';
+const DEMO_SESSION_KEY = 'sipal-demo-session';
+const DOSEN_SESSION_KEY = 'sipal-dosen-session';
+const TENDIK_SESSION_KEY = 'sipal-tendik-session';
 const AUTH_TOKEN_KEY = 'authToken';
 
 // ============ Provider Component ============
@@ -269,27 +311,90 @@ function mapTracerToAlumniData(tracer: ApiTracerStudy): AlumniData {
   return base;
 }
 
+function getInitialStoredSession<T>(key: string): T | null {
+  if (typeof window === 'undefined') return null;
+  const hasToken = Boolean(localStorage.getItem(AUTH_TOKEN_KEY));
+  if (!hasToken) return null;
+  const raw = localStorage.getItem(key);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    localStorage.removeItem(key);
+    return null;
+  }
+}
+
 export function AlumniProvider({ children }: AlumniProviderProps) {
-  // State
-  const [selectedAlumni, setSelectedAlumni] = useState<AlumniMaster | null>(null);
-  const [loggedInStudent, setLoggedInStudent] = useState<StudentProfile | null>(null);
-  const [loggedInAdmin, setLoggedInAdmin] = useState<AdminProfile | null>(null);
-  const [loggedInDeveloper, setLoggedInDeveloper] = useState<DeveloperProfile | null>(null);
+  // State with synchronous hydration from localStorage
+  const [selectedAlumni, setSelectedAlumni] = useState<AlumniMaster | null>(() => {
+    const student = getInitialStoredSession<StudentProfile>(STUDENT_SESSION_KEY);
+    if (student) {
+      return {
+        id: student.id,
+        nama: student.nama,
+        nim: student.nim,
+        jurusan: student.jurusan,
+        prodi: student.prodi,
+        tahunLulus: student.tahunLulus ?? student.tahunMasuk + 4,
+      };
+    }
+    return null;
+  });
+  const [loggedInStudent, setLoggedInStudent] = useState<StudentProfile | null>(() =>
+    getInitialStoredSession<StudentProfile>(STUDENT_SESSION_KEY)
+  );
+  const [loggedInAdmin, setLoggedInAdmin] = useState<AdminProfile | null>(() => {
+    const demo = getInitialStoredSession<AdminProfile>(DEMO_SESSION_KEY);
+    if (demo) return demo;
+    return getInitialStoredSession<AdminProfile>(ADMIN_SESSION_KEY);
+  });
+  const [loggedInDeveloper, setLoggedInDeveloper] = useState<DeveloperProfile | null>(() =>
+    getInitialStoredSession<DeveloperProfile>(DEV_SESSION_KEY)
+  );
+  const [loggedInDemo, setLoggedInDemo] = useState<AdminProfile | null>(() =>
+    getInitialStoredSession<AdminProfile>(DEMO_SESSION_KEY)
+  );
+  const [loggedInDosen, setLoggedInDosen] = useState<DosenProfile | null>(() =>
+    getInitialStoredSession<DosenProfile>(DOSEN_SESSION_KEY)
+  );
+  const [loggedInTendik, setLoggedInTendik] = useState<TendikProfile | null>(() =>
+    getInitialStoredSession<TendikProfile>(TENDIK_SESSION_KEY)
+  );
+  const [sessionHydrated, setSessionHydrated] = useState<boolean>(true);
+  const [demoSyncState, setDemoSyncState] = useState<DemoSessionState>(sandboxSession.getState());
   const [studentAccounts, setStudentAccounts] = useState<StudentProfile[]>([]);
   const [masterData, setMasterData] = useState<AlumniMaster[]>([]);
   const [alumniData, setAlumniData] = useState<AlumniData[]>([]);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('sipal-dark-mode') === 'true';
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [dosenModuleEnabled, setDosenModuleEnabled] = useState<boolean>(true);
+
+  useEffect(() => {
+    return sandboxSession.subscribe((state) => {
+      setDemoSyncState(state);
+    });
+  }, []);
 
   const clearSessionState = useCallback(() => {
     setLoggedInStudent(null);
     setLoggedInAdmin(null);
     setLoggedInDeveloper(null);
+    setLoggedInDemo(null);
+    setLoggedInDosen(null);
+    setLoggedInTendik(null);
     setSelectedAlumni(null);
     localStorage.removeItem(STUDENT_SESSION_KEY);
     localStorage.removeItem(ADMIN_SESSION_KEY);
     localStorage.removeItem(DEV_SESSION_KEY);
+    localStorage.removeItem(DEMO_SESSION_KEY);
+    localStorage.removeItem(DOSEN_SESSION_KEY);
+    localStorage.removeItem(TENDIK_SESSION_KEY);
+    teardownSandboxSync();
+    void sandboxSession.endSession();
   }, []);
 
   const refreshSystemSettings = useCallback(async () => {
@@ -308,65 +413,28 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     return ok;
   }, []);
 
-  // Initialize dark mode, settings, and session from localStorage
+  // Initialize dark mode class, settings, and demo sync from localStorage
   useEffect(() => {
     const savedDarkMode = localStorage.getItem('sipal-dark-mode');
     if (savedDarkMode === 'true') {
-      setDarkMode(true);
       document.documentElement.classList.add('dark');
     }
 
     refreshSystemSettings();
     
-    // Restore student session if exists
     const hasToken = Boolean(localStorage.getItem(AUTH_TOKEN_KEY));
     if (!hasToken) {
-      localStorage.removeItem(STUDENT_SESSION_KEY);
-      localStorage.removeItem(ADMIN_SESSION_KEY);
-      localStorage.removeItem(DEV_SESSION_KEY);
+      clearSessionState();
+      setSessionHydrated(true);
       return;
     }
 
-    const savedStudentSession = localStorage.getItem(STUDENT_SESSION_KEY);
-    if (savedStudentSession) {
-      try {
-        const student = JSON.parse(savedStudentSession) as StudentProfile;
-        setLoggedInStudent(student);
-        setSelectedAlumni({
-          id: student.id,
-          nama: student.nama,
-          nim: student.nim,
-          jurusan: student.jurusan,
-          prodi: student.prodi,
-          tahunLulus: student.tahunLulus ?? student.tahunMasuk + 4,
-        });
-      } catch (e) {
-        localStorage.removeItem(STUDENT_SESSION_KEY);
-      }
+    const savedDemo = getInitialStoredSession<AdminProfile>(DEMO_SESSION_KEY);
+    if (savedDemo) {
+      setupSandboxSync();
     }
-    
-    // Restore admin session if exists
-    const savedAdminSession = localStorage.getItem(ADMIN_SESSION_KEY);
-    if (savedAdminSession) {
-      try {
-        const admin = JSON.parse(savedAdminSession) as AdminProfile;
-        setLoggedInAdmin(admin);
-      } catch (e) {
-        localStorage.removeItem(ADMIN_SESSION_KEY);
-      }
-    }
-
-    // Restore developer session if exists
-    const savedDevSession = localStorage.getItem(DEV_SESSION_KEY);
-    if (savedDevSession) {
-      try {
-        const dev = JSON.parse(savedDevSession) as DeveloperProfile;
-        setLoggedInDeveloper(dev);
-      } catch (e) {
-        localStorage.removeItem(DEV_SESSION_KEY);
-      }
-    }
-  }, [refreshSystemSettings]);
+    setSessionHydrated(true);
+  }, [clearSessionState, refreshSystemSettings]);
 
   useEffect(() => {
     const handleUnauthorized = (_event: Event) => {
@@ -378,13 +446,13 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
   }, [clearSessionState]);
 
   useEffect(() => {
-    if (!loggedInAdmin && !loggedInStudent) return;
+    if (!loggedInAdmin && !loggedInStudent && !loggedInDeveloper && !loggedInDemo && !loggedInDosen && !loggedInTendik) return;
 
     const hasToken = Boolean(localStorage.getItem(AUTH_TOKEN_KEY));
     if (!hasToken) {
       clearSessionState();
     }
-  }, [loggedInAdmin, loggedInStudent, clearSessionState]);
+  }, [loggedInAdmin, loggedInStudent, loggedInDeveloper, loggedInDemo, loggedInDosen, loggedInTendik, clearSessionState]);
 
   // Theme toggle
   const toggleDarkMode = useCallback(() => {
@@ -558,9 +626,26 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     localStorage.removeItem(DEV_SESSION_KEY);
   }, []);
 
+  const logoutDemo = useCallback(() => {
+    clearSessionState();
+    apiLogout();
+  }, [clearSessionState]);
+
+  const logoutDosen = useCallback(() => {
+    setLoggedInDosen(null);
+    apiLogout();
+    localStorage.removeItem(DOSEN_SESSION_KEY);
+  }, []);
+
+  const logoutTendik = useCallback(() => {
+    setLoggedInTendik(null);
+    apiLogout();
+    localStorage.removeItem(TENDIK_SESSION_KEY);
+  }, []);
+
   /**
    * Login satu form: identifier (username atau NIM, huruf/angka, case-insensitive).
-   * Backend mengembalikan role; redirect ditangani di halaman (admin → /admin, student → /dashboard, developer → /developer/dashboard).
+   * Backend mengembalikan role; redirect ditangani di halaman (admin → /admin, student → /dashboard, developer → /developer/dashboard, demo → /admin/select-dashboard).
    */
   const login = useCallback(
     async (identifier: string, password: string): Promise<AuthResult> => {
@@ -575,6 +660,28 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
         }
         const user = response.data.user;
         const role = (user?.role ?? response.data.role) as UserRole;
+
+        if (role === 'demo') {
+          const sid = (response.data as any)?.sid || (response.data as any)?.user?.demo_session_id || `demo_${Date.now()}`;
+          const demoProfile: AdminProfile = {
+            id: user.id || 'demo-user',
+            username: user.username || 'demo',
+            nama: user.nama || user.name || 'Demo Administrator',
+            passwordHash: '',
+            role: 'demo' as any,
+            createdAt: new Date(),
+            lastLogin: new Date(),
+            canEditDosen: true,
+            canEditMahasiswa: true,
+          };
+          await sandboxSession.startSession(sid, demoProfile);
+          setLoggedInDemo(demoProfile);
+          setLoggedInAdmin(demoProfile);
+          localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(demoProfile));
+          setupSandboxSync();
+          void syncDemoFromProduction(true);
+          return { success: true, admin: demoProfile, demo: demoProfile, role: 'demo' };
+        }
 
         if (role === 'developer') {
           const devProfile: DeveloperProfile = {
@@ -621,12 +728,32 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
           return { success: true, student: updatedStudent, role: 'student' };
         }
 
+        if (role === 'dosen') {
+          const dosenProfile = (user?.dosen || (response.data as any)?.user?.dosen) as DosenProfile | undefined;
+          if (!dosenProfile) {
+            return { success: false, error: 'Data dosen tidak ditemukan' };
+          }
+          setLoggedInDosen(dosenProfile);
+          localStorage.setItem(DOSEN_SESSION_KEY, JSON.stringify(dosenProfile));
+          return { success: true, dosen: dosenProfile, role: 'dosen' };
+        }
+
+        if (role === 'tendik') {
+          const tendikProfile = (user?.tendik || (response.data as any)?.user?.tendik) as TendikProfile | undefined;
+          if (!tendikProfile) {
+            return { success: false, error: 'Data tenaga kependidikan tidak ditemukan' };
+          }
+          setLoggedInTendik(tendikProfile);
+          localStorage.setItem(TENDIK_SESSION_KEY, JSON.stringify(tendikProfile));
+          return { success: true, tendik: tendikProfile, role: 'tendik' };
+        }
+
         return { success: false, error: 'Role tidak dikenali' };
       } finally {
         setIsLoading(false);
       }
     },
-    [masterData]
+    [clearSessionState, masterData]
   );
 
   // ============ Admin Functions ============
@@ -783,6 +910,32 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     });
   }, []);
 
+  const mergeLoggedInDosen = useCallback((updates: Partial<DosenProfile>) => {
+    setLoggedInDosen((prev) => {
+      if (!prev) return null;
+      const updated = { ...prev, ...updates };
+      try {
+        localStorage.setItem(DOSEN_SESSION_KEY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  }, []);
+
+  const mergeLoggedInTendik = useCallback((updates: Partial<TendikProfile>) => {
+    setLoggedInTendik((prev) => {
+      if (!prev) return null;
+      const updated = { ...prev, ...updates };
+      try {
+        localStorage.setItem(TENDIK_SESSION_KEY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  }, []);
+
   // Search alumni
   const searchAlumni = useCallback(
     (nama: string, tahunLulus: number): AlumniMaster[] => {
@@ -803,6 +956,12 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     loggedInStudent,
     loggedInAdmin,
     loggedInDeveloper,
+    loggedInDemo,
+    loggedInDosen,
+    loggedInTendik,
+    sessionHydrated,
+    isDemoMode: Boolean(loggedInDemo || demoSyncState.isActive),
+    demoSyncState,
     studentAccounts,
     alumniData,
     masterData,
@@ -817,6 +976,11 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     loginAsAdmin,
     logoutAdmin,
     logoutDeveloper,
+    logoutDemo,
+    logoutDosen,
+    logoutTendik,
+    syncDemoFromProduction,
+    resetDemoChanges,
     login,
     addStudentAccount,
     deleteStudentAccount,
@@ -830,6 +994,8 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     toggleDarkMode,
     refreshData: loadInitialData,
     mergeLoggedInStudent,
+    mergeLoggedInDosen,
+    mergeLoggedInTendik,
     refreshSystemSettings,
     updateDosenModuleEnabled,
   };
@@ -861,6 +1027,28 @@ export function useLoggedInDeveloper() {
   return { loggedInDeveloper, logoutDeveloper };
 }
 
+/**
+ * Hook for demo mode
+ */
+export function useLoggedInDemo() {
+  const {
+    loggedInDemo,
+    logoutDemo,
+    isDemoMode,
+    demoSyncState,
+    syncDemoFromProduction,
+    resetDemoChanges,
+  } = useAlumni();
+  return {
+    loggedInDemo,
+    logoutDemo,
+    isDemoMode,
+    demoSyncState,
+    syncDemoFromProduction,
+    resetDemoChanges,
+  };
+}
+
 // ============ Selector Hooks (for performance optimization) ============
 
 /**
@@ -885,6 +1073,22 @@ export function useLoggedInStudent() {
 export function useLoggedInAdmin() {
   const { loggedInAdmin, logoutAdmin } = useAlumni();
   return { loggedInAdmin, logoutAdmin };
+}
+
+/**
+ * Hook for logged in dosen
+ */
+export function useLoggedInDosen() {
+  const { loggedInDosen, logoutDosen, mergeLoggedInDosen } = useAlumni();
+  return { loggedInDosen, logoutDosen, mergeLoggedInDosen };
+}
+
+/**
+ * Hook for logged in tendik
+ */
+export function useLoggedInTendik() {
+  const { loggedInTendik, logoutTendik, mergeLoggedInTendik } = useAlumni();
+  return { loggedInTendik, logoutTendik, mergeLoggedInTendik };
 }
 
 /**

@@ -12,13 +12,16 @@ import {
   Sparkles,
   Building2,
   School,
-  ExternalLink
+  ExternalLink,
+  Trash2
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useDosen } from '@/contexts/DosenContext';
+import { DosenImportButton } from '@/components/admin/DosenImportButton';
+import { DosenImportLogsButton } from '@/components/admin/DosenImportLogsButton';
 import {
   Tooltip,
   TooltipContent,
@@ -34,9 +37,16 @@ import {
 
 export default function AdminDosenWaktuMengajarPage() {
   const { toast } = useToast();
-  const { waktuMengajarList: dosenList, updateWaktuMengajar } = useDosen();
+  const { waktuMengajarList: dosenList, dosenList: masterDosenList, updateWaktuMengajar, deleteWaktuMengajar } = useDosen();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Semua' | 'Tetap' | 'Tidak Tetap'>('Semua');
+
+  // Map for quick master dosen lookup (jabatan, statusDosen fallback)
+  const dosenMasterMap = useMemo(() => {
+    const map = new Map<string, (typeof masterDosenList)[0]>();
+    (masterDosenList || []).forEach((d) => map.set(d.nidn, d));
+    return map;
+  }, [masterDosenList]);
 
   // State: In-place edit drafts for active editing cards (keyed by NIDN)
   const [editingCards, setEditingCards] = useState<Record<string, WaktuMengajarItem>>({});
@@ -44,45 +54,50 @@ export default function AdminDosenWaktuMengajarPage() {
   // Filtered lecturers list
   const filteredList = useMemo(() => {
     return dosenList.filter((item) => {
+      const master = dosenMasterMap.get(item.nidn);
+      const jabatan = item.jabatan || master?.jabatan || '';
+      const statusDosen = item.statusDosen || master?.statusDosen || 'Tetap';
+
       const matchSearch =
         item.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.nidn.includes(searchTerm) ||
-        item.jabatan.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchStatus = statusFilter === 'Semua' || item.statusDosen === statusFilter;
+        jabatan.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchStatus = statusFilter === 'Semua' || statusDosen === statusFilter;
       return matchSearch && matchStatus;
     });
-  }, [dosenList, searchTerm, statusFilter]);
+  }, [dosenList, dosenMasterMap, searchTerm, statusFilter]);
 
   // Handle entering edit mode for a card
   const handleStartEdit = (item: WaktuMengajarItem) => {
+    const key = `${item.nidn}:${item.tahunAkademik || ''}`;
     setEditingCards((prev) => ({
       ...prev,
-      [item.nidn]: { ...item },
+      [key]: { ...item },
     }));
   };
 
   // Handle cancelling edit mode for a card
-  const handleCancelEdit = (nidn: string) => {
+  const handleCancelEdit = (key: string) => {
     setEditingCards((prev) => {
       const next = { ...prev };
-      delete next[nidn];
+      delete next[key];
       return next;
     });
   };
 
   // Handle changing numeric values inside an in-place editing card
   const handleFieldChange = (
-    nidn: string,
+    key: string,
     field: keyof Omit<WaktuMengajarItem, 'nidn' | 'nama' | 'jabatan' | 'statusDosen' | 'avatarColor'>,
     value: string
   ) => {
     const numericValue = value === '' ? 0 : Math.max(0, parseFloat(value) || 0);
     setEditingCards((prev) => {
-      if (!prev[nidn]) return prev;
+      if (!prev[key]) return prev;
       return {
         ...prev,
-        [nidn]: {
-          ...prev[nidn],
+        [key]: {
+          ...prev[key],
           [field]: numericValue,
         },
       };
@@ -90,16 +105,16 @@ export default function AdminDosenWaktuMengajarPage() {
   };
 
   // Handle saving the modified card data
-  const handleSaveEdit = (nidn: string) => {
-    const draft = editingCards[nidn];
+  const handleSaveEdit = async (key: string, nidn: string) => {
+    const draft = editingCards[key];
     if (!draft) return;
 
-    updateWaktuMengajar(nidn, draft);
+    await updateWaktuMengajar(nidn, draft);
 
     // Remove from active editing
     setEditingCards((prev) => {
       const next = { ...prev };
-      delete next[nidn];
+      delete next[key];
       return next;
     });
 
@@ -109,8 +124,15 @@ export default function AdminDosenWaktuMengajarPage() {
     });
   };
 
+  const handleDelete = async (item: WaktuMengajarItem) => {
+    if (!item.tahunAkademik || !window.confirm(`Hapus EWMP ${item.tahunAkademik} milik ${item.nama}?`)) return;
+    const success = await deleteWaktuMengajar(item.nidn, item.tahunAkademik);
+    toast({ title: success ? 'Data EWMP dihapus' : 'Gagal menghapus EWMP', variant: success ? 'default' : 'destructive' });
+  };
+
   return (
     <div className="space-y-6 pb-16">
+      <div className="flex justify-end gap-2"><DosenImportLogsButton /><DosenImportButton module="waktu_mengajar" title="Waktu Mengajar" /></div>
       {/* Filter, Search Bar & Controls */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="relative w-full sm:w-80">
@@ -164,8 +186,13 @@ export default function AdminDosenWaktuMengajarPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           <AnimatePresence>
             {filteredList.map((dosen) => {
-              const isEditing = Boolean(editingCards[dosen.nidn]);
-              const currentData = isEditing ? editingCards[dosen.nidn] : dosen;
+              const recordKey = `${dosen.nidn}:${dosen.tahunAkademik || ''}`;
+              const isEditing = Boolean(editingCards[recordKey]);
+              const currentData = isEditing ? editingCards[recordKey] : dosen;
+
+              const master = dosenMasterMap.get(dosen.nidn);
+              const jabatan = dosen.jabatan || master?.jabatan || 'Dosen Pengajar';
+              const statusDosen = dosen.statusDosen || master?.statusDosen || 'Tetap';
 
               const pendidikanTotal = calculatePendidikanTotal(currentData);
               const totalSks = calculateTotalSks(currentData);
@@ -173,7 +200,7 @@ export default function AdminDosenWaktuMengajarPage() {
 
               return (
                 <motion.div
-                  key={dosen.nidn}
+                  key={recordKey}
                   layout
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -205,18 +232,22 @@ export default function AdminDosenWaktuMengajarPage() {
                               NIDN: {dosen.nidn}
                             </span>
                             <span className="text-muted-foreground/40 text-xs">&bull;</span>
+                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 font-mono">
+                              {dosen.tahunAkademik}
+                            </Badge>
+                            <span className="text-muted-foreground/40 text-xs">&bull;</span>
                             <Badge
                               variant="outline"
-                              className={`text-[10px] px-1.5 py-0 rounded font-normal ${dosen.statusDosen === 'Tetap'
+                              className={`text-[10px] px-1.5 py-0 rounded font-normal ${statusDosen === 'Tetap'
                                   ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800'
                                   : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800'
                                 }`}
                             >
-                              {dosen.statusDosen}
+                              {statusDosen}
                             </Badge>
                           </div>
                           <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                            {dosen.jabatan}
+                            {jabatan}
                           </p>
                         </div>
                       </div>
@@ -231,7 +262,7 @@ export default function AdminDosenWaktuMengajarPage() {
                                   <Button
                                     size="icon"
                                     variant="ghost"
-                                    onClick={() => handleCancelEdit(dosen.nidn)}
+                                    onClick={() => handleCancelEdit(recordKey)}
                                     className="w-8 h-8 rounded-lg text-rose-600 hover:bg-rose-500/10 hover:text-rose-700 transition-colors"
                                   >
                                     <X className="w-4 h-4" />
@@ -248,7 +279,7 @@ export default function AdminDosenWaktuMengajarPage() {
                                 <TooltipTrigger asChild>
                                   <Button
                                     size="icon"
-                                    onClick={() => handleSaveEdit(dosen.nidn)}
+                                    onClick={() => handleSaveEdit(recordKey, dosen.nidn)}
                                     className="w-8 h-8 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all"
                                   >
                                     <Check className="w-4 h-4" />
@@ -261,7 +292,7 @@ export default function AdminDosenWaktuMengajarPage() {
                             </TooltipProvider>
                           </>
                         ) : (
-                          <TooltipProvider>
+                          <div className="flex gap-1"><TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
@@ -278,6 +309,7 @@ export default function AdminDosenWaktuMengajarPage() {
                               </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
+                          <Button size="icon" variant="ghost" onClick={() => void handleDelete(dosen)} className="h-8 w-8 rounded-lg text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button></div>
                         )}
                       </div>
                     </div>
@@ -310,9 +342,9 @@ export default function AdminDosenWaktuMengajarPage() {
                                 type="number"
                                 min="0"
                                 step="0.5"
-                                value={currentData.pendidikanPsAbt}
+                                value={currentData.sksPendidikanPS}
                                 onChange={(e) =>
-                                  handleFieldChange(dosen.nidn, 'pendidikanPsAbt', e.target.value)
+                                  handleFieldChange(recordKey, 'sksPendidikanPS', e.target.value)
                                 }
                                 className="w-16 h-7 text-right text-xs px-2 py-1 rounded-md font-semibold bg-background border-indigo-300 dark:border-indigo-700 focus-visible:ring-indigo-500"
                               />
@@ -320,7 +352,7 @@ export default function AdminDosenWaktuMengajarPage() {
                             </div>
                           ) : (
                             <span className="font-semibold text-foreground bg-background/80 px-2 py-0.5 rounded border border-border/40">
-                              {currentData.pendidikanPsAbt} SKS
+                              {currentData.sksPendidikanPS} SKS
                             </span>
                           )}
                         </div>
@@ -337,9 +369,9 @@ export default function AdminDosenWaktuMengajarPage() {
                                 type="number"
                                 min="0"
                                 step="0.5"
-                                value={currentData.pendidikanPsLain}
+                                value={currentData.sksPendidikanPSLain}
                                 onChange={(e) =>
-                                  handleFieldChange(dosen.nidn, 'pendidikanPsLain', e.target.value)
+                                  handleFieldChange(recordKey, 'sksPendidikanPSLain', e.target.value)
                                 }
                                 className="w-16 h-7 text-right text-xs px-2 py-1 rounded-md font-semibold bg-background border-indigo-300 dark:border-indigo-700 focus-visible:ring-indigo-500"
                               />
@@ -347,7 +379,7 @@ export default function AdminDosenWaktuMengajarPage() {
                             </div>
                           ) : (
                             <span className="font-semibold text-foreground bg-background/80 px-2 py-0.5 rounded border border-border/40">
-                              {currentData.pendidikanPsLain} SKS
+                              {currentData.sksPendidikanPSLain} SKS
                             </span>
                           )}
                         </div>
@@ -364,9 +396,9 @@ export default function AdminDosenWaktuMengajarPage() {
                                 type="number"
                                 min="0"
                                 step="0.5"
-                                value={currentData.pendidikanPtLain}
+                                value={currentData.sksPendidikanPTLain}
                                 onChange={(e) =>
-                                  handleFieldChange(dosen.nidn, 'pendidikanPtLain', e.target.value)
+                                  handleFieldChange(recordKey, 'sksPendidikanPTLain', e.target.value)
                                 }
                                 className="w-16 h-7 text-right text-xs px-2 py-1 rounded-md font-semibold bg-background border-indigo-300 dark:border-indigo-700 focus-visible:ring-indigo-500"
                               />
@@ -374,7 +406,7 @@ export default function AdminDosenWaktuMengajarPage() {
                             </div>
                           ) : (
                             <span className="font-semibold text-foreground bg-background/80 px-2 py-0.5 rounded border border-border/40">
-                              {currentData.pendidikanPtLain} SKS
+                              {currentData.sksPendidikanPTLain} SKS
                             </span>
                           )}
                         </div>
@@ -398,9 +430,9 @@ export default function AdminDosenWaktuMengajarPage() {
                             type="number"
                             min="0"
                             step="0.5"
-                            value={currentData.penelitian}
+                            value={currentData.sksPenelitian}
                             onChange={(e) =>
-                              handleFieldChange(dosen.nidn, 'penelitian', e.target.value)
+                              handleFieldChange(recordKey, 'sksPenelitian', e.target.value)
                             }
                             className="w-16 h-7 text-right text-xs px-2 py-1 rounded-md font-semibold bg-background border-indigo-300 dark:border-indigo-700 focus-visible:ring-indigo-500"
                           />
@@ -408,7 +440,7 @@ export default function AdminDosenWaktuMengajarPage() {
                         </div>
                       ) : (
                         <span className="font-semibold text-foreground bg-background/80 px-2.5 py-1 rounded-lg border border-border/40 text-xs">
-                          {currentData.penelitian} SKS
+                          {currentData.sksPenelitian} SKS
                         </span>
                       )}
                     </div>
@@ -430,9 +462,9 @@ export default function AdminDosenWaktuMengajarPage() {
                             type="number"
                             min="0"
                             step="0.5"
-                            value={currentData.pkm}
+                            value={currentData.sksPengabdian}
                             onChange={(e) =>
-                              handleFieldChange(dosen.nidn, 'pkm', e.target.value)
+                              handleFieldChange(recordKey, 'sksPengabdian', e.target.value)
                             }
                             className="w-16 h-7 text-right text-xs px-2 py-1 rounded-md font-semibold bg-background border-indigo-300 dark:border-indigo-700 focus-visible:ring-indigo-500"
                           />
@@ -440,7 +472,7 @@ export default function AdminDosenWaktuMengajarPage() {
                         </div>
                       ) : (
                         <span className="font-semibold text-foreground bg-background/80 px-2.5 py-1 rounded-lg border border-border/40 text-xs">
-                          {currentData.pkm} SKS
+                          {currentData.sksPengabdian} SKS
                         </span>
                       )}
                     </div>
@@ -462,9 +494,9 @@ export default function AdminDosenWaktuMengajarPage() {
                             type="number"
                             min="0"
                             step="0.5"
-                            value={currentData.tugasTambahan}
+                            value={currentData.sksTugasTambahan}
                             onChange={(e) =>
-                              handleFieldChange(dosen.nidn, 'tugasTambahan', e.target.value)
+                              handleFieldChange(recordKey, 'sksTugasTambahan', e.target.value)
                             }
                             className="w-16 h-7 text-right text-xs px-2 py-1 rounded-md font-semibold bg-background border-indigo-300 dark:border-indigo-700 focus-visible:ring-indigo-500"
                           />
@@ -472,7 +504,7 @@ export default function AdminDosenWaktuMengajarPage() {
                         </div>
                       ) : (
                         <span className="font-semibold text-foreground bg-background/80 px-2.5 py-1 rounded-lg border border-border/40 text-xs">
-                          {currentData.tugasTambahan} SKS
+                          {currentData.sksTugasTambahan} SKS
                         </span>
                       )}
                     </div>

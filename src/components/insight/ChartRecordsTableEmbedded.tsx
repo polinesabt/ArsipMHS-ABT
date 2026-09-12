@@ -1808,12 +1808,12 @@ export function ChartRecordsTableEmbedded({ section, activeTab = null, onRecords
                           </>
                         )}
                         {isPublicationsSection && publicationColumns.map((column) => {
-                          const value = getPublicationColumnValue({
+                          const value = String(getPublicationColumnValue({
                             key: column.key,
                             payload: row.payload ?? {},
                             tab: publicationTab,
                             year: row.tahun_pelaporan,
-                          });
+                          }) ?? '-');
 
                           if (column.key === 'judul') {
                             return (
@@ -1843,11 +1843,11 @@ export function ChartRecordsTableEmbedded({ section, activeTab = null, onRecords
                           return <td key={column.key} className="p-2 align-top">{value}</td>;
                         })}
                         {isResearchOutputsSection && researchOutputColumns.map((column) => {
-                          const value = getResearchOutputColumnValue({
+                          const value = String(getResearchOutputColumnValue({
                             key: column.key,
                             payload: row.payload ?? {},
                             year: row.tahun_pelaporan,
-                          });
+                          }) ?? '-');
 
                           if (column.key === 'judulLuaran') {
                             return (
@@ -1878,15 +1878,15 @@ export function ChartRecordsTableEmbedded({ section, activeTab = null, onRecords
                         })}
                         {isStudyPeriodSection && (
                           <>
-                            <td className="p-2 align-top">{row.payload?.tahun_masuk != null ? row.payload.tahun_masuk : '-'}</td>
-                            <td className="p-2 align-top">{row.payload?.tahun_lulus != null ? row.payload.tahun_lulus : '-'}</td>
+                            <td className="p-2 align-top">{String(row.payload?.tahun_masuk ?? '-')}</td>
+                            <td className="p-2 align-top">{String(row.payload?.tahun_lulus ?? '-')}</td>
                           </>
                         )}
                         {isWaitingTimeSection && (
                           <>
                             <td className="p-2 align-top">{row.tahun_pelaporan}</td>
                             <td className="p-2 align-top">{getWaitingTimeBucketLabel(row.payload ?? {})}</td>
-                            <td className="p-2 align-top">{row.payload?.tahun_mulai_kerja != null ? row.payload.tahun_mulai_kerja : '-'}</td>
+                            <td className="p-2 align-top">{String(row.payload?.tahun_mulai_kerja ?? '-')}</td>
                           </>
                         )}
                         {isWorkCoverageSection && (

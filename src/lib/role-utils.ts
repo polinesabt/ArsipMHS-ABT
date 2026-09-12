@@ -23,7 +23,7 @@ export const ROLE_CONFIG: Record<StudentStatus, {
   color: string;
   bgColor: string;
   borderColor: string;
-  icon: '🟢' | '🔵' | '⚪' | '🟡';
+  dotColor: string;
   description: string;
 }> = {
   alumni: {
@@ -32,7 +32,7 @@ export const ROLE_CONFIG: Record<StudentStatus, {
     color: 'text-primary',
     bgColor: 'bg-primary/10',
     borderColor: 'border-primary/30',
-    icon: '🟢',
+    dotColor: 'bg-primary',
     description: 'Lulusan Politeknik Negeri Semarang',
   },
   active: {
@@ -41,7 +41,7 @@ export const ROLE_CONFIG: Record<StudentStatus, {
     color: 'text-success',
     bgColor: 'bg-success/10',
     borderColor: 'border-success/30',
-    icon: '🔵',
+    dotColor: 'bg-success',
     description: 'Mahasiswa terdaftar aktif',
   },
   on_leave: {
@@ -50,7 +50,7 @@ export const ROLE_CONFIG: Record<StudentStatus, {
     color: 'text-warning',
     bgColor: 'bg-warning/10',
     borderColor: 'border-warning/30',
-    icon: '🟡',
+    dotColor: 'bg-warning',
     description: 'Mahasiswa dalam status cuti akademik',
   },
   dropout: {
@@ -59,7 +59,7 @@ export const ROLE_CONFIG: Record<StudentStatus, {
     color: 'text-muted-foreground',
     bgColor: 'bg-muted',
     borderColor: 'border-muted-foreground/30',
-    icon: '⚪',
+    dotColor: 'bg-muted-foreground',
     description: 'Mahasiswa yang tidak lagi terdaftar',
   },
 };

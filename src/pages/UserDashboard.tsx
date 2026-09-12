@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 // Shared layout handles Navbar and Footer
 import { useAlumni } from '@/contexts/AlumniContext';
-import { Award, Bell, LogOut, MailCheck, CheckCircle2, KeyRound, User, X } from 'lucide-react';
+import { Award, Bell, MailCheck, CheckCircle2, KeyRound, User, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,7 +44,7 @@ import { Label } from '@/components/ui/label';
 
 export default function UserDashboard() {
   const navigate = useNavigate();
-  const { selectedAlumni, loggedInStudent, logout, getAlumniDataByMasterId, mergeLoggedInStudent, resetStudentPassword } = useAlumni();
+  const { selectedAlumni, loggedInStudent, getAlumniDataByMasterId, mergeLoggedInStudent, resetStudentPassword } = useAlumni();
   const { requestVerification, isRequesting, verifyWithOtp, isVerifying } = useEmailLoginActivation();
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [notifications, setNotifications] = useState<StudentNotification[]>([]);
@@ -74,17 +74,17 @@ export default function UserDashboard() {
   const [accountPanelOpen, setAccountPanelOpen] = useState(false);
   /** Sedang animasi tutup (terhisap ke tombol Akun) sebelum panel di-unmount */
   const [accountPanelClosing, setAccountPanelClosing] = useState(false);
-  const accountPanelCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const accountPanelCloseTimeoutRef = useRef<number | null>(null);
   /** Panel "Login Email Opsional": animasi hisap setelah 4 detik */
   const [onboardingPanelClosing, setOnboardingPanelClosing] = useState(false);
-  const onboardingPanelCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onboardingPanelIntroTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onboardingPanelCloseTimeoutRef = useRef<number | null>(null);
+  const onboardingPanelIntroTimeoutRef = useRef<number | null>(null);
   /** Tombol Akun disembunyikan selama intro; muncul 1s setelah panel terhisap */
   const [accountButtonRevealedAfterIntro, setAccountButtonRevealedAfterIntro] = useState(true);
   /** Baru saja muncul dari intro: tampil hijau + efek partikel keluar dari air */
   const [accountButtonJustRevealed, setAccountButtonJustRevealed] = useState(false);
-  const accountButtonRevealTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const accountButtonJustRevealedEndRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const accountButtonRevealTimeoutRef = useRef<number | null>(null);
+  const accountButtonJustRevealedEndRef = useRef<number | null>(null);
 
   const computeStats = (items: Achievement[]) => ({
     lomba: items.filter(a => a.category === 'lomba').length,
@@ -186,7 +186,7 @@ export default function UserDashboard() {
   const closeAccountPanel = (onDone?: () => void) => {
     if (accountPanelCloseTimeoutRef.current) return;
     setAccountPanelClosing(true);
-    accountPanelCloseTimeoutRef.current = setTimeout(() => {
+    accountPanelCloseTimeoutRef.current = window.setTimeout(() => {
       accountPanelCloseTimeoutRef.current = null;
       setShowAccountPanel(false);
       setAccountPanelClosing(false);
@@ -274,7 +274,7 @@ export default function UserDashboard() {
   if (!displayData) return null;
 
   // Determine student role - PRIMARY IDENTITY
-  const studentStatus: StudentStatus = (displayData as Record<string, unknown>).status as StudentStatus || 'alumni';
+  const studentStatus: StudentStatus = (displayData as unknown as Record<string, unknown>).status as StudentStatus || 'alumni';
   const showCareerHistory = hasCareerAccess(studentStatus);
   const achievementsEditable = canEditAchievements(studentStatus);
 
@@ -300,11 +300,6 @@ export default function UserDashboard() {
   };
 
   const latestAchievement = getLatestAchievement();
-
-  const handleLogout = () => {
-    logout();
-    navigate('/validasi');
-  };
 
   const handleOpenNotification = async (notification: StudentNotification) => {
     if (!notification.is_read) {
@@ -479,8 +474,8 @@ export default function UserDashboard() {
   return (
     <div className="container mx-auto px-3 sm:px-4">
       <div className="max-w-5xl mx-auto">
-        {/* Page Title with Logout */}
-        <div className="mb-8 animate-fade-up flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        {/* Identitas dan kontrol akun */}
+        <div className="mb-6 flex animate-fade-up flex-col gap-4 sm:mb-8 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
             <StudentIdentityHeader
               nama={displayData.nama}
@@ -558,7 +553,7 @@ export default function UserDashboard() {
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
+              <DropdownMenuContent align="end" className="w-[calc(100vw-1.5rem)] max-w-80">
                 <div className="px-2 py-1.5 flex items-center justify-between gap-2">
                   <DropdownMenuLabel className="p-0">Notifikasi Evaluasi</DropdownMenuLabel>
                   <Button variant="ghost" size="sm" onClick={handleMarkAllRead}>
@@ -596,11 +591,6 @@ export default function UserDashboard() {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-
-            <Button variant="outline" onClick={handleLogout} className="gap-2 self-start sm:self-auto">
-              <LogOut className="w-4 h-4" />
-              Keluar
-            </Button>
           </div>
         </div>
 
@@ -663,19 +653,19 @@ export default function UserDashboard() {
                 /* Panel informasi akun: congrats (baru verifikasi) lalu setelah 8s morph ke tampilan biasa */
                 <div className="space-y-4">
                   <div
-                    className={`rounded-xl border p-4 min-h-[5.5rem] transition-[background-color,border-color] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${showCongratsMessage
-                        ? 'border-green-500/30 bg-green-500/10'
+                    className={`rounded-xl border p-4 min-h-[5.5rem] transition-[background-color,border-color] duration-500 ease-out ${showCongratsMessage
+                        ? 'border-success/30 bg-success/10'
                         : 'border-border bg-muted/30'
                       }`}
                   >
                     {showCongratsMessage ? (
                       <div className="flex items-start gap-3 animate-in fade-in duration-300">
-                        <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                        <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
                         <div>
-                          <p className="text-sm font-medium text-green-800 dark:text-green-200">
-                            Horeee! Email ini sudah berhasil diverifikasi ✅ dan bisa dipakai untuk login.
+                          <p className="text-sm font-medium text-foreground">
+                            Email berhasil diverifikasi dan aktif sebagai metode login.
                           </p>
-                          <p className="text-sm text-muted-foreground mt-1">
+                          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
                             Email: <span className="font-medium text-foreground">{currentLoginEmail}</span>
                           </p>
                         </div>
@@ -902,7 +892,7 @@ export default function UserDashboard() {
 
 // Helper functions
 function getAchievementTitle(achievement: Achievement): string {
-  const a = achievement as Record<string, unknown>;
+  const a = achievement as unknown as Record<string, unknown>;
   switch (achievement.category) {
     case 'lomba': return String(a.namaLomba || 'Lomba');
     case 'seminar': return String(a.judulPublikasi || a.namaSeminar || 'Seminar');
@@ -920,7 +910,7 @@ function getAchievementTitle(achievement: Achievement): string {
 }
 
 function getAchievementYear(achievement: Achievement): number {
-  const a = achievement as Record<string, unknown>;
+  const a = achievement as unknown as Record<string, unknown>;
   switch (achievement.category) {
     case 'lomba': return Number(a.tahun || new Date().getFullYear());
     case 'seminar': return Number(a.tahun || new Date().getFullYear());

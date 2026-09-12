@@ -7,6 +7,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../../../config/database.php';
+require_once __DIR__ . '/../../../config/auth.php';
 require_once __DIR__ . '/../../../config/email_login.php';
 
 function email_login_verify_fail(int $statusCode, string $message, string $code): void {
@@ -22,6 +23,11 @@ function email_login_verify_fail(int $statusCode, string $message, string $code)
 try {
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
         email_login_verify_fail(405, 'Method not allowed', 'EMAIL_LOGIN_VERIFY_METHOD_NOT_ALLOWED');
+    }
+
+    $requestAuth = auth_optional();
+    if (auth_is_demo($requestAuth)) {
+        requireProductionWrite($requestAuth);
     }
 
     $input = json_decode(file_get_contents('php://input'), true);

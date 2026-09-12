@@ -70,14 +70,14 @@ function getAchievementTitle(achievement: Achievement): string {
       );
     case 'publikasi': return (achievement as PublikasiAchievement).judul;
     case 'haki': return (achievement as HakiAchievement).judul;
-    case 'luaran_penelitian': return String((achievement as Record<string, unknown>).judul || 'Luaran Penelitian');
+    case 'luaran_penelitian': return String((achievement as unknown as Record<string, unknown>).judul || 'Luaran Penelitian');
     case 'magang': return `${(achievement as MagangAchievement).posisi} - ${(achievement as MagangAchievement).namaPerusahaan}`;
     case 'portofolio': return (achievement as PortofolioAchievement).judulProyek;
     case 'produk_mahasiswa': return (achievement as ProdukMahasiswaAchievement).namaProduk;
     case 'wirausaha': return (achievement as WirausahaAchievement).namaUsaha;
     case 'pengembangan': return (achievement as PengembanganAchievement).namaProgram;
     case 'organisasi': return `${(achievement as OrganisasiAchievement).jabatan} - ${(achievement as OrganisasiAchievement).namaOrganisasi}`;
-    default: return String((achievement as Record<string, unknown>).namaKegiatan || (achievement as Record<string, unknown>).judul || 'Prestasi');
+    default: return String((achievement as unknown as Record<string, unknown>).namaKegiatan || (achievement as unknown as Record<string, unknown>).judul || 'Prestasi');
   }
 }
 
@@ -89,7 +89,7 @@ function getAchievementYear(achievement: Achievement): number {
     case 'publikasi': return (achievement as PublikasiAchievement).tahun;
     case 'haki': return (achievement as HakiAchievement).tahunPengajuan;
     case 'luaran_penelitian': {
-      const rec = achievement as Record<string, unknown>;
+      const rec = achievement as unknown as Record<string, unknown>;
       return typeof rec.tahun === 'number' ? rec.tahun : new Date(typeof rec.tanggalLuaran === 'string' ? rec.tanggalLuaran : Date.now()).getFullYear();
     }
     case 'magang': return new Date((achievement as MagangAchievement).tanggalMulai).getFullYear();
@@ -99,7 +99,7 @@ function getAchievementYear(achievement: Achievement): number {
     case 'pengembangan': return new Date((achievement as PengembanganAchievement).tanggalMulai).getFullYear();
     case 'organisasi': return new Date((achievement as OrganisasiAchievement).tanggalMulai).getFullYear();
     default: {
-      const rec = achievement as Record<string, unknown>;
+      const rec = achievement as unknown as Record<string, unknown>;
       return typeof rec.tahun === 'number' ? rec.tahun : new Date().getFullYear();
     }
   }
@@ -141,7 +141,7 @@ function getAchievementSubtitle(achievement: Achievement): string | undefined {
       return `${a.jenisHaki.replace('_', ' ')} - ${a.status}`;
     }
     case 'luaran_penelitian': {
-      const a = achievement as Record<string, unknown>;
+      const a = achievement as unknown as Record<string, unknown>;
       return a.jenisLuaran ? String(a.jenisLuaran).replace(/_/g, ' ') : 'Luaran Penelitian';
     }
     case 'magang': return (achievement as MagangAchievement).lokasi;
@@ -163,7 +163,7 @@ function getAchievementSubtitle(achievement: Achievement): string | undefined {
       return a.masihAktif ? 'Masih Aktif' : 'Selesai';
     }
     default: {
-      const a = achievement as Record<string, unknown>;
+      const a = achievement as unknown as Record<string, unknown>;
       return (a.penyelenggara || a.tingkat) ? String(a.penyelenggara || a.tingkat) : undefined;
     }
   }

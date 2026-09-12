@@ -18,8 +18,8 @@ CREATE TABLE IF NOT EXISTS users (
   id VARCHAR(36) PRIMARY KEY COMMENT 'UUID v4',
   username VARCHAR(50) UNIQUE NOT NULL COMMENT 'Login username (admin or NIM)',
   password_hash VARCHAR(255) NOT NULL COMMENT 'Bcrypt hashed password',
-  nama VARCHAR(100) NOT NULL COMMENT 'Full name',
-  role ENUM('admin', 'student') NOT NULL DEFAULT 'student' COMMENT 'User role',
+  nama VARCHAR(150) NOT NULL COMMENT 'Full name',
+  role ENUM('admin', 'student', 'developer', 'dosen', 'tendik', 'demo') NOT NULL DEFAULT 'student' COMMENT 'User role',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Account creation date',
   last_login TIMESTAMP NULL COMMENT 'Last login timestamp',
   is_active BOOLEAN DEFAULT TRUE COMMENT 'Account status',
@@ -417,5 +417,84 @@ GROUP BY s.id, s.nim, s.nama, s.status;
 -- =====================================================================
 -- END OF SCHEMA
 -- =====================================================================
+
+-- =====================================================================
+-- DOSEN PORTAL, TRIDHARMA, TENDIK, AND IMPORT LOGS
+-- =====================================================================
+CREATE TABLE IF NOT EXISTS dosen (
+  id VARCHAR(36) PRIMARY KEY, user_id VARCHAR(36) UNIQUE NULL, nidn VARCHAR(20) UNIQUE NOT NULL,
+  nama VARCHAR(150) NOT NULL, status_dosen ENUM('Tetap','Tidak Tetap') NOT NULL DEFAULT 'Tetap',
+  jabatan VARCHAR(100) NOT NULL DEFAULT 'Asisten Ahli', peran ENUM('Akademisi','Praktisi') NOT NULL DEFAULT 'Akademisi',
+  institusi VARCHAR(150) NOT NULL DEFAULT 'Politeknik Negeri Semarang', pendidikan_pasca_sarjana JSON NULL,
+  bidang_keahlian VARCHAR(255) NULL, sertifikat_pendidik VARCHAR(100) DEFAULT '-', sertifikat_kompetensi TEXT NULL,
+  email VARCHAR(100) NULL, telepon VARCHAR(30) NULL, avatar_color VARCHAR(50) DEFAULT 'from-blue-600 to-indigo-600',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  deleted_at TIMESTAMP NULL, deleted_by VARCHAR(36) NULL, INDEX idx_dosen_deleted (deleted_at),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS dosen_archives (
+  id VARCHAR(50) PRIMARY KEY, nidn VARCHAR(20) NOT NULL, nama VARCHAR(150) NOT NULL, payload_json LONGTEXT NOT NULL,
+  deleted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, expires_at DATETIME NOT NULL, INDEX idx_arch_expires (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS dosen_pengajaran_matkul (
+  id VARCHAR(50) PRIMARY KEY, dosen_id VARCHAR(36) NOT NULL, tipe_ps ENUM('PS_ABT','PS_LAIN') NOT NULL DEFAULT 'PS_ABT',
+  kode_matkul VARCHAR(30) NULL, nama_matkul VARCHAR(150) NOT NULL, sks INT NOT NULL DEFAULT 3, prodi_lain VARCHAR(150) NULL,
+  INDEX idx_matkul_dosen (dosen_id), FOREIGN KEY (dosen_id) REFERENCES dosen(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS dosen_pengajaran_bahan_ajar (
+  id INT AUTO_INCREMENT PRIMARY KEY, dosen_id VARCHAR(36) NOT NULL, judul_bahan_ajar VARCHAR(255) NOT NULL,
+  INDEX idx_bahan_dosen (dosen_id), FOREIGN KEY (dosen_id) REFERENCES dosen(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS dosen_pengajaran_bimbingan (
+  id VARCHAR(36) PRIMARY KEY, dosen_id VARCHAR(36) UNIQUE NOT NULL, ps_abt_ps INT NOT NULL DEFAULT 0,
+  ps_abt_ps1 INT NOT NULL DEFAULT 0, ps_abt_ps2 INT NOT NULL DEFAULT 0, ps_lain_ps INT NOT NULL DEFAULT 0,
+  ps_lain_ps1 INT NOT NULL DEFAULT 0, ps_lain_ps2 INT NOT NULL DEFAULT 0,
+  FOREIGN KEY (dosen_id) REFERENCES dosen(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS dosen_penelitian (
+  id VARCHAR(50) PRIMARY KEY, dosen_id VARCHAR(36) NOT NULL, judul TEXT NOT NULL,
+  kerjasama_instansi VARCHAR(255) NOT NULL DEFAULT 'Mandiri / Internal PT', tahun VARCHAR(10) NOT NULL, skema VARCHAR(100) NULL,
+  INDEX idx_penelitian_dosen (dosen_id), FOREIGN KEY (dosen_id) REFERENCES dosen(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS dosen_pengabdian (
+  id VARCHAR(50) PRIMARY KEY, dosen_id VARCHAR(36) NOT NULL, nama_kegiatan TEXT NOT NULL,
+  kerjasama_instansi VARCHAR(255) NOT NULL DEFAULT 'Mandiri / Kelompok Masyarakat', tahun VARCHAR(10) NOT NULL, skema VARCHAR(100) NULL,
+  INDEX idx_pengabdian_dosen (dosen_id), FOREIGN KEY (dosen_id) REFERENCES dosen(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS dosen_rekognisi (
+  id INT AUTO_INCREMENT PRIMARY KEY, dosen_id VARCHAR(36) NOT NULL, bidang ENUM('Pengajaran','Penelitian','Pengabdian','Umum') DEFAULT 'Umum',
+  deskripsi VARCHAR(255) NOT NULL, INDEX idx_rekognisi_dosen (dosen_id), FOREIGN KEY (dosen_id) REFERENCES dosen(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS dosen_waktu_mengajar (
+  id VARCHAR(36) PRIMARY KEY, dosen_id VARCHAR(36) NOT NULL, tahun_akademik VARCHAR(20) NOT NULL DEFAULT '2024/2025',
+  pendidikan_ps_abt DECIMAL(4,1) NOT NULL DEFAULT 0, pendidikan_ps_lain DECIMAL(4,1) NOT NULL DEFAULT 0,
+  pendidikan_pt_lain DECIMAL(4,1) NOT NULL DEFAULT 0, penelitian DECIMAL(4,1) NOT NULL DEFAULT 0,
+  pkm DECIMAL(4,1) NOT NULL DEFAULT 0, tugas_tambahan DECIMAL(4,1) NOT NULL DEFAULT 0,
+  UNIQUE KEY uk_ewmp_dosen_tahun (dosen_id,tahun_akademik), FOREIGN KEY (dosen_id) REFERENCES dosen(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS dosen_luaran_penelitian_pkm (
+  id VARCHAR(50) PRIMARY KEY, dosen_id VARCHAR(36) NOT NULL, kategori ENUM('Penelitian','PKM') NOT NULL DEFAULT 'Penelitian',
+  judul_luaran TEXT NOT NULL, tahun VARCHAR(10) NOT NULL, sumber_pendanaan ENUM('Perguruan Tinggi / Mandiri','Lembaga Dalam Negeri (di luar Perguruan Tinggi)','Lembaga Luar Negeri') NOT NULL DEFAULT 'Perguruan Tinggi / Mandiri',
+  jenis_publikasi ENUM('Jurnal Nasional Tidak Terakreditasi','Jurnal Nasional Terakreditasi','Jurnal Internasional','Jurnal Internasional Bereputasi','Seminar Wilayah, Lokal, Perguruan Tinggi','Seminar Nasional','Seminar Internasional','Tulisan di Media Massa Nasional','Tulisan di Media Massa Internasional','Pagelaran / Pameran / Presentasi dalam Forum di Tingkat Wilayah','Pagelaran / Pameran / Presentasi dalam Forum di Tingkat Nasional','Pagelaran / Pameran / Presentasi dalam Forum di Tingkat Internasional') NOT NULL, url_luaran VARCHAR(255) NULL, INDEX idx_luaran_dosen (dosen_id), FOREIGN KEY (dosen_id) REFERENCES dosen(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS tenaga_kependidikan (
+  id VARCHAR(50) PRIMARY KEY, user_id VARCHAR(36) UNIQUE NULL, nip VARCHAR(50) UNIQUE NOT NULL, nama VARCHAR(150) NOT NULL, status ENUM('Tetap','Tidak Tetap') NOT NULL DEFAULT 'Tetap',
+  jabatan VARCHAR(100) NOT NULL, golongan VARCHAR(100) NULL, pendidikan_d3 TEXT NULL, pendidikan_s1 TEXT NULL, pendidikan_s2 TEXT NULL, pendidikan_s3 TEXT NULL,
+  sertifikat_kompetensi LONGTEXT NULL, deleted_at TIMESTAMP NULL, INDEX idx_tendik_deleted (deleted_at),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS dosen_import_logs (
+  id VARCHAR(36) PRIMARY KEY, module ENUM('pengelolaan','pengajaran','penelitian','pengabdian','waktu_mengajar','tendik','luaran') NOT NULL,
+  uploaded_by VARCHAR(36) NOT NULL, file_name VARCHAR(255) NOT NULL, total_rows INT NOT NULL DEFAULT 0, success_rows INT NOT NULL DEFAULT 0,
+  skipped_rows INT NOT NULL DEFAULT 0, failed_rows INT NOT NULL DEFAULT 0, affected_dosen INT NOT NULL DEFAULT 0,
+  status ENUM('processing','completed','completed_with_errors','failed') NOT NULL DEFAULT 'processing', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, finished_at TIMESTAMP NULL,
+  INDEX idx_import_module_created (module,created_at), INDEX idx_import_uploaded_by (uploaded_by),
+  FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+CREATE TABLE IF NOT EXISTS dosen_import_log_details (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, import_log_id VARCHAR(36) NOT NULL, row_number INT NOT NULL, identity_raw VARCHAR(100) NULL,
+  status ENUM('inserted','skipped','error') NOT NULL, message TEXT NOT NULL, raw_payload_json LONGTEXT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_import_detail_log (import_log_id), INDEX idx_import_detail_status (status), FOREIGN KEY (import_log_id) REFERENCES dosen_import_logs(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

@@ -14,25 +14,27 @@ header('Content-Type: application/json; charset=utf-8');
 try {
     $payload = requireAuth('developer');
 
-    // Ensure system_error_logs table exists
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS system_error_logs (
-          id VARCHAR(36) PRIMARY KEY,
-          user_id VARCHAR(36) NULL,
-          username VARCHAR(100) NULL,
-          role ENUM('student', 'admin', 'developer', 'guest') NOT NULL DEFAULT 'guest',
-          feature_name VARCHAR(100) NOT NULL,
-          error_message TEXT NOT NULL,
-          stack_trace TEXT NULL,
-          url TEXT NULL,
-          user_agent TEXT NULL,
-          ip_address VARCHAR(45) NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          INDEX idx_error_logs_created_at (created_at),
-          INDEX idx_error_logs_role (role),
-          INDEX idx_error_logs_feature (feature_name)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    ");
+    if (!auth_is_demo($payload)) {
+        // Ensure system_error_logs table exists
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS system_error_logs (
+              id VARCHAR(36) PRIMARY KEY,
+              user_id VARCHAR(36) NULL,
+              username VARCHAR(100) NULL,
+              role ENUM('student', 'admin', 'developer', 'demo', 'guest') NOT NULL DEFAULT 'guest',
+              feature_name VARCHAR(100) NOT NULL,
+              error_message TEXT NOT NULL,
+              stack_trace TEXT NULL,
+              url TEXT NULL,
+              user_agent TEXT NULL,
+              ip_address VARCHAR(45) NULL,
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+              INDEX idx_error_logs_created_at (created_at),
+              INDEX idx_error_logs_role (role),
+              INDEX idx_error_logs_feature (feature_name)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
+    }
 
     $roleFilter = isset($_GET['role']) ? trim((string)$_GET['role']) : '';
     $search = isset($_GET['search']) ? trim((string)$_GET['search']) : '';
@@ -42,7 +44,7 @@ try {
     $whereClauses = [];
     $params = [];
 
-    if ($roleFilter !== '' && in_array($roleFilter, ['student', 'admin', 'developer', 'guest'], true)) {
+    if ($roleFilter !== '' && in_array($roleFilter, ['student', 'admin', 'developer', 'guest', 'demo'], true)) {
         $whereClauses[] = 'role = ?';
         $params[] = $roleFilter;
     }

@@ -163,7 +163,7 @@ export function ResearchOutputs({ activeTab, onActiveTabChange }: ResearchOutput
                         <Cell key={`cell-${index}`} fill={entry.fill} />
                       ))}
                     </Pie>
-                    <Tooltip content={(props) => <PieChartTooltip {...props} total={totalHaki} />} />
+                    <Tooltip content={<PieChartTooltip total={totalHaki} />} />
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">

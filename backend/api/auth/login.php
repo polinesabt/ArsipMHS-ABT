@@ -76,6 +76,54 @@ function auth_login_fetch_student_by_user_id(PDO $pdo, string $userId): ?array {
     return $row ?: null;
 }
 
+function auth_login_fetch_dosen_by_user_id(PDO $pdo, string $userId): ?array {
+    $stmt = $pdo->prepare('SELECT * FROM dosen WHERE user_id = ? AND deleted_at IS NULL LIMIT 1');
+    $stmt->execute([$userId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) return null;
+    $qualifications = json_decode((string)($row['pendidikan_pasca_sarjana'] ?? '[]'), true);
+    if (!is_array($qualifications)) $qualifications = [];
+    return [
+        'id' => (string)$row['id'],
+        'userId' => (string)$row['user_id'],
+        'nidn' => (string)$row['nidn'],
+        'nama' => (string)$row['nama'],
+        'statusDosen' => (string)$row['status_dosen'],
+        'jabatan' => (string)$row['jabatan'],
+        'institusi' => (string)$row['institusi'],
+        'pendidikanPascaSarjana' => array_values($qualifications),
+        'bidangKeahlian' => (string)($row['bidang_keahlian'] ?? ''),
+        'sertifikatPendidik' => (string)($row['sertifikat_pendidik'] ?? ''),
+        'sertifikatKompetensi' => (string)($row['sertifikat_kompetensi'] ?? ''),
+        'peran' => (string)($row['peran'] ?? 'Akademisi'),
+        'email' => (string)($row['email'] ?? ''),
+        'telepon' => (string)($row['telepon'] ?? ''),
+    ];
+}
+
+function auth_login_fetch_tendik_by_user_id(PDO $pdo, string $userId): ?array {
+    $stmt = $pdo->prepare('SELECT * FROM tenaga_kependidikan WHERE user_id = ? AND deleted_at IS NULL LIMIT 1');
+    $stmt->execute([$userId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) return null;
+    $certificates = json_decode((string)($row['sertifikat_kompetensi'] ?? '[]'), true);
+    if (!is_array($certificates)) $certificates = [];
+    return [
+        'id' => (string)$row['id'],
+        'userId' => (string)$row['user_id'],
+        'nip' => (string)$row['nip'],
+        'nama' => (string)$row['nama'],
+        'status' => (string)$row['status'],
+        'jabatan' => (string)$row['jabatan'],
+        'golongan' => (string)($row['golongan'] ?? ''),
+        'pendidikanD3' => (string)($row['pendidikan_d3'] ?? ''),
+        'pendidikanS1' => (string)($row['pendidikan_s1'] ?? ''),
+        'pendidikanS2' => (string)($row['pendidikan_s2'] ?? ''),
+        'pendidikanS3' => (string)($row['pendidikan_s3'] ?? ''),
+        'sertifikatKompetensi' => array_values(array_map('strval', $certificates)),
+    ];
+}
+
 function auth_login_fail(string $message): void {
     http_response_code(401);
     echo json_encode([
@@ -111,6 +159,8 @@ try {
 
     $user = null;
     $studentData = null;
+    $dosenData = null;
+    $tendikData = null;
 
     if ($role === 'student') {
         $row = auth_login_fetch_student_join_by_identifier($pdo, $usernameLower);
@@ -136,6 +186,25 @@ try {
                 $studentData = $studentRow ? auth_login_map_student_data($studentRow) : null;
             }
         }
+    } elseif ($role === 'dosen') {
+        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE LOWER(TRIM(username)) = ? AND role = ? AND is_active = 1 LIMIT 1');
+        $stmt->execute([$usernameLower, 'dosen']);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$user) {
+            $stmtD = $pdo->prepare('SELECT u.id, u.username, u.nama, u.role, u.password_hash FROM dosen d JOIN users u ON d.user_id = u.id WHERE d.deleted_at IS NULL AND u.role = \'dosen\' AND u.is_active = 1 AND (LOWER(TRIM(d.nidn)) = ? OR (d.email IS NOT NULL AND LOWER(TRIM(d.email)) = ?)) LIMIT 1');
+            $stmtD->execute([$usernameLower, $usernameLower]);
+            $user = $stmtD->fetch(PDO::FETCH_ASSOC);
+        }
+        if ($user) $dosenData = auth_login_fetch_dosen_by_user_id($pdo, (string)$user['id']);
+    } elseif ($role === 'tendik') {
+        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE LOWER(TRIM(username)) = ? AND role = ? AND is_active = 1 LIMIT 1');
+        $stmt->execute([$usernameLower, 'tendik']);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($user) $tendikData = auth_login_fetch_tendik_by_user_id($pdo, (string)$user['id']);
+    } elseif ($role === 'demo') {
+        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE LOWER(TRIM(username)) = ? AND role = ? AND is_active = 1 LIMIT 1');
+        $stmt->execute([$usernameLower, 'demo']);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
     } elseif ($role === 'developer') {
         $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE LOWER(TRIM(username)) = ? AND role = ? AND is_active = 1 LIMIT 1');
         $stmt->execute([$usernameLower, 'developer']);
@@ -153,6 +222,12 @@ try {
             $studentRow = auth_login_fetch_student_by_user_id($pdo, (string)$user['id']);
             $studentData = $studentRow ? auth_login_map_student_data($studentRow) : null;
         }
+        if ($user && $user['role'] === 'dosen') {
+            $dosenData = auth_login_fetch_dosen_by_user_id($pdo, (string)$user['id']);
+        }
+        if ($user && $user['role'] === 'tendik') {
+            $tendikData = auth_login_fetch_tendik_by_user_id($pdo, (string)$user['id']);
+        }
 
         if (!$user) {
             $row = auth_login_fetch_student_join_by_identifier($pdo, $usernameLower);
@@ -165,6 +240,13 @@ try {
                     'password_hash' => $row['password_hash'],
                 ];
                 $studentData = auth_login_map_student_data($row);
+            } else {
+                $stmtD = $pdo->prepare('SELECT u.id, u.username, u.nama, u.role, u.password_hash FROM dosen d JOIN users u ON d.user_id = u.id WHERE d.deleted_at IS NULL AND u.role = \'dosen\' AND u.is_active = 1 AND (LOWER(TRIM(d.nidn)) = ? OR (d.email IS NOT NULL AND LOWER(TRIM(d.email)) = ?)) LIMIT 1');
+                $stmtD->execute([$usernameLower, $usernameLower]);
+                $user = $stmtD->fetch(PDO::FETCH_ASSOC);
+                if ($user && $user['role'] === 'dosen') {
+                    $dosenData = auth_login_fetch_dosen_by_user_id($pdo, (string)$user['id']);
+                }
             }
         }
     }
@@ -176,12 +258,22 @@ try {
     if (($user['role'] ?? '') === 'student' && !$studentData) {
         auth_login_fail('Akun mahasiswa tidak aktif');
     }
+    if (($user['role'] ?? '') === 'dosen' && !$dosenData) {
+        auth_login_fail('Akun dosen tidak aktif');
+    }
+    if (($user['role'] ?? '') === 'tendik' && !$tendikData) {
+        auth_login_fail('Akun tendik tidak aktif');
+    }
 
     $tokenPayload = [
         'sub' => $user['id'],
         'username' => $user['username'],
         'role' => $user['role'],
     ];
+    if ($user['role'] === 'demo') {
+        $tokenPayload['demo_mode'] = true;
+        $tokenPayload['sid'] = bin2hex(random_bytes(18));
+    }
     $accessToken = auth_generate_token($tokenPayload);
     $refreshToken = auth_generate_token($tokenPayload, JWT_REFRESH_EXPIRATION);
 
@@ -195,8 +287,10 @@ try {
         auth_login_issue_fail('self_check_payload_mismatch', (string)$user['id']);
     }
 
-    $stmt = $pdo->prepare('UPDATE users SET last_login = NOW() WHERE id = ?');
-    $stmt->execute([$user['id']]);
+    if ($user['role'] !== 'demo') {
+        $stmt = $pdo->prepare('UPDATE users SET last_login = NOW() WHERE id = ?');
+        $stmt->execute([$user['id']]);
+    }
 
     if ($user['role'] === 'student') {
         $stmt = $pdo->prepare('UPDATE students SET last_login = NOW() WHERE user_id = ?');
@@ -205,8 +299,12 @@ try {
 
     $canEditDosen = null;
     $canEditMahasiswa = null;
-    if ($user['role'] === 'admin') {
+    if ($user['role'] === 'admin' || $user['role'] === 'demo') {
         try {
+            if ($user['role'] === 'demo') {
+                $canEditDosen = true;
+                $canEditMahasiswa = true;
+            } else {
             $stmtAdmin = $pdo->prepare('SELECT can_edit_dosen, can_edit_mahasiswa FROM admins WHERE id = ? LIMIT 1');
             $stmtAdmin->execute([$user['id']]);
             $adminRow = $stmtAdmin->fetch(PDO::FETCH_ASSOC);
@@ -216,6 +314,7 @@ try {
             } else {
                 $canEditDosen = true;
                 $canEditMahasiswa = true;
+            }
             }
         } catch (Throwable $ignore) {
             $canEditDosen = true;
@@ -230,9 +329,19 @@ try {
         'role' => $user['role'],
         'student' => $studentData,
     ];
-    if ($user['role'] === 'admin') {
+    if ($user['role'] === 'dosen') {
+        $userResponse['dosen'] = $dosenData;
+    }
+    if ($user['role'] === 'tendik') {
+        $userResponse['tendik'] = $tendikData;
+    }
+    if ($user['role'] === 'admin' || $user['role'] === 'demo') {
         $userResponse['can_edit_dosen'] = $canEditDosen ?? true;
         $userResponse['can_edit_mahasiswa'] = $canEditMahasiswa ?? true;
+    }
+    if ($user['role'] === 'demo') {
+        $userResponse['demo_mode'] = true;
+        $userResponse['demo_session_id'] = $tokenPayload['sid'];
     }
 
     echo json_encode([
@@ -242,6 +351,7 @@ try {
             'jwt' => $accessToken,
             'refreshToken' => $refreshToken,
             'user' => $userResponse,
+            'role' => $user['role'],
         ],
         'message' => 'Login berhasil',
     ]);

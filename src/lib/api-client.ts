@@ -3,6 +3,14 @@
  * Handles authentication, error handling, and request/response transformations
  */
 
+import { sandboxSession } from './sandbox/sandbox-session';
+import {
+  handleSandboxMutation,
+  applySandboxOverlay,
+  handleSandboxFileUpload,
+} from './sandbox/sandbox-adapter';
+import { getSnapshot } from './sandbox/sandbox-db';
+
 /** Base path dari Vite (tanpa trailing slash): "" atau "/Arsipmhs2". */
 const getBasePath = (): string => (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
 
@@ -222,12 +230,31 @@ export class ApiClient {
       params?: Record<string, string | number | boolean>;
       /** Override timeout untuk request ini (ms). Berguna untuk operasi lama seperti kirim notifikasi banyak. */
       timeout?: number;
+      skipSandbox?: boolean;
       _retriedAfterRefresh?: boolean;
       _retriedWithLatestToken?: boolean;
       _retriedTransientAuth?: boolean;
     } = {}
   ): Promise<ApiResponse<T>> {
     const { _retriedAfterRefresh, _retriedWithLatestToken, _retriedTransientAuth, timeout: requestTimeout, ...requestOptions } = options;
+    const cleanEndpoint = endpoint.replace(/^\/+/, '').split('?')[0];
+    const isAuthEndpoint = cleanEndpoint.startsWith('auth/');
+    const isErrorLogEndpoint = cleanEndpoint === 'logs/log_error.php';
+
+    // Intercept mutations in Demo Mode
+    if (
+      !requestOptions.skipSandbox &&
+      sandboxSession.isDemoActive() &&
+      !isAuthEndpoint &&
+      !isErrorLogEndpoint
+    ) {
+      if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
+        const simResponse = await handleSandboxMutation(endpoint, requestOptions.body, {
+          params: requestOptions.params,
+        });
+        return simResponse as ApiResponse<T>;
+      }
+    }
     const effectiveTimeout = requestTimeout ?? this.timeout;
     const url = new URL(`${this.baseURL}/${endpoint}`);
     // Browser: localStorage jadi single source of truth agar token in-memory tidak usang.
@@ -432,11 +459,28 @@ export class ApiClient {
       cancelPendingUnauthorizedLogout();
 
       // Return formatted response
-      return typeof data === 'object' && data !== null
-        ? (data as ApiResponse<T>)
+      let finalData = data;
+      if (
+        !requestOptions.skipSandbox &&
+        sandboxSession.isDemoActive() &&
+        !isAuthEndpoint &&
+        method === 'GET' &&
+        finalData !== undefined
+      ) {
+        try {
+          finalData = await applySandboxOverlay(endpoint, finalData, {
+            params: requestOptions.params,
+          });
+        } catch (overlayErr) {
+          console.error('[ApiClient] Error applying sandbox overlay:', overlayErr);
+        }
+      }
+
+      return typeof finalData === 'object' && finalData !== null
+        ? (finalData as ApiResponse<T>)
         : {
             success: true,
-            data: data as T,
+            data: finalData as T,
           };
     } catch (error) {
       clearTimeout(timeoutId);
@@ -447,6 +491,35 @@ export class ApiClient {
           success: false,
           error: `Request timeout after ${effectiveTimeout}ms`,
         };
+      }
+
+      // If demo mode is active and GET failed due to network error, fallback to IndexedDB snapshot
+      if (
+        !requestOptions.skipSandbox &&
+        sandboxSession.isDemoActive() &&
+        method === 'GET' &&
+        !isAuthEndpoint
+      ) {
+        const sid = sandboxSession.getSid();
+        if (sid) {
+          try {
+            const snap = await getSnapshot(sid, endpoint);
+            if (snap?.data) {
+              const overlaid = await applySandboxOverlay(endpoint, snap.data, {
+                params: requestOptions.params,
+              });
+              sandboxSession.setSyncStatus('stale');
+              return typeof overlaid === 'object' && overlaid !== null
+                ? (overlaid as ApiResponse<T>)
+                : {
+                    success: true,
+                    data: overlaid as T,
+                  };
+            }
+          } catch (snapErr) {
+            console.warn('[ApiClient] Failed to load snapshot fallback:', snapErr);
+          }
+        }
       }
 
       // Handle network errors
@@ -483,6 +556,56 @@ export class ApiClient {
    */
   async delete<T>(endpoint: string, options?: Omit<Parameters<typeof this.makeRequest>[2], 'body'>): Promise<ApiResponse<T>> {
     return this.makeRequest<T>('DELETE', endpoint, options);
+  }
+
+  /**
+   * Upload file (FormData) with demo mode sandbox support
+   */
+  async uploadFile<T>(
+    endpoint: string,
+    formData: FormData,
+    options?: { headers?: Record<string, string>; timeout?: number; skipSandbox?: boolean }
+  ): Promise<ApiResponse<T>> {
+    if (!options?.skipSandbox && sandboxSession.isDemoActive()) {
+      return (await handleSandboxFileUpload(endpoint, formData)) as ApiResponse<T>;
+    }
+
+    const effectiveTimeout = options?.timeout ?? this.timeout;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), effectiveTimeout);
+    const url = `${this.baseURL}/${endpoint.replace(/^\/+/, '')}`;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : this.token;
+
+    const headers: Record<string, string> = {
+      ...(token ? { Authorization: `Bearer ${token}`, 'X-Auth-Token': token } : {}),
+      ...(options?.headers || {}),
+    };
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: formData,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data?.error || `Upload gagal dengan status ${response.status}`,
+          code: data?.code,
+        };
+      }
+      return data as ApiResponse<T>;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Upload gagal',
+      };
+    }
   }
 }
 

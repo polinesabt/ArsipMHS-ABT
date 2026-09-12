@@ -932,6 +932,7 @@ export function AdminStudentEditModal({
                 <div className="space-y-3">
                   {achievements.map((achievement) => {
                     const categoryInfo = ACHIEVEMENT_CATEGORIES[achievement.category];
+                    const achievementRecord = achievement as unknown as Record<string, unknown>;
                     return (
                       <div
                         key={achievement.id}
@@ -955,28 +956,28 @@ export function AdminStudentEditModal({
                             </div>
                             <h5 className="font-medium">
                                {String(
-                                 (achievement as Record<string, unknown>).namaLomba || 
-                                 (achievement as Record<string, unknown>).judulPublikasi ||
-                                 (achievement as Record<string, unknown>).namaSeminar || 
-                                 (achievement as Record<string, unknown>).judul || 
-                                 (achievement as Record<string, unknown>).namaPerusahaan ||
-                                 (achievement as Record<string, unknown>).namaUsaha ||
-                                 (achievement as Record<string, unknown>).namaProgram ||
-                                 (achievement as Record<string, unknown>).namaOrganisasi ||
-                                 (achievement as Record<string, unknown>).judulProyek ||
+                                 achievementRecord.namaLomba || 
+                                 achievementRecord.judulPublikasi ||
+                                 achievementRecord.namaSeminar || 
+                                 achievementRecord.judul || 
+                                 achievementRecord.namaPerusahaan ||
+                                 achievementRecord.namaUsaha ||
+                                 achievementRecord.namaProgram ||
+                                 achievementRecord.namaOrganisasi ||
+                                 achievementRecord.judulProyek ||
                                  'Prestasi'
                                )}
                              </h5>
                              <p className="text-sm text-muted-foreground">
                                {String(
-                                 (achievement as Record<string, unknown>).penyelenggara || 
-                                 (achievement as Record<string, unknown>).posisi ||
-                                 (achievement as Record<string, unknown>).jabatan ||
-                                 (achievement as Record<string, unknown>).mataKuliah ||
+                                 achievementRecord.penyelenggara || 
+                                 achievementRecord.posisi ||
+                                 achievementRecord.jabatan ||
+                                 achievementRecord.mataKuliah ||
                                  ''
                                )}
-                               {Boolean((achievement as Record<string, unknown>).tahun) && ` • ${String((achievement as Record<string, unknown>).tahun)}`}
-                               {Boolean((achievement as Record<string, unknown>).tahunPengajuan) && ` • ${String((achievement as Record<string, unknown>).tahunPengajuan)}`}
+                               {Boolean(achievementRecord.tahun) && ` • ${String(achievementRecord.tahun)}`}
+                               {Boolean(achievementRecord.tahunPengajuan) && ` • ${String(achievementRecord.tahunPengajuan)}`}
                              </p>
                           </div>
                           <div className="flex gap-1">

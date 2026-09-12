@@ -59,30 +59,29 @@ export default function AIInsightPage() {
       const topJurusan = Object.entries(jurusanBekerja).sort((a, b) => b[1] - a[1])[0];
 
       const generatedInsights = [
-        `## Tingkat Keterserapan Kerja\n\nDari total ${total} alumni yang telah tercatat di Arsip Mahasiswa Prodi ABT, sebanyak **${bekerjaPercent}%** saat ini berstatus bekerja. Angka ini menunjukkan tingkat employability yang ${bekerjaPercent >= 70 ? 'sangat baik dan sejalan dengan target program studi' : bekerjaPercent >= 50 ? 'cukup baik namun masih perlu ditingkatkan' : 'perlu perhatian khusus dari pihak program studi'}.`,
+        `## Tingkat Keterserapan Kerja\n\nDari total ${total} alumni yang telah tercatat di Arsip Mahasiswa Prodi ABT, sebanyak **${bekerjaPercent}%** saat ini berstatus bekerja. Angka ini menunjukkan tingkat keterserapan yang ${bekerjaPercent >= 70 ? 'sangat baik dan sejalan dengan target program studi' : bekerjaPercent >= 50 ? 'cukup baik namun masih perlu ditingkatkan' : 'perlu perhatian khusus dari pihak program studi'}.`,
 
-        `## Tren Kewirausahaan\n\nSebanyak **${wirausahaPercent}%** alumni memilih jalur wirausaha. ${wirausahaPercent >= 20 ? 'Ini menunjukkan jiwa entrepreneurship yang tinggi di kalangan alumni ABT Polines, selaras dengan kurikulum yang menekankan kewirausahaan.' : 'Kampus dapat mempertimbangkan penguatan program inkubasi bisnis dan mentoring kewirausahaan untuk meningkatkan minat berwirausaha di kalangan mahasiswa.'}`,
+        `## Tren Kewirausahaan\n\nSebanyak **${wirausahaPercent}%** alumni memilih jalur wirausaha. ${wirausahaPercent >= 20 ? 'Ini menunjukkan jiwa kewirausahaan yang baik di kalangan alumni ABT Polines, selaras dengan profil lulusan.' : 'Kampus dapat mempertimbangkan penguatan program inkubasi bisnis dan mentoring kewirausahaan untuk meningkatkan minat berwirausaha.'}`,
 
-        topIndustry ? `## Industri Dominan\n\nSektor **${topIndustry[0]}** menjadi pilihan terbanyak dengan ${topIndustry[1]} alumni. Hal ini menunjukkan kesesuaian kurikulum ABT dengan kebutuhan industri tersebut dan dapat menjadi acuan untuk penguatan mata kuliah terkait.` : '',
+        topIndustry ? `## Industri Dominan\n\nSektor **${topIndustry[0]}** menjadi pilihan terbanyak dengan ${topIndustry[1]} alumni. Hal ini menunjukkan kesesuaian kurikulum ABT dengan kebutuhan industri tersebut dan dapat menjadi acuan untuk penguatan kurikulum terkait.` : '',
 
-        topLocation ? `## Persebaran Lokasi Kerja\n\n**${topLocation[0]}** menjadi lokasi kerja terfavorit dengan ${topLocation[1]} alumni. Data ini dapat menjadi acuan untuk program kerjasama industri dan penempatan magang mahasiswa.` : '',
+        topLocation ? `## Persebaran Lokasi Kerja\n\n**${topLocation[0]}** menjadi lokasi kerja terfavorit dengan ${topLocation[1]} alumni. Data ini dapat menjadi acuan untuk program kemitraan industri dan penempatan magang mahasiswa.` : '',
 
-        topJurusan ? `## Analisis Per Jurusan\n\nAlumni dari jurusan **${topJurusan[0]}** menunjukkan tingkat keterserapan kerja tertinggi dengan ${topJurusan[1]} alumni bekerja. Best practice dari jurusan ini dapat diterapkan ke jurusan lainnya.` : '',
+        topJurusan ? `## Analisis Program Studi\n\nAlumni dari bidang peminatan **${topJurusan[0]}** menunjukkan tingkat keterserapan kerja tertinggi dengan ${topJurusan[1]} alumni bekerja.` : '',
 
         studi.length > 0 ? `## Minat Studi Lanjut\n\nTerdapat **${studi.length} alumni** yang melanjutkan pendidikan ke jenjang yang lebih tinggi. Ini menunjukkan komitmen untuk pengembangan akademik dan dapat menjadi indikator positif untuk akreditasi program studi.` : '',
 
-        mencari.length > 0 ? `## Alumni Mencari Kerja\n\nSaat ini terdapat **${mencari.length} alumni** yang sedang aktif mencari pekerjaan. Program studi dapat membantu melalui program job fair, career counseling, atau menghubungkan dengan mitra industri.` : '',
+        mencari.length > 0 ? `## Alumni Mencari Kerja\n\nSaat ini terdapat **${mencari.length} alumni** yang sedang aktif mencari pekerjaan. Program studi dapat membantu melalui bursa kerja (job fair) atau pusat karir kampus.` : '',
 
-        `## Rekomendasi Strategis\n\nBerdasarkan analisis data Arsip Mahasiswa Prodi ABT, disarankan untuk:\n1. Memperkuat kerjasama dengan industri ${topIndustry?.[0] || 'unggulan'}\n2. Mengembangkan program magang yang lebih intensif\n3. Menyelenggarakan alumni networking secara berkala\n4. Meningkatkan pelatihan soft skill dan sertifikasi kompetensi`,
+        `## Rekomendasi Strategis\n\nBerdasarkan analisis data Arsip Mahasiswa Prodi ABT, disarankan untuk:\n1. Memperkuat kerjasama dengan industri ${topIndustry?.[0] || 'unggulan'}\n2. Mengembangkan program magang industri bersertifikat\n3. Menyelenggarakan jejaring alumni secara berkala\n4. Meningkatkan pelatihan kompetensi profesional dan sertifikasi keahlian`,
       ].filter(Boolean);
 
       setInsights(generatedInsights);
       setIsGenerating(false);
-    }, 2500);
+    }, 1500);
   };
 
   const handleCopyInsight = (insight: string, index: number) => {
-    // Remove markdown formatting for plain text copy
     const plainText = insight.replace(/##\s*/g, '').replace(/\*\*/g, '').replace(/\n\n/g, '\n');
     navigator.clipboard.writeText(plainText);
     setCopiedIndex(index);
@@ -93,7 +92,7 @@ export default function AIInsightPage() {
   const handleCopyAll = () => {
     const allText = insights.map(i => i.replace(/##\s*/g, '').replace(/\*\*/g, '').replace(/\n\n/g, '\n')).join('\n\n---\n\n');
     navigator.clipboard.writeText(allText);
-    toast({ title: 'Semua insight disalin ke clipboard' });
+    toast({ title: 'Semua analisis disalin ke clipboard' });
   };
 
   // Stats
@@ -106,22 +105,22 @@ export default function AIInsightPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <main className="pb-12 sm:pb-16">
+      <main className="py-8 sm:py-12">
         <div className="container mx-auto px-4">
           <div className="max-w-5xl mx-auto">
             {/* Header */}
             <div className="mb-8 animate-fade-up">
-              <Link to="/admin" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
+              <Link to="/admin" className="inline-flex items-center gap-2 text-xs sm:text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors">
                 <ArrowLeft className="w-4 h-4" />
-                Kembali ke Dashboard
+                Kembali ke Dashboard Admin
               </Link>
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-primary to-info flex items-center justify-center shadow-glow">
-                  <Sparkles className="w-8 h-8 text-primary-foreground" />
+                <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shadow-xs">
+                  <Sparkles className="w-6 h-6 sm:w-7 sm:h-7" />
                 </div>
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Insight</h1>
-                  <p className="text-muted-foreground">Analisis cerdas data alumni secara otomatis.</p>
+                  <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Analisis & Rekomendasi Data</h1>
+                  <p className="text-sm text-muted-foreground">Rangkuman analitik agregat data alumni dan lulusan ABT Polines.</p>
                 </div>
               </div>
             </div>
@@ -136,25 +135,25 @@ export default function AIInsightPage() {
 
             {/* Generate Button */}
             {insights.length === 0 && (
-              <div className="glass-card rounded-2xl p-6 sm:p-10 text-center mb-8 animate-fade-up">
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/20 to-info/20 flex items-center justify-center mx-auto mb-6">
-                  <Sparkles className="w-10 h-10 text-primary" />
+              <div className="rounded-2xl border border-border/80 bg-card p-6 sm:p-10 text-center mb-8 animate-fade-up shadow-card">
+                <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto mb-5 shadow-xs">
+                  <Sparkles className="w-8 h-8" />
                 </div>
-                <h2 className="text-2xl font-bold text-foreground mb-3">Siap Menganalisis Data Alumni</h2>
-                <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
-                  Sistem akan menganalisis seluruh data alumni dan menghasilkan insight dalam format
-                  laporan naratif yang siap digunakan untuk kebutuhan akreditasi dan pelaporan.
+                <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-2">Siap Menganalisis Data Alumni</h2>
+                <p className="text-sm text-muted-foreground mb-6 max-w-lg mx-auto leading-relaxed">
+                  Sistem akan mengolah seluruh data alumni terdaftar dan menghasilkan ringkasan naratif
+                  yang siap digunakan untuk evaluasi mutu dan pelaporan program studi.
                 </p>
-                <Button onClick={generateInsights} disabled={isGenerating} size="lg" className="px-8">
+                <Button onClick={generateInsights} disabled={isGenerating} size="default" className="px-6 font-semibold">
                   {isGenerating ? (
                     <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Menganalisis Data...
+                      <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                      Memproses Analisis...
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-5 h-5 mr-2" />
-                      Generate Insight
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Mulai Analisis
                     </>
                   )}
                 </Button>
@@ -164,16 +163,16 @@ export default function AIInsightPage() {
             {/* Insights */}
             {insights.length > 0 && (
               <div className="space-y-4 animate-fade-up">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-                  <h2 className="text-xl font-semibold text-foreground">Hasil Analisis</h2>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+                  <h2 className="text-lg sm:text-xl font-bold text-foreground">Hasil Analisis & Rekomendasi</h2>
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={handleCopyAll}>
-                      <Copy className="w-4 h-4 mr-2" />
-                      Salin Semua
+                    <Button variant="outline" size="sm" onClick={handleCopyAll} className="text-xs">
+                      <Copy className="w-3.5 h-3.5 mr-1.5" />
+                      Salin Semua Laporan
                     </Button>
-                    <Button variant="outline" size="sm" onClick={generateInsights} disabled={isGenerating}>
-                      {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                      <span className="ml-2">Regenerate</span>
+                    <Button variant="outline" size="sm" onClick={generateInsights} disabled={isGenerating} className="text-xs">
+                      {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                      <span className="ml-1.5">Perbarui Analisis</span>
                     </Button>
                   </div>
                 </div>
@@ -181,32 +180,33 @@ export default function AIInsightPage() {
                 {insights.map((insight, index) => (
                   <div
                     key={index}
-                    className="glass-card rounded-xl p-6 animate-fade-up group relative"
+                    className="rounded-xl border border-border/80 bg-card p-5 sm:p-6 animate-fade-up group relative shadow-card"
                   >
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity h-8 px-2.5 text-xs text-muted-foreground"
                       onClick={() => handleCopyInsight(insight, index)}
                     >
                       {copiedIndex === index ? (
-                        <Check className="w-4 h-4 text-success" />
+                        <Check className="w-3.5 h-3.5 text-success" />
                       ) : (
-                        <Copy className="w-4 h-4" />
+                        <Copy className="w-3.5 h-3.5" />
                       )}
+                      <span className="ml-1">{copiedIndex === index ? 'Tersalin' : 'Salin'}</span>
                     </Button>
                     <div className="prose prose-sm max-w-none text-foreground">
                       {insight.split('\n').map((line, i) => {
                         if (line.startsWith('## ')) {
-                          return <h3 key={i} className="text-lg font-semibold text-foreground mb-3 mt-0">{line.replace('## ', '')}</h3>;
+                          return <h3 key={i} className="text-base font-semibold text-foreground mb-2 mt-0">{line.replace('## ', '')}</h3>;
                         }
                         if (line.startsWith('1. ') || line.startsWith('2. ') || line.startsWith('3. ') || line.startsWith('4. ')) {
-                          return <p key={i} className="text-muted-foreground mb-1 ml-4">{line}</p>;
+                          return <p key={i} className="text-muted-foreground mb-1 ml-4 text-xs sm:text-sm">{line}</p>;
                         }
                         return (
-                          <p key={i} className="text-muted-foreground mb-2">
+                          <p key={i} className="text-muted-foreground mb-2 text-xs sm:text-sm leading-relaxed">
                             {line.split('**').map((part, j) =>
-                              j % 2 === 1 ? <strong key={j} className="text-foreground">{part}</strong> : part
+                              j % 2 === 1 ? <strong key={j} className="text-foreground font-semibold">{part}</strong> : part
                             )}
                           </p>
                         );
@@ -216,17 +216,16 @@ export default function AIInsightPage() {
                 ))}
 
                 {/* AI Note */}
-                <div className="glass-card rounded-xl p-5 bg-primary/5 border-primary/20 mt-6">
+                <div className="rounded-xl p-4 sm:p-5 bg-primary/5 border border-primary/20 mt-6">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <FileText className="w-5 h-5 text-primary" />
+                    <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <FileText className="w-4 h-4" />
                     </div>
                     <div>
-                      <p className="font-medium text-foreground mb-1">Catatan Penggunaan</p>
-                      <p className="text-sm text-muted-foreground">
-                        Insight ini dihasilkan berdasarkan data yang tersedia saat ini di Arsip Mahasiswa Prodi ABT.
-                        Untuk hasil yang lebih akurat, pastikan lebih banyak alumni telah melengkapi data pada sistem arsip.
-                        Konten dapat langsung disalin dan digunakan untuk keperluan pelaporan akreditasi.
+                      <p className="font-semibold text-xs sm:text-sm text-foreground mb-1">Catatan Pelaporan</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Analisis ini dihitung berdasarkan data tersimpan di Arsip Mahasiswa Prodi ABT.
+                        Data dapat langsung disalin dan dilampirkan dalam berkas evaluasi diri atau akreditasi program studi.
                       </p>
                     </div>
                   </div>

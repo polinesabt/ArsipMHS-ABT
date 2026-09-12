@@ -34,6 +34,11 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { StudentLayout } from "@/components/student/StudentLayout";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
 import NotFound from "./pages/NotFound";
+import DosenProfilePage from "./pages/DosenProfilePage";
+import DosenSelfServicePage from "./pages/DosenSelfServicePage";
+import { DosenLayout } from "@/components/dosen/DosenLayout";
+import TendikProfilePage from "./pages/TendikProfilePage";
+import { TendikLayout } from "@/components/tendik/TendikLayout";
 
 // Redirect helpers with params matching for backward compatibility
 function NavigateToInsightDashboard() {
@@ -86,6 +91,29 @@ function App() {
               <Route path="/riwayat-karir" element={<Navigate to="/student/riwayat-karir" replace />} />
               
               <Route path="/evaluasi-lulusan/survey/:token" element={<EvaluationSurveyPage />} />
+
+              <Route path="/dosen" element={
+                <ProtectedRoute requiredRole="dosen">
+                  <DosenLayout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<Navigate to="profil" replace />} />
+                <Route path="profil" element={<DosenProfilePage />} />
+                <Route path="pengajaran" element={<DosenSelfServicePage section="pengajaran" />} />
+                <Route path="penelitian" element={<DosenSelfServicePage section="penelitian" />} />
+                <Route path="pengabdian" element={<DosenSelfServicePage section="pengabdian" />} />
+                <Route path="waktu-mengajar" element={<DosenSelfServicePage section="waktu_mengajar" />} />
+                <Route path="luaran" element={<DosenSelfServicePage section="luaran" />} />
+              </Route>
+
+              <Route path="/tendik" element={
+                <ProtectedRoute requiredRole="tendik">
+                  <TendikLayout />
+                </ProtectedRoute>
+              }>
+                <Route index element={<Navigate to="profil" replace />} />
+                <Route path="profil" element={<TendikProfilePage />} />
+              </Route>
               
               {/* Developer protected routes */}
               <Route path="/developer/dashboard" element={

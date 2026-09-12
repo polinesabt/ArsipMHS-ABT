@@ -13,38 +13,17 @@ import {
   importAchievementsFromExcelViaAPI,
   listAchievementImportLogsViaAPI,
 } from '@/repositories/api-student.repository';
+import { ACHIEVEMENT_IMPORT_CATEGORY_META } from '@/constants/achievement-import.constants';
 
-interface CategoryMeta {
-  label: string;
-  group: 'academic' | 'non_academic';
-}
+const CATEGORY_META = ACHIEVEMENT_IMPORT_CATEGORY_META;
 
-const CATEGORY_META: Record<AchievementImportCategory, CategoryMeta> = {
-  publikasi: { label: 'Karya Ilmiah & Publikasi', group: 'academic' },
-  jurnal: { label: 'Jurnal', group: 'academic' },
-  portofolio: { label: 'Portofolio Praktikum Kelas', group: 'academic' },
-  lomba: { label: 'Lomba', group: 'non_academic' },
-  kekayaan_intelektual: { label: 'Kekayaan Intelektual', group: 'non_academic' },
-  magang: { label: 'Pengalaman Magang', group: 'non_academic' },
-  produk_mahasiswa: { label: 'Produk Mahasiswa', group: 'non_academic' },
-  wirausaha: { label: 'Pengalaman Wirausaha', group: 'non_academic' },
-  pengembangan_diri: { label: 'Program Pengembangan Diri', group: 'non_academic' },
-  organisasi: { label: 'Organisasi & Kepemimpinan', group: 'non_academic' },
-  seminar: { label: 'Publikasi di Seminar', group: 'non_academic' },
-  pagelaran: { label: 'Pagelaran / Presentasi', group: 'non_academic' },
-};
-
-const ACADEMIC_CATEGORIES: AchievementImportCategory[] = ['publikasi', 'portofolio'];
-const NON_ACADEMIC_CATEGORIES: AchievementImportCategory[] = [
-  'lomba',
-  'kekayaan_intelektual',
-  'magang',
-  'produk_mahasiswa',
-  'wirausaha',
-  'pengembangan_diri',
-  'organisasi',
-  'seminar',
-];
+const ALL_CATEGORIES = Object.keys(ACHIEVEMENT_IMPORT_CATEGORY_META) as AchievementImportCategory[];
+const ACADEMIC_CATEGORIES: AchievementImportCategory[] = ALL_CATEGORIES.filter(
+  (cat) => ACHIEVEMENT_IMPORT_CATEGORY_META[cat].group === 'academic'
+);
+const NON_ACADEMIC_CATEGORIES: AchievementImportCategory[] = ALL_CATEGORIES.filter(
+  (cat) => ACHIEVEMENT_IMPORT_CATEGORY_META[cat].group === 'non_academic'
+);
 
 export default function AdminPrestasiImportPage() {
   const { toast } = useToast();

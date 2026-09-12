@@ -33,6 +33,7 @@ $sectionToTable = [
 
 try {
     $auth = requireAuth('admin');
+    requireProductionWrite($auth);
     $adminId = $auth['sub'] ?? '';
 
     $input = json_decode(file_get_contents('php://input'), true) ?: [];

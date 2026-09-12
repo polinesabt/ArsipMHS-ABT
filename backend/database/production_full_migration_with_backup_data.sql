@@ -2,7 +2,7 @@
 -- ARSIP MAHASISWA & DOSEN PRODI ABT - POLITEKNIK NEGERI SEMARANG
 -- FULL PRODUCTION MIGRATION & DATA RESTORATION (IF NOT EXISTS LOGIC)
 -- =====================================================================
--- Total Objek Database: 71 (Base Tables: 67, Views: 4)
+-- Total Objek Database: 73 (Base Tables: 69, Views: 4)
 -- Karakteristik: Aman untuk Production (Non-Destructive, Idempotent, & Data Restoring)
 -- Jaminan      : 1. Seluruh 71 tabel & view diperbarui ke arsitektur terbaru.
 --                2. Data backup dari 'arsw7919_arsipmhs.sql' disinkronkan
@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS `chart_sync_log` (
 -- Tabel: dosen
 CREATE TABLE IF NOT EXISTS `dosen` (
   `id` varchar(36) NOT NULL COMMENT 'UUID / Unique ID',
+  `user_id` varchar(36) DEFAULT NULL,
   `nidn` varchar(20) NOT NULL COMMENT 'Nomor Induk Dosen Nasional / NIDK',
   `nama` varchar(150) NOT NULL COMMENT 'Nama Lengkap beserta Gelar Akademik',
   `status_dosen` enum('Tetap','Tidak Tetap') NOT NULL DEFAULT 'Tetap' COMMENT 'Status Kepegawaian',
@@ -93,10 +94,12 @@ CREATE TABLE IF NOT EXISTS `dosen` (
   `deleted_by` varchar(36) DEFAULT NULL COMMENT 'Admin yang menghapus data',
   PRIMARY KEY (`id`),
   UNIQUE KEY `nidn` (`nidn`),
+  UNIQUE KEY `uk_dosen_user_id` (`user_id`),
   KEY `idx_dosen_nidn` (`nidn`),
   KEY `idx_dosen_nama` (`nama`),
   KEY `idx_dosen_status` (`status_dosen`),
-  KEY `idx_dosen_deleted` (`deleted_at`)
+  KEY `idx_dosen_deleted` (`deleted_at`),
+  CONSTRAINT `fk_dosen_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Master Data Dosen (SSOT)';
 
 -- Tabel: dosen_archives
@@ -112,6 +115,42 @@ CREATE TABLE IF NOT EXISTS `dosen_archives` (
   KEY `idx_arch_nama` (`nama`),
   KEY `idx_arch_expires` (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Arsip Dosen Soft Delete 20 Hari';
+
+-- Tabel: dosen_import_log_details
+CREATE TABLE IF NOT EXISTS `dosen_import_log_details` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `import_log_id` varchar(36) NOT NULL,
+  `row_number` int(11) NOT NULL,
+  `identity_raw` varchar(100) DEFAULT NULL,
+  `status` enum('inserted','skipped','error') NOT NULL,
+  `message` text NOT NULL,
+  `raw_payload_json` longtext DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_dosen_import_detail_log` (`import_log_id`),
+  KEY `idx_dosen_import_detail_status` (`status`),
+  CONSTRAINT `fk_dosen_import_detail_log` FOREIGN KEY (`import_log_id`) REFERENCES `dosen_import_logs` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Tabel: dosen_import_logs
+CREATE TABLE IF NOT EXISTS `dosen_import_logs` (
+  `id` varchar(36) NOT NULL,
+  `module` enum('pengelolaan','pengajaran','penelitian','pengabdian','waktu_mengajar','tendik','luaran') NOT NULL,
+  `uploaded_by` varchar(36) NOT NULL,
+  `file_name` varchar(255) NOT NULL,
+  `total_rows` int(11) NOT NULL DEFAULT 0,
+  `success_rows` int(11) NOT NULL DEFAULT 0,
+  `skipped_rows` int(11) NOT NULL DEFAULT 0,
+  `failed_rows` int(11) NOT NULL DEFAULT 0,
+  `affected_dosen` int(11) NOT NULL DEFAULT 0,
+  `status` enum('processing','completed','completed_with_errors','failed') NOT NULL DEFAULT 'processing',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `finished_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_dosen_import_module_created` (`module`,`created_at`),
+  KEY `idx_dosen_import_uploaded_by` (`uploaded_by`),
+  CONSTRAINT `fk_dosen_import_uploaded_by` FOREIGN KEY (`uploaded_by`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Tabel: dosen_luaran_penelitian_pkm
 CREATE TABLE IF NOT EXISTS `dosen_luaran_penelitian_pkm` (
@@ -1416,6 +1455,7 @@ CREATE TABLE IF NOT EXISTS `tenaga_kependidikan` (
   `nama` varchar(150) NOT NULL COMMENT 'Nama Lengkap Tendik',
   `status` enum('Tetap','Tidak Tetap') NOT NULL DEFAULT 'Tetap',
   `jabatan` varchar(150) NOT NULL COMMENT 'Jabatan & Golongan',
+  `golongan` varchar(100) DEFAULT NULL,
   `pendidikan_d3` varchar(150) DEFAULT '-' COMMENT 'Jurusan D3',
   `pendidikan_s1` varchar(150) DEFAULT '-' COMMENT 'Jurusan S1/D4',
   `pendidikan_s2` varchar(150) DEFAULT '-' COMMENT 'Jurusan S2',
@@ -1466,7 +1506,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `username` varchar(50) NOT NULL COMMENT 'Login username (admin or NIM)',
   `password_hash` varchar(255) NOT NULL COMMENT 'Bcrypt hashed password',
   `nama` varchar(100) NOT NULL COMMENT 'Full name',
-  `role` enum('admin','student','developer') NOT NULL DEFAULT 'student',
+  `role` enum('admin','student','developer','dosen') NOT NULL DEFAULT 'student',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp() COMMENT 'Account creation date',
   `last_login` timestamp NULL DEFAULT NULL COMMENT 'Last login timestamp',
   `is_active` tinyint(1) DEFAULT 1 COMMENT 'Account status',
@@ -1481,7 +1521,16 @@ CREATE TABLE IF NOT EXISTS `users` (
 -- BAGIAN 2: SAFE IDEMPOTENT COLUMN & ENUM UPDATES (UNTUK TABEL EKSIS)
 -- =====================================================================
 
-ALTER TABLE users MODIFY COLUMN role ENUM('admin', 'student', 'developer') NOT NULL DEFAULT 'student';
+ALTER TABLE users MODIFY COLUMN role ENUM('admin', 'student', 'developer', 'dosen') NOT NULL DEFAULT 'student';
+ALTER TABLE users MODIFY COLUMN nama VARCHAR(150) NOT NULL;
+SET @col_exist := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dosen' AND COLUMN_NAME = 'user_id');
+SET @query := IF(@col_exist = 0, 'ALTER TABLE dosen ADD COLUMN user_id VARCHAR(36) NULL AFTER id', 'SELECT 1');
+PREPARE stmt FROM @query; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @col_exist := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tenaga_kependidikan' AND COLUMN_NAME = 'golongan');
+SET @query := IF(@col_exist = 0, 'ALTER TABLE tenaga_kependidikan ADD COLUMN golongan VARCHAR(100) NULL AFTER jabatan', 'SELECT 1');
+PREPARE stmt FROM @query; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 SET @col_exist := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'admins' AND COLUMN_NAME = 'can_edit_dosen');
 SET @query := IF(@col_exist = 0, 'ALTER TABLE admins ADD COLUMN can_edit_dosen TINYINT(1) NOT NULL DEFAULT 1 COMMENT \'Permission to edit dosen data\'', 'SELECT 1');
 PREPARE stmt FROM @query; EXECUTE stmt; DEALLOCATE PREPARE stmt;

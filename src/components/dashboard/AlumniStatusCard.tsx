@@ -65,9 +65,10 @@ export function AlumniStatusCard({
               <p className="text-sm font-medium text-foreground">{lockedMessage.title}</p>
               <p className="text-sm text-muted-foreground leading-relaxed">{lockedMessage.message}</p>
             </div>
-            <p className="text-xs text-muted-foreground mt-3 px-3 py-2 rounded-lg bg-muted/50 border border-border/50">
-              🔒 Fitur ini hanya tersedia untuk mahasiswa dengan status Alumni.
-            </p>
+            <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground mt-3 px-3 py-1.5 rounded-lg bg-muted/60 border border-border/60">
+              <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <span>Fitur ini hanya tersedia untuk mahasiswa dengan status Alumni.</span>
+            </div>
           </div>
         </div>
       </div>

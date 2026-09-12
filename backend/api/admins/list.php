@@ -20,24 +20,26 @@ try {
 
     $payload = requireAuth('developer');
 
-    // Defensive table & column check
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS admins (
-          id VARCHAR(36) PRIMARY KEY COMMENT 'FK to users.id',
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Admin creation date',
-          can_edit_dosen TINYINT(1) NOT NULL DEFAULT 1,
-          can_edit_mahasiswa TINYINT(1) NOT NULL DEFAULT 1,
-          FOREIGN KEY (id) REFERENCES users(id) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    ");
+    if (!auth_is_demo($payload)) {
+        // Defensive table & column check
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS admins (
+              id VARCHAR(36) PRIMARY KEY COMMENT 'FK to users.id',
+              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Admin creation date',
+              can_edit_dosen TINYINT(1) NOT NULL DEFAULT 1,
+              can_edit_mahasiswa TINYINT(1) NOT NULL DEFAULT 1,
+              FOREIGN KEY (id) REFERENCES users(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        ");
 
-    // Sync any unmapped admin users into admins table
-    $pdo->exec("
-        INSERT IGNORE INTO admins (id, created_at, can_edit_dosen, can_edit_mahasiswa)
-        SELECT id, NOW(), 1, 1
-        FROM users
-        WHERE role = 'admin'
-    ");
+        // Sync any unmapped admin users into admins table
+        $pdo->exec("
+            INSERT IGNORE INTO admins (id, created_at, can_edit_dosen, can_edit_mahasiswa)
+            SELECT id, NOW(), 1, 1
+            FROM users
+            WHERE role = 'admin'
+        ");
+    }
 
     $sql = "
         SELECT 

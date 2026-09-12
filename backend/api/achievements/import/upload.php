@@ -25,6 +25,7 @@ const MAX_IMPORT_FILE_SIZE = 10 * 1024 * 1024;
 
 try {
     $auth = requireAuth('admin');
+    requireProductionWrite($auth);
     prestasi_import_require_spreadsheet();
 
     $kategori = isset($_POST['kategori']) ? trim((string)$_POST['kategori']) : '';

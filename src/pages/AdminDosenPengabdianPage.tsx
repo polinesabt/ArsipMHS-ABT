@@ -40,6 +40,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useDosen } from '@/contexts/DosenContext';
+import { DosenImportButton } from '@/components/admin/DosenImportButton';
+import { DosenImportLogsButton } from '@/components/admin/DosenImportLogsButton';
 import {
   type KontribusiPengabdianDosenItem,
   type PKMItem
@@ -196,7 +198,7 @@ export default function AdminDosenPengabdianPage() {
   };
 
   // Save changes to state and toast
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData) return;
 
     // Clean up blank rows
@@ -209,7 +211,7 @@ export default function AdminDosenPengabdianPage() {
       rekognisi: cleanedRekognisi,
     };
 
-    updateKontribusiPengabdian(finalData.nidn, finalData);
+    await updateKontribusiPengabdian(finalData.nidn, finalData);
 
     setIsEditSheetOpen(false);
     setEditingDosen(null);
@@ -268,6 +270,7 @@ export default function AdminDosenPengabdianPage() {
 
   return (
     <div className="space-y-6 pb-14 font-sans selection:bg-primary/20 selection:text-primary">
+      <div className="flex justify-end gap-2"><DosenImportLogsButton /><DosenImportButton module="pengabdian" title="Kontribusi Pengabdian" /></div>
       {/* 1. MAIN TOOLBAR & CONTROLS */}
       <div className="glass-card rounded-2xl p-5 border border-border/70 bg-card shadow-soft">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -371,121 +374,113 @@ export default function AdminDosenPengabdianPage() {
                       toggleCard(dosen.nidn);
                     }
                   }}
-                  className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 cursor-pointer select-none"
+                  className="p-4 sm:p-5 flex flex-col gap-3 cursor-pointer select-none"
                 >
-                  {/* Left: Avatar & Dosen Info (Fixed Width & Vertical Divider on Large Screens for Crisp Column Alignment) */}
-                  <div className="flex items-center gap-3.5 w-full lg:w-72 xl:w-80 shrink-0 lg:pr-4 lg:border-r lg:border-border/60">
-                    <div
-                      className={`w-11 h-11 rounded-2xl bg-gradient-to-tr ${dosen.avatarColor} text-white font-bold text-base flex items-center justify-center shadow-md shadow-primary/10 shrink-0`}
-                    >
-                      {initial}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border/60 shrink-0">
-                          #{index + 1}
-                        </span>
-                        <h3 className="font-bold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors leading-tight truncate" title={dosen.nama}>
-                          {dosen.nama}
-                        </h3>
+                  {/* Top Tier: Left (Avatar & Dosen Info) + Right (Badges, Edit Button, Chevron) */}
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
+                    {/* Left: Avatar & Dosen Info */}
+                    <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                      <div
+                        className={`w-11 h-11 rounded-2xl bg-gradient-to-tr ${dosen.avatarColor} text-white font-bold text-base flex items-center justify-center shadow-md shadow-primary/10 shrink-0`}
+                      >
+                        {initial}
                       </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs font-mono text-muted-foreground truncate">
-                          NIDN/NIDK: {dosen.nidn}
-                        </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border/60 shrink-0">
+                            #{index + 1}
+                          </span>
+                          <h3 className="font-bold text-sm sm:text-base text-foreground group-hover:text-primary transition-colors leading-tight truncate" title={dosen.nama}>
+                            {dosen.nama}
+                          </h3>
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs font-mono text-muted-foreground truncate">
+                            NIDN/NIDK: {dosen.nidn}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Quick Metric Badges, Edit Button, & Top Chevron Toggle */}
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 shrink-0 self-start lg:self-center">
+                      <div
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-primary/10 border border-primary/20 text-primary text-xs font-semibold whitespace-nowrap"
+                        title="Jumlah kegiatan PKM dosen"
+                      >
+                        <HeartHandshake className="w-3 h-3" />
+                        <span>{dosen.pkm.length} Kegiatan PKM</span>
+                      </div>
+
+                      <div
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 text-xs font-semibold whitespace-nowrap"
+                        title="Jumlah rekognisi kepakaran dosen"
+                      >
+                        <Award className="w-3 h-3" />
+                        <span>{dosen.rekognisi.length} Rekognisi</span>
+                      </div>
+
+                      {/* Quick Pencil Edit Button on Closed Card */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEditModal(dosen);
+                        }}
+                        className="w-8 h-8 rounded-xl bg-card hover:bg-primary/15 text-muted-foreground hover:text-primary border border-border/70 hover:border-primary/40 flex items-center justify-center transition-colors shadow-xs"
+                        title={`Edit data pengabdian ${dosen.nama}`}
+                        aria-label="Edit data dosen"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+
+                      {/* Top Chevron Rotating Button */}
+                      <div
+                        className={`w-8 h-8 rounded-xl bg-muted border border-border/70 flex items-center justify-center text-muted-foreground transition-transform duration-300 ${isExpanded ? 'rotate-180 bg-primary/10 text-primary border-primary/20' : ''
+                          }`}
+                        title={isExpanded ? 'Tutup Detail' : 'Buka Detail'}
+                      >
+                        <ChevronDown className="w-4 h-4" />
                       </div>
                     </div>
                   </div>
 
-                  {/* Middle: PKM Preview Chips (Aligned Column, Auto Sizing & Smooth Crossfade) */}
-                  <div className="flex-1 min-w-0 flex items-center lg:px-4 min-h-[36px]">
-                    <AnimatePresence mode="wait" initial={false}>
-                      {!isExpanded ? (
-                        <motion.div
-                          key="collapsed-pkm-chips"
-                          initial={{ opacity: 0, y: -3 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 3 }}
-                          transition={{ duration: 0.2, ease: 'easeInOut' }}
-                          className="flex flex-wrap items-center gap-2"
-                        >
-                          {previewChips.map((p) => (
-                            <span
-                              key={p.id}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-primary/10 text-primary border border-primary/20 shadow-xs max-w-[180px] sm:max-w-[220px] xl:max-w-[260px]"
-                              title={p.namaKegiatan}
-                            >
-                              <HeartHandshake className="w-3 h-3 text-primary/70 shrink-0" />
-                              <span className="truncate">{p.namaKegiatan}</span>
-                            </span>
-                          ))}
+                  {/* Bottom Tier: PKM Preview Chips (When Collapsed) */}
+                  <AnimatePresence mode="wait" initial={false}>
+                    {!isExpanded ? (
+                      <motion.div
+                        key="collapsed-pkm-chips"
+                        initial={{ opacity: 0, y: -3 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 3 }}
+                        transition={{ duration: 0.2, ease: 'easeInOut' }}
+                        className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/40"
+                      >
+                        <span className="text-[11px] font-medium text-muted-foreground mr-1 flex items-center gap-1 shrink-0">
+                          <HeartHandshake className="w-3 h-3 text-muted-foreground/80" />
+                          Nama Kegiatan PKM:
+                        </span>
+                        {previewChips.map((p) => (
+                          <span
+                            key={p.id}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-primary/10 text-primary border border-primary/20 shadow-xs max-w-[240px] sm:max-w-[320px]"
+                            title={p.namaKegiatan}
+                          >
+                            <span className="truncate">{p.namaKegiatan}</span>
+                          </span>
+                        ))}
 
-                          {/* +X Lainnya Overflow Chip */}
-                          {remainingCount > 0 && (
-                            <span
-                              className="inline-flex items-center px-2 py-1 rounded-lg text-[11px] font-semibold bg-muted text-muted-foreground border border-border/60 whitespace-nowrap shrink-0"
-                            >
-                              +{remainingCount} kegiatan lainnya
-                            </span>
-                          )}
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          key="expanded-pkm-hint"
-                          initial={{ opacity: 0, y: -3 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 3 }}
-                          transition={{ duration: 0.2, ease: 'easeInOut' }}
-                          className="flex items-center gap-1.5 text-xs text-primary font-medium"
-                        >
-                          <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
-                          <span>Menampilkan detail lengkap kegiatan PKM & rekognisi dosen</span>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  {/* Right: Quick Metric Badges, Edit Button, & Top Chevron Toggle */}
-                  <div className="flex items-center gap-2.5 self-end lg:self-center flex-shrink-0">
-                    <div
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-primary/10 border border-primary/20 text-primary text-xs font-semibold whitespace-nowrap"
-                      title="Jumlah kegiatan PKM dosen"
-                    >
-                      <HeartHandshake className="w-3 h-3" />
-                      <span>{dosen.pkm.length} Kegiatan PKM</span>
-                    </div>
-
-                    <div
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 text-xs font-semibold whitespace-nowrap"
-                      title="Jumlah rekognisi kepakaran dosen"
-                    >
-                      <Award className="w-3 h-3" />
-                      <span>{dosen.rekognisi.length} Rekognisi</span>
-                    </div>
-
-                    {/* Quick Pencil Edit Button on Closed Card */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openEditModal(dosen);
-                      }}
-                      className="w-8 h-8 rounded-xl bg-card hover:bg-primary/15 text-muted-foreground hover:text-primary border border-border/70 hover:border-primary/40 flex items-center justify-center transition-colors shadow-xs"
-                      title={`Edit data pengabdian ${dosen.nama}`}
-                      aria-label="Edit data dosen"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-
-                    {/* Top Chevron Rotating Button */}
-                    <div
-                      className={`w-8 h-8 rounded-xl bg-muted border border-border/70 flex items-center justify-center text-muted-foreground transition-transform duration-300 ${isExpanded ? 'rotate-180 bg-primary/10 text-primary border-primary/20' : ''
-                        }`}
-                      title={isExpanded ? 'Tutup Detail' : 'Buka Detail'}
-                    >
-                      <ChevronDown className="w-4 h-4" />
-                    </div>
-                  </div>
+                        {/* +X Lainnya Overflow Chip */}
+                        {remainingCount > 0 && (
+                          <span
+                            className="inline-flex items-center px-2 py-1 rounded-lg text-[11px] font-semibold bg-muted text-muted-foreground border border-border/60 whitespace-nowrap shrink-0"
+                          >
+                            +{remainingCount} kegiatan lainnya
+                          </span>
+                        )}
+                      </motion.div>
+                    ) : null}
+                  </AnimatePresence>
                 </div>
 
                 {/* EXPANDED CONTENT DETAILS (ANIMATED WITH FRAMER MOTION) */}

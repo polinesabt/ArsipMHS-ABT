@@ -96,7 +96,11 @@ export function KesesuaianJurusanChart({
           </Pie>
           <Tooltip content={<KesesuaianJurusanTooltip />} />
           <Legend
-            formatter={(value: string, entry: { payload?: KesesuaianJurusanChartRow }) => entry?.payload?.displayLabel ?? value}
+            formatter={(value, entry) => {
+              const label = typeof value === 'string' ? value : String(value ?? '');
+              const payload = entry?.payload as unknown as KesesuaianJurusanChartRow | undefined;
+              return payload?.displayLabel ?? label;
+            }}
             align="center"
             verticalAlign={innerRadius != null ? 'bottom' : 'middle'}
             wrapperStyle={{ paddingTop: 8 }}

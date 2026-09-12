@@ -58,7 +58,6 @@ function mapApiStudentToRow(s: {
   tahun_lulus?: number | null;
   email?: string | null;
   no_hp?: string | null;
-  [k: string]: unknown;
 }, filled?: AlumniData | null): StudentTableRow {
   const tahunMasuk = Number(s.tahun_masuk);
   const tahunLulus = s.tahun_lulus != null ? Number(s.tahun_lulus) : tahunMasuk + 4;
@@ -96,6 +95,9 @@ function rowToStudentProfile(row: StudentTableRow): StudentProfile {
     tahunLulus: row.tahunLulus,
     jurusan: 'Administrasi Bisnis',
     prodi: 'Administrasi Bisnis Terapan',
+    hasCredentials: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
 }
 
@@ -831,16 +833,16 @@ export default function AdminDashboard() {
               <p className="text-muted-foreground">Kelola dan analisis data alumni ABT Polines.</p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <Button size="lg" variant="outline" onClick={() => setShowAddModal(true)} className="w-full sm:w-auto">
-                  <UserPlus className="w-5 h-5 mr-2" />
-                  Tambah Mahasiswa
+              <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:flex-row sm:flex-wrap">
+                <Button size="lg" variant="outline" onClick={() => setShowAddModal(true)} className="w-full text-xs sm:text-sm px-2.5 sm:px-4 sm:w-auto h-10 sm:h-11">
+                  <UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2 shrink-0" />
+                  <span className="truncate">Tambah Mhs</span>
                 </Button>
                 <Button
                   type="button"
                   size="lg"
                   variant="outline"
-                  className="w-full cursor-pointer sm:w-auto"
+                  className="w-full cursor-pointer text-xs sm:text-sm px-2.5 sm:px-4 sm:w-auto h-10 sm:h-11"
                   onClick={() => {
                     setIsImportModalOpen(true);
                     setPreviewError(null);
@@ -850,9 +852,9 @@ export default function AdminDashboard() {
                     setSelectedFileName(null);
                   }}
                 >
-                  <span className="flex items-center">
-                    <Download className="w-5 h-5 mr-2" />
-                    Import Excel Akun
+                  <span className="flex items-center truncate">
+                    <Download className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2 shrink-0" />
+                    <span className="truncate">Import Excel</span>
                   </span>
                 </Button>
               </div>
@@ -860,8 +862,8 @@ export default function AdminDashboard() {
           </div>
 
           {/* Stats Cards */}
-          <div className="mb-8 grid grid-cols-1 gap-4 animate-fade-up sm:grid-cols-2 xl:grid-cols-5">
-            <StatCard title="Total Pengisi" value={stats.filled} icon={Users2} color="primary" />
+          <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 animate-fade-up sm:grid-cols-2 xl:grid-cols-5">
+            <StatCard title="Total Pengisi" value={stats.filled} icon={Users2} color="primary" className="col-span-2 sm:col-span-1" />
             <StatCard title="Bekerja" value={stats.bekerja} icon={Briefcase} color="primary" />
             <StatCard title="Wirausaha" value={stats.wirausaha} icon={Rocket} color="success" />
             <StatCard title="Studi Lanjut" value={stats.studi} icon={BookOpen} color="destructive" />
@@ -870,37 +872,38 @@ export default function AdminDashboard() {
 
           {/* Toolbar: Cari nama, Checklist, Filter; aksi tampil di bawah saat ada baris terpilih */}
           <div className="mb-4 animate-fade-up">
-            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
               <div className="flex w-full items-center gap-2 sm:w-auto">
                 <Input
                   type="text"
-                  placeholder="Cari nama atau NIM (min. 3 karakter, NIM boleh dengan/tanpa titik)..."
+                  placeholder="Cari nama atau NIM (min. 3 karakter)..."
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
-                  className="h-11 w-full border-2 border-input sm:w-56"
+                  className="h-10 sm:h-11 w-full border-2 border-input sm:w-64"
                   autoComplete="off"
                 />
               </div>
-              <Button
-                size="lg"
-                variant={showChecklist ? 'default' : 'outline'}
-                className="w-full gap-2 border-2 border-input sm:w-auto"
-                onClick={() => {
-                  setShowChecklist((v) => !v);
-                  if (showChecklist) setSelectedIds([]);
-                }}
-              >
-                <CheckSquare className="w-5 h-5" />
-                Checklist
-              </Button>
-              <Popover open={filterPopoverOpen} onOpenChange={setFilterPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button size="lg" variant="outline" className="w-full gap-2 border-2 border-input sm:w-auto">
-                    <Filter className="w-5 h-5" />
-                    Filter
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-72 rounded-xl border border-border bg-card shadow-sm" align="start" side="right" sideOffset={8}>
+              <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:items-center">
+                <Button
+                  size="lg"
+                  variant={showChecklist ? 'default' : 'outline'}
+                  className="w-full gap-1.5 sm:gap-2 border-2 border-input sm:w-auto h-10 sm:h-11 text-xs sm:text-sm"
+                  onClick={() => {
+                    setShowChecklist((v) => !v);
+                    if (showChecklist) setSelectedIds([]);
+                  }}
+                >
+                  <CheckSquare className="w-4 h-4 sm:w-5 sm:h-5" />
+                  Checklist
+                </Button>
+                <Popover open={filterPopoverOpen} onOpenChange={setFilterPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button size="lg" variant="outline" className="w-full gap-1.5 sm:gap-2 border-2 border-input sm:w-auto h-10 sm:h-11 text-xs sm:text-sm">
+                      <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
+                      Filter
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[calc(100vw-2rem)] max-w-xs sm:w-72 rounded-xl border border-border bg-card shadow-sm" align="start" side="bottom" sideOffset={8}>
                   <div className="space-y-3.5">
                     <h4 className="text-sm font-semibold text-foreground">Filter Mahasiswa</h4>
                     <div className="space-y-1.5">
@@ -1005,43 +1008,44 @@ export default function AdminDashboard() {
                 </PopoverContent>
               </Popover>
             </div>
+          </div>
             {/* Toolbar aksi: tampil ketika mode checklist aktif dan ada baris yang dipilih */}
             <div
               className={cn(
-                'overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
-                showChecklist && selectedIds.length > 0 ? 'max-h-32 opacity-100 mt-3' : 'max-h-0 opacity-0 mt-0'
+                'overflow-hidden transition-all duration-300 ease-out',
+                showChecklist && selectedIds.length > 0 ? 'max-h-96 opacity-100 mt-3' : 'max-h-0 opacity-0 mt-0'
               )}
             >
-               <div className="flex flex-col gap-3 rounded-2xl border border-border bg-muted/40 p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                 <span className="text-sm text-muted-foreground">
+               <div className="flex flex-col gap-3 rounded-2xl border border-border bg-muted/40 p-3 sm:p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                 <span className="text-sm font-medium text-foreground">
                    {selectedIds.length} dipilih
                  </span>
-                 <div className="flex flex-col gap-2 sm:flex-row">
+                 <div className="grid grid-cols-1 sm:flex sm:flex-row gap-2">
                    <Button
                      variant="outline"
                      size="sm"
-                     className="w-full sm:w-auto"
+                     className="w-full sm:w-auto text-xs sm:text-sm"
                      onClick={handleExportSelected}
                    >
-                    <Download className="w-4 h-4 mr-2" />
+                    <Download className="w-4 h-4 mr-1.5 sm:mr-2" />
                     Eksport Data
                   </Button>
                    <Button
                      variant="outline"
                      size="sm"
-                     className="w-full sm:w-auto"
+                     className="w-full sm:w-auto text-xs sm:text-sm"
                      onClick={() => setShowBatchDeleteModal(true)}
                    >
-                    <Trash2 className="w-4 h-4 mr-2" />
+                    <Trash2 className="w-4 h-4 mr-1.5 sm:mr-2" />
                     Hapus
                   </Button>
                    <Button
                      variant="outline"
                      size="sm"
-                     className="w-full sm:w-auto"
+                     className="w-full sm:w-auto text-xs sm:text-sm"
                      onClick={() => setShowBatchResetModal(true)}
                    >
-                    <KeyRound className="w-4 h-4 mr-2" />
+                    <KeyRound className="w-4 h-4 mr-1.5 sm:mr-2" />
                     Reset Password
                   </Button>
                 </div>

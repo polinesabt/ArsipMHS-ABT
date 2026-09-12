@@ -2284,13 +2284,13 @@ export default function AdminEvaluasiLulusanPage() {
                 <iframe
                   src={attachmentPreviewUrl}
                   title={`Lampiran ${attachmentPreviewItem.nama}`}
-                  className="w-full h-[70vh] min-h-[400px] rounded-md"
+                  className="w-full h-[55dvh] sm:h-[70vh] min-h-[250px] sm:min-h-[400px] rounded-md"
                 />
               ) : (
                 <img
                   src={attachmentPreviewUrl}
                   alt={`Lampiran ${attachmentPreviewItem.nama}`}
-                  className="max-w-full max-h-[70vh] object-contain rounded-md"
+                  className="max-w-full max-h-[55dvh] sm:max-h-[70vh] object-contain rounded-md"
                 />
               )
             ) : null}
@@ -2342,7 +2342,7 @@ export default function AdminEvaluasiLulusanPage() {
               (() => {
                 const customRows = buildCustomAnswerRows(selectedResultDetail);
                 return customRows.length > 0 ? (
-                  <div className="rounded-md border">
+                  <div className="rounded-md border overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -2367,7 +2367,7 @@ export default function AdminEvaluasiLulusanPage() {
             ) : (
               selectedResultDetail?.ratings &&
               selectedResultDetail.ratings.length > 0 && (
-                <div className="rounded-md border">
+                <div className="rounded-md border overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>

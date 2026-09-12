@@ -30,6 +30,7 @@ function attachment_delete_fail(int $status, string $message): void {
 
 try {
     $auth = requireAuth(null);
+    requireProductionWrite($auth);
     $userId = $auth['sub'] ?? '';
     $role = $auth['role'] ?? '';
 

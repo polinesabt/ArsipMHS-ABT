@@ -21,7 +21,11 @@ import {
   Sparkles,
   AlertTriangle,
   History,
-  Info
+  Info,
+  KeyRound,
+  FlaskConical,
+  HeartHandshake,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from '@/components/ui/input';
@@ -56,6 +60,8 @@ import {
 import { type DosenItem } from '@/data/mockDosenData';
 import { useToast } from '@/hooks/use-toast';
 import { useDosen, getRemainingDays, type RecoveryMatchResult, type ArchivedDosenItem } from '@/contexts/DosenContext';
+import { DosenImportButton } from '@/components/admin/DosenImportButton';
+import { DosenImportLogsButton } from '@/components/admin/DosenImportLogsButton';
 
 const OPSI_PENDIDIKAN_PASCA_SARJANA = [
   'Magister (S2)',
@@ -66,11 +72,10 @@ const OPSI_PENDIDIKAN_PASCA_SARJANA = [
 ];
 
 const OPSI_JABATAN = [
-  'Guru Besar',
+  'Profesor / Guru Besar',
   'Lektor Kepala',
   'Lektor',
-  'Asisten Ahli',
-  'Tenaga Pendidik'
+  'Asisten Ahli'
 ];
 
 const contentVariants = {
@@ -162,6 +167,8 @@ export default function AdminDosenDashboardPage() {
   // Add Dosen Modal state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addFormData, setAddFormData] = useState<Partial<DosenItem>>(EMPTY_FORM);
+  const [addFormErrors, setAddFormErrors] = useState<Record<string, string>>({});
+  const [isAddingDosen, setIsAddingDosen] = useState(false);
 
   // Archive Drawer state
   const [isArchiveDrawerOpen, setIsArchiveDrawerOpen] = useState(false);
@@ -244,9 +251,59 @@ export default function AdminDosenDashboardPage() {
     setAddFormData({ ...addFormData, pendidikanPascaSarjana: updated });
   };
 
-  const handleSaveEdit = (closeSheetAfter = false) => {
+  const resetAddDosenForm = () => {
+    setAddFormData(EMPTY_FORM);
+    setAddFormErrors({});
+  };
+
+  const openAddDosenModal = () => {
+    resetAddDosenForm();
+    setIsAddModalOpen(true);
+  };
+
+  const closeAddDosenModal = () => {
+    if (isAddingDosen) return;
+    setIsAddModalOpen(false);
+    resetAddDosenForm();
+  };
+
+  const updateAddFormData = (updates: Partial<DosenItem>) => {
+    setAddFormData((previous) => ({ ...previous, ...updates }));
+    setAddFormErrors((previous) => {
+      const next = { ...previous };
+      Object.keys(updates).forEach((key) => delete next[key]);
+      return next;
+    });
+  };
+
+  const validateAddDosenForm = () => {
+    const errors: Record<string, string> = {};
+    const nama = addFormData.nama?.trim() || '';
+    const nidn = addFormData.nidn?.trim() || '';
+    const email = addFormData.email?.trim() || '';
+
+    if (!nama) errors.nama = 'Nama dosen wajib diisi.';
+    else if (nama.length < 3) errors.nama = 'Nama dosen minimal 3 karakter.';
+    else if (nama.length > 150) errors.nama = 'Nama dosen maksimal 150 karakter.';
+
+    if (!nidn) errors.nidn = 'NIDN/NIDK wajib diisi.';
+    else if (nidn.length > 20 || !(new RegExp('^[A-Za-z0-9./-]+$')).test(nidn)) {
+      errors.nidn = 'Gunakan huruf, angka, titik, garis miring, atau tanda hubung.';
+    } else if (dosenList.some((dosen) => dosen.nidn.toLowerCase() === nidn.toLowerCase())) {
+      errors.nidn = `NIDN/NIDK ${nidn} sudah terdaftar aktif.`;
+    }
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = 'Format email belum valid.';
+    }
+
+    setAddFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSaveEdit = async (closeSheetAfter = false) => {
     if (!editFormData || !selectedDosen) return;
-    updateDosenProfile(selectedDosen.nidn, editFormData);
+    await updateDosenProfile(selectedDosen.nidn, editFormData);
     setSelectedDosen(editFormData);
     setIsEditing(false);
     setShowUnsavedDialog(false);
@@ -311,16 +368,9 @@ export default function AdminDosenDashboardPage() {
   };
 
   // Submit Add Dosen with Recovery "OR" Check
-  const handleSubmitAddDosen = (e: React.FormEvent) => {
+  const handleSubmitAddDosen = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!addFormData.nama?.trim() || !addFormData.nidn?.trim()) {
-      toast({
-        title: 'Formulir Belum Lengkap',
-        description: 'Nama dosen dan NIDN wajib diisi.',
-        variant: 'destructive',
-      });
-      return;
-    }
+    if (isAddingDosen || !validateAddDosenForm()) return;
 
     // Run Recovery Logic with "OR" Evaluation
     const recoveryResult = checkArchiveRecovery(addFormData.nama, addFormData.nidn);
@@ -331,76 +381,113 @@ export default function AdminDosenDashboardPage() {
     }
 
     // Normal Add Dosen
-    const result = addDosen(addFormData);
-    if (result.success) {
-      setIsAddModalOpen(false);
-      setAddFormData(EMPTY_FORM);
-      toast({
-        title: 'Dosen Baru Ditambahkan',
-        description: `Entitas dosen ${addFormData.nama} berhasil didaftarkan dan disinkronkan ke seluruh modul.`,
-      });
-    } else {
-      toast({
-        title: 'Gagal Menambahkan Dosen',
-        description: result.message || 'Terjadi kesalahan.',
-        variant: 'destructive',
-      });
+    setIsAddingDosen(true);
+    try {
+      const result = await addDosen(addFormData);
+      if (result.success) {
+        setIsAddModalOpen(false);
+        resetAddDosenForm();
+        toast({
+          title: 'Dosen Baru Ditambahkan',
+          description: `Entitas dosen ${addFormData.nama} berhasil didaftarkan dan disinkronkan ke seluruh modul.`,
+        });
+      } else {
+        const message = result.message || 'Terjadi kesalahan saat menyimpan data.';
+        setAddFormErrors({ form: message });
+        toast({ title: 'Gagal Menambahkan Dosen', description: message, variant: 'destructive' });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Terjadi kesalahan saat menyimpan data.';
+      setAddFormErrors({ form: message });
+      toast({ title: 'Gagal Menambahkan Dosen', description: message, variant: 'destructive' });
+    } finally {
+      setIsAddingDosen(false);
     }
   };
 
   // Recovery Choices
-  const handleRecoveryRestoreExact = () => {
+  const handleRecoveryRestoreExact = async () => {
     if (!recoveryMatch) return;
-    restoreDosen(recoveryMatch.item.dosen.nidn);
-    setIsRecoveryModalOpen(false);
-    setIsAddModalOpen(false);
-    setAddFormData(EMPTY_FORM);
-    toast({
-      title: 'Data Berhasil Dipulihkan (Restore)',
-      description: `Seluruh data profil dan riwayat Tridharma untuk ${recoveryMatch.item.dosen.nama} telah diaktifkan kembali.`,
-    });
+    setIsAddingDosen(true);
+    try {
+      await restoreDosen(recoveryMatch.item.dosen.nidn);
+      setIsRecoveryModalOpen(false);
+      setIsAddModalOpen(false);
+      resetAddDosenForm();
+      toast({
+        title: 'Data Berhasil Dipulihkan (Restore)',
+        description: `Seluruh data profil dan riwayat Tridharma untuk ${recoveryMatch.item.dosen.nama} telah diaktifkan kembali.`,
+      });
+    } catch (error) {
+      toast({ title: 'Gagal Memulihkan Data', description: error instanceof Error ? error.message : 'Data arsip gagal dipulihkan.', variant: 'destructive' });
+    } finally {
+      setIsAddingDosen(false);
+    }
   };
 
-  const handleRecoveryRestoreWithSync = () => {
+  const handleRecoveryRestoreWithSync = async () => {
     if (!recoveryMatch) return;
-    restoreDosen(recoveryMatch.item.dosen.nidn, addFormData);
-    setIsRecoveryModalOpen(false);
-    setIsAddModalOpen(false);
-    setAddFormData(EMPTY_FORM);
-    toast({
-      title: 'Data Dipulihkan & Disinkronkan',
-      description: `Riwayat Tridharma dipulihkan dan data profil diperbarui dengan input baru (${addFormData.nama}).`,
-    });
+    setIsAddingDosen(true);
+    try {
+      await restoreDosen(recoveryMatch.item.dosen.nidn, addFormData);
+      setIsRecoveryModalOpen(false);
+      setIsAddModalOpen(false);
+      resetAddDosenForm();
+      toast({
+        title: 'Data Dipulihkan & Disinkronkan',
+        description: `Riwayat Tridharma dipulihkan dan data profil diperbarui dengan input baru (${addFormData.nama}).`,
+      });
+    } catch (error) {
+      toast({ title: 'Gagal Memulihkan Data', description: error instanceof Error ? error.message : 'Data arsip gagal dipulihkan.', variant: 'destructive' });
+    } finally {
+      setIsAddingDosen(false);
+    }
   };
 
-  const handleRecoveryCreateFresh = () => {
+  const handleRecoveryCreateFresh = async () => {
     if (!recoveryMatch) return;
-    // Remove old archive and create fresh
-    permanentlyDeleteArchivedDosen(recoveryMatch.item.dosen.nidn);
-    const res = addDosen(addFormData);
-    setIsRecoveryModalOpen(false);
-    setIsAddModalOpen(false);
-    setAddFormData(EMPTY_FORM);
-    if (res.success) {
+    setIsAddingDosen(true);
+    try {
+      // Remove old archive and create fresh
+      await permanentlyDeleteArchivedDosen(recoveryMatch.item.dosen.nidn);
+      const res = await addDosen(addFormData);
+      if (!res.success) throw new Error(res.message || 'Dosen baru gagal dibuat.');
+      setIsRecoveryModalOpen(false);
+      setIsAddModalOpen(false);
+      resetAddDosenForm();
       toast({
         title: 'Dosen Baru Dibuat',
         description: `Dosen baru ${addFormData.nama} berhasil dibuat sebagai entitas bersih.`,
       });
+    } catch (error) {
+      toast({ title: 'Gagal Membuat Dosen', description: error instanceof Error ? error.message : 'Dosen baru gagal dibuat.', variant: 'destructive' });
+    } finally {
+      setIsAddingDosen(false);
     }
   };
 
   return (
     <div className="space-y-6 pb-12">
+      <div className="flex flex-wrap justify-end gap-2">
+        <DosenImportLogsButton />
+        <DosenImportButton module="pengelolaan" title="Pengelolaan Dosen" />
+        <Button
+          type="button"
+          size="sm"
+          onClick={openAddDosenModal}
+          className="h-9 rounded-xl bg-primary text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
+        >
+          <Plus className="mr-1.5 h-4 w-4" />
+          Tambah Dosen
+        </Button>
+      </div>
       {/* Main Interactive Table Section */}
       <div className="glass-card rounded-2xl border border-border/70 bg-card shadow-soft overflow-hidden">
         {/* Table Toolbar */}
         <div className="p-5 border-b border-border/60 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <div className="flex items-center gap-2.5">
-              <h4 className="text-lg font-bold text-foreground">Pengelolaan Master Data Dosen (SSOT)</h4>
-              <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
-                Single Source of Truth
-              </Badge>
+              <h4 className="text-lg font-bold text-foreground">Pengelolaan Data Dosen Program Studi ABT</h4>
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
               Pusat kendali entitas dosen yang tersinkronisasi otomatis ke seluruh sub-modul Tridharma &amp; Waktu Mengajar
@@ -436,19 +523,6 @@ export default function AdminDosenDashboardPage() {
               )}
             </Button>
 
-            {/* Add Dosen Button */}
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => {
-                setAddFormData(EMPTY_FORM);
-                setIsAddModalOpen(true);
-              }}
-              className="h-9 rounded-xl text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm flex items-center gap-1.5"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Tambah Dosen</span>
-            </Button>
           </div>
         </div>
 
@@ -484,8 +558,7 @@ export default function AdminDosenDashboardPage() {
                           type="button"
                           size="sm"
                           onClick={() => {
-                            setAddFormData(EMPTY_FORM);
-                            setIsAddModalOpen(true);
+                            openAddDosenModal();
                           }}
                           className="mt-2 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
                         >
@@ -598,8 +671,7 @@ export default function AdminDosenDashboardPage() {
                     type="button"
                     size="sm"
                     onClick={() => {
-                      setAddFormData(EMPTY_FORM);
-                      setIsAddModalOpen(true);
+                      openAddDosenModal();
                     }}
                     className="mt-2 rounded-xl text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
                   >
@@ -701,8 +773,8 @@ export default function AdminDosenDashboardPage() {
       </div>
 
       {/* Modal: Tambah Dosen Baru (SSOT Master) */}
-      <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border-border/60 bg-card p-6 shadow-2xl">
+      <Dialog open={isAddModalOpen} onOpenChange={closeAddDosenModal}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto rounded-2xl border-border/60 bg-card p-6 shadow-2xl">
           <DialogHeader>
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
@@ -717,7 +789,13 @@ export default function AdminDosenDashboardPage() {
             </div>
           </DialogHeader>
 
-          <form onSubmit={handleSubmitAddDosen} className="space-y-4 pt-2">
+          <form onSubmit={handleSubmitAddDosen} className="space-y-4 pt-2" noValidate>
+            {addFormErrors.form && (
+              <div role="alert" className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-xs text-destructive">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{addFormErrors.form}</span>
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               {/* Nama Lengkap */}
               <div className="space-y-1.5 sm:col-span-2">
@@ -727,10 +805,13 @@ export default function AdminDosenDashboardPage() {
                 <Input
                   required
                   value={addFormData.nama || ''}
-                  onChange={(e) => setAddFormData({ ...addFormData, nama: e.target.value })}
+                  onChange={(e) => updateAddFormData({ nama: e.target.value })}
                   placeholder="Contoh: Dr. Ir. Fauzi, M.T."
-                  className="rounded-xl text-xs h-9 bg-background"
+                  aria-invalid={!!addFormErrors.nama}
+                  aria-describedby={addFormErrors.nama ? 'add-dosen-nama-error' : undefined}
+                  className={`h-9 rounded-xl bg-background text-xs ${addFormErrors.nama ? 'border-destructive' : ''}`}
                 />
+                {addFormErrors.nama && <p id="add-dosen-nama-error" className="text-xs text-destructive">{addFormErrors.nama}</p>}
               </div>
 
               {/* NIDN / NIDK */}
@@ -741,10 +822,13 @@ export default function AdminDosenDashboardPage() {
                 <Input
                   required
                   value={addFormData.nidn || ''}
-                  onChange={(e) => setAddFormData({ ...addFormData, nidn: e.target.value })}
+                  onChange={(e) => updateAddFormData({ nidn: e.target.value })}
                   placeholder="Contoh: 0012087501"
-                  className="rounded-xl font-mono text-xs h-9 bg-background"
+                  aria-invalid={!!addFormErrors.nidn}
+                  aria-describedby={addFormErrors.nidn ? 'add-dosen-nidn-error' : undefined}
+                  className={`h-9 rounded-xl bg-background font-mono text-xs ${addFormErrors.nidn ? 'border-destructive' : ''}`}
                 />
+                {addFormErrors.nidn && <p id="add-dosen-nidn-error" className="text-xs text-destructive">{addFormErrors.nidn}</p>}
               </div>
 
               {/* Status Dosen */}
@@ -757,7 +841,7 @@ export default function AdminDosenDashboardPage() {
                       type="button"
                       variant={addFormData.statusDosen === status ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setAddFormData({ ...addFormData, statusDosen: status })}
+                      onClick={() => updateAddFormData({ statusDosen: status })}
                       className="rounded-xl text-xs h-9"
                     >
                       {status}
@@ -771,7 +855,7 @@ export default function AdminDosenDashboardPage() {
                 <label className="text-xs font-semibold text-foreground">Jabatan Fungsional</label>
                 <select
                   value={addFormData.jabatan || 'Asisten Ahli'}
-                  onChange={(e) => setAddFormData({ ...addFormData, jabatan: e.target.value })}
+                  onChange={(e) => updateAddFormData({ jabatan: e.target.value })}
                   className="w-full h-9 px-3 rounded-xl border border-border/70 bg-background text-xs text-foreground focus:ring-1 focus:ring-primary"
                 >
                   {OPSI_JABATAN.map((j) => (
@@ -790,7 +874,7 @@ export default function AdminDosenDashboardPage() {
                       type="button"
                       variant={addFormData.peran === p ? 'default' : 'outline'}
                       size="sm"
-                      onClick={() => setAddFormData({ ...addFormData, peran: p })}
+                      onClick={() => updateAddFormData({ peran: p })}
                       className="rounded-xl text-xs h-9"
                     >
                       {p}
@@ -804,7 +888,7 @@ export default function AdminDosenDashboardPage() {
                 <label className="text-xs font-semibold text-foreground">Institusi Asal</label>
                 <Input
                   value={addFormData.institusi || ''}
-                  onChange={(e) => setAddFormData({ ...addFormData, institusi: e.target.value })}
+                  onChange={(e) => updateAddFormData({ institusi: e.target.value })}
                   placeholder="Politeknik Negeri Semarang"
                   className="rounded-xl text-xs h-9 bg-background"
                 />
@@ -838,7 +922,7 @@ export default function AdminDosenDashboardPage() {
                 <label className="text-xs font-semibold text-foreground">Bidang Keahlian</label>
                 <Input
                   value={addFormData.bidangKeahlian || ''}
-                  onChange={(e) => setAddFormData({ ...addFormData, bidangKeahlian: e.target.value })}
+                  onChange={(e) => updateAddFormData({ bidangKeahlian: e.target.value })}
                   placeholder="Contoh: Manajemen Rekayasa Industri, Pemasaran Digital"
                   className="rounded-xl text-xs h-9 bg-background"
                 />
@@ -850,16 +934,19 @@ export default function AdminDosenDashboardPage() {
                 <Input
                   type="email"
                   value={addFormData.email || ''}
-                  onChange={(e) => setAddFormData({ ...addFormData, email: e.target.value })}
+                  onChange={(e) => updateAddFormData({ email: e.target.value })}
                   placeholder="nama@polines.ac.id"
-                  className="rounded-xl text-xs h-9 bg-background"
+                  aria-invalid={!!addFormErrors.email}
+                  aria-describedby={addFormErrors.email ? 'add-dosen-email-error' : undefined}
+                  className={`h-9 rounded-xl bg-background text-xs ${addFormErrors.email ? 'border-destructive' : ''}`}
                 />
+                {addFormErrors.email && <p id="add-dosen-email-error" className="text-xs text-destructive">{addFormErrors.email}</p>}
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground">No. Telepon / WA</label>
                 <Input
                   value={addFormData.telepon || ''}
-                  onChange={(e) => setAddFormData({ ...addFormData, telepon: e.target.value })}
+                  onChange={(e) => updateAddFormData({ telepon: e.target.value })}
                   placeholder="081234567890"
                   className="rounded-xl text-xs h-9 bg-background"
                 />
@@ -871,7 +958,8 @@ export default function AdminDosenDashboardPage() {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setIsAddModalOpen(false)}
+                onClick={closeAddDosenModal}
+                disabled={isAddingDosen}
                 className="rounded-xl text-xs"
               >
                 Batal
@@ -879,10 +967,11 @@ export default function AdminDosenDashboardPage() {
               <Button
                 type="submit"
                 size="sm"
-                className="rounded-xl text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+                disabled={isAddingDosen}
+                className="rounded-xl bg-primary text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
               >
-                <Save className="w-3.5 h-3.5 mr-1.5" />
-                Simpan &amp; Daftarkan Dosen
+                {isAddingDosen ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
+                {isAddingDosen ? 'Menyimpan...' : 'Simpan & Daftarkan Dosen'}
               </Button>
             </DialogFooter>
           </form>
@@ -890,7 +979,7 @@ export default function AdminDosenDashboardPage() {
       </Dialog>
 
       {/* Recovery Modal (OR Evaluation Logic Triggered) */}
-      <Dialog open={isRecoveryModalOpen} onOpenChange={setIsRecoveryModalOpen}>
+      <Dialog open={isRecoveryModalOpen} onOpenChange={(open) => { if (!isAddingDosen) setIsRecoveryModalOpen(open); }}>
         <DialogContent className="max-w-lg rounded-2xl border-amber-500/40 bg-card p-6 shadow-2xl">
           <DialogHeader>
             <div className="flex items-center gap-3">
@@ -913,18 +1002,21 @@ export default function AdminDosenDashboardPage() {
               {/* Badge Condition */}
               <div>
                 {recoveryMatch.matchedBy === 'both' && (
-                  <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-xs py-1 px-2.5">
-                    ✨ Data Identik Ditemukan (Nama &amp; NIDN Persis Sama)
+                  <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-xs py-1 px-2.5 inline-flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Data Identik Ditemukan (Nama &amp; NIDN Persis Sama)</span>
                   </Badge>
                 )}
                 {recoveryMatch.matchedBy === 'nidn' && (
-                  <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-xs py-1 px-2.5">
-                    🔑 NIDN Terdaftar di Arsip ({recoveryMatch.item.dosen.nidn})
+                  <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-xs py-1 px-2.5 inline-flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5" />
+                    <span>NIDN Terdaftar di Arsip ({recoveryMatch.item.dosen.nidn})</span>
                   </Badge>
                 )}
                 {recoveryMatch.matchedBy === 'nama' && (
-                  <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 text-xs py-1 px-2.5">
-                    👤 Nama Serupa di Arsip ({recoveryMatch.item.dosen.nama})
+                  <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 text-xs py-1 px-2.5 inline-flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5" />
+                    <span>Nama Serupa di Arsip ({recoveryMatch.item.dosen.nama})</span>
                   </Badge>
                 )}
               </div>
@@ -945,11 +1037,11 @@ export default function AdminDosenDashboardPage() {
                   <Clock className="w-3.5 h-3.5" />
                   <span>Sisa Retensi: {getRemainingDays(recoveryMatch.item.expiresAt)} Hari Tersisa</span>
                 </div>
-                <div className="pt-1.5 border-t border-border/40 text-[11px] text-muted-foreground flex flex-wrap gap-2">
-                  <span>📚 {recoveryMatch.item.kontribusiPengajaran?.matkulABT.length || 0} Matkul ABT</span>
-                  <span>🔬 {recoveryMatch.item.kontribusiPenelitian?.penelitian.length || 0} Penelitian</span>
-                  <span>🤝 {recoveryMatch.item.kontribusiPengabdian?.pkm.length || 0} PKM</span>
-                  <span>📄 {recoveryMatch.item.luaran?.luaran.length || 0} Luaran</span>
+                <div className="pt-1.5 border-t border-border/40 text-[11px] text-muted-foreground flex flex-wrap gap-3">
+                  <span className="inline-flex items-center gap-1"><BookOpen className="w-3 h-3 text-primary" /> {recoveryMatch.item.kontribusiPengajaran?.matkulABT.length || 0} Matkul ABT</span>
+                  <span className="inline-flex items-center gap-1"><FlaskConical className="w-3 h-3 text-info" /> {recoveryMatch.item.kontribusiPenelitian?.penelitian.length || 0} Penelitian</span>
+                  <span className="inline-flex items-center gap-1"><HeartHandshake className="w-3 h-3 text-success" /> {recoveryMatch.item.kontribusiPengabdian?.pkm.length || 0} PKM</span>
+                  <span className="inline-flex items-center gap-1"><FileText className="w-3 h-3 text-muted-foreground" /> {recoveryMatch.item.luaran?.luaran.length || 0} Luaran</span>
                 </div>
               </div>
 
@@ -963,6 +1055,7 @@ export default function AdminDosenDashboardPage() {
                   type="button"
                   size="sm"
                   onClick={handleRecoveryRestoreExact}
+                  disabled={isAddingDosen}
                   className="w-full justify-start rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
                 >
                   <RotateCcw className="w-3.5 h-3.5 mr-2" />
@@ -973,6 +1066,7 @@ export default function AdminDosenDashboardPage() {
                   size="sm"
                   variant="outline"
                   onClick={handleRecoveryRestoreWithSync}
+                  disabled={isAddingDosen}
                   className="w-full justify-start rounded-xl text-xs font-semibold border-primary/40 text-primary hover:bg-primary/10"
                 >
                   <Sparkles className="w-3.5 h-3.5 mr-2" />
@@ -983,6 +1077,7 @@ export default function AdminDosenDashboardPage() {
                   size="sm"
                   variant="ghost"
                   onClick={handleRecoveryCreateFresh}
+                  disabled={isAddingDosen}
                   className="w-full justify-start rounded-xl text-xs text-muted-foreground hover:text-foreground"
                 >
                   <Plus className="w-3.5 h-3.5 mr-2" />
@@ -998,6 +1093,7 @@ export default function AdminDosenDashboardPage() {
               variant="outline"
               size="sm"
               onClick={() => setIsRecoveryModalOpen(false)}
+              disabled={isAddingDosen}
               className="rounded-xl text-xs w-full"
             >
               Batal

@@ -732,3 +732,58 @@ input:-webkit-autofill:active {
   caret-color: #f8fafc !important;
   transition: background-color 5000s ease-in-out 0s;
 }
+
+/* ========================================================================= */
+/* Mobile Ergonomics & Responsive Utilities                                   */
+/* ========================================================================= */
+
+/* Safe area padding utilities for notched/pill mobile devices */
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 1rem));
+}
+
+.pt-safe {
+  padding-top: max(1rem, env(safe-area-inset-top, 1rem));
+}
+
+.mb-safe {
+  margin-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Smooth momentum touch scrolling for tables and horizontal tabs */
+.touch-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+/* Hide scrollbar while preserving scrolling capability */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Ensure mobile input elements don't trigger iOS Safari auto-zoom (requires min 16px) */
+@media (max-width: 640px) {
+  input[type="text"]:not([data-no-mobile-zoom]),
+  input[type="email"]:not([data-no-mobile-zoom]),
+  input[type="password"]:not([data-no-mobile-zoom]),
+  input[type="number"]:not([data-no-mobile-zoom]),
+  input[type="search"]:not([data-no-mobile-zoom]),
+  input[type="tel"]:not([data-no-mobile-zoom]),
+  input[type="url"]:not([data-no-mobile-zoom]),
+  select:not([data-no-mobile-zoom]),
+  textarea:not([data-no-mobile-zoom]) {
+    font-size: 16px !important;
+  }
+}
+
+/* Touch targets: ensure interactive elements have at least 44px hit-box on mobile */
+@media (max-width: 768px) {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

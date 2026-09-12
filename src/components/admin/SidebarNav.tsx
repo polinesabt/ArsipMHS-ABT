@@ -177,7 +177,7 @@ export function SidebarNav({
   return (
     <motion.aside
       className={cn(
-        "fixed left-0 top-0 z-30 h-screen flex flex-col overflow-hidden shrink-0",
+        "fixed left-0 top-0 z-30 flex h-[100dvh] max-w-[88vw] shrink-0 flex-col overflow-hidden",
         className
       )}
       initial={false}
@@ -270,7 +270,7 @@ export function SidebarNav({
         </div>
       </header>
 
-      <nav className="px-2 py-3 overflow-y-auto overflow-x-hidden flex-1 min-h-0">
+      <nav className="px-2 pt-3 pb-8 overflow-y-auto overflow-x-hidden flex-1 min-h-0 scrollbar-thin">
         <ul className="space-y-1">
           {items.map((item, index) => {
             const isEvaluasi = item.id === EVALUASI_LULUSAN_ID;
@@ -370,7 +370,8 @@ function SidebarFooter({
   return (
     <footer
       className={cn(
-        'flex-shrink-0 border-t border-[hsl(var(--sidebar-border)/0.5)] px-2 py-2',
+        'flex-shrink-0 border-t border-[hsl(var(--sidebar-border)/0.5)] px-2 py-2.5 z-10',
+        'bg-[hsl(var(--sidebar-bg)/0.98)] backdrop-blur-md',
         collapsed ? 'flex flex-col items-center gap-0.5' : 'space-y-0.5'
       )}
     >

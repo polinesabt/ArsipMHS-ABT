@@ -50,6 +50,13 @@ try {
         'username' => $payload['username'] ?? '',
         'role' => $payload['role'],
     ];
+    if (($payload['role'] ?? null) === 'demo') {
+        if (empty($payload['sid'])) {
+            refresh_fail(401, 'Sesi Demo Mode tidak valid', 'AUTH_REFRESH_INVALID_DEMO_SESSION');
+        }
+        $tokenPayload['demo_mode'] = true;
+        $tokenPayload['sid'] = (string)$payload['sid'];
+    }
 
     $newAccessToken = auth_generate_token($tokenPayload);
     $newRefreshToken = auth_generate_token($tokenPayload, JWT_REFRESH_EXPIRATION);

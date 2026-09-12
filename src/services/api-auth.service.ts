@@ -5,7 +5,7 @@
 
 import { apiClient, ApiResponse } from '@/lib/api-client';
 
-import type { UserRole } from '@/types/student.types';
+import type { DosenProfile, TendikProfile, UserRole } from '@/types/student.types';
 
 export interface LoginRequest {
   username: string;
@@ -20,8 +20,12 @@ export interface AuthUser {
   name?: string;
   nama?: string;
   student?: StudentData;
+  dosen?: DosenProfile;
+  tendik?: TendikProfile;
   can_edit_dosen?: boolean;
   can_edit_mahasiswa?: boolean;
+  demo_mode?: boolean;
+  demo_session_id?: string;
 }
 
 export interface StudentData {
@@ -54,6 +58,8 @@ export interface LoginResponse {
   token?: string;
   jwt?: string;
   refreshToken?: string;
+  demo_mode?: boolean;
+  sid?: string;
 }
 
 export type EmailLoginSource = 'dashboard' | 'career_form' | 'future_form';

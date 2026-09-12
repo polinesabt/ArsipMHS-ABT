@@ -22,7 +22,6 @@ import { useActiveStudentsInput } from '@/contexts/ActiveStudentsInputContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CheckSquare, Loader2, Trash2 } from 'lucide-react';
-import type { TooltipProps } from 'recharts';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const TOOLTIP_FALLBACK_COLOR = 'hsl(var(--muted-foreground))';
@@ -52,13 +51,13 @@ type HoveredBar = {
 };
 
 /** Tooltip hanya tampil saat hover ke segmen bar; isi mengikuti segmen yang di-hover (tahun + nama + nilai). */
-function ActiveStudentsDatasetTooltip(
-  props: TooltipProps<number, string> & {
-    hoveredBar: HoveredBar | null;
-    chartData: ActiveStudentsChartRow[];
-  }
-) {
-  const { hoveredBar, chartData } = props;
+function ActiveStudentsDatasetTooltip({
+  hoveredBar,
+  chartData,
+}: {
+  hoveredBar: HoveredBar | null;
+  chartData: ActiveStudentsChartRow[];
+}) {
 
   if (!hoveredBar) return null;
 

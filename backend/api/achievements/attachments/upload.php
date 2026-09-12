@@ -22,6 +22,7 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'ap
 
 try {
     $auth = requireAuth(null);
+    requireProductionWrite($auth);
     $userId = $auth['sub'] ?? '';
     $role = $auth['role'] ?? '';
 
