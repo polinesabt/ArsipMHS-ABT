@@ -239,6 +239,7 @@ export class ApiClient {
     const { _retriedAfterRefresh, _retriedWithLatestToken, _retriedTransientAuth, timeout: requestTimeout, ...requestOptions } = options;
     const cleanEndpoint = endpoint.replace(/^\/+/, '').split('?')[0];
     const isAuthEndpoint = cleanEndpoint.startsWith('auth/');
+    const isLoginEndpoint = cleanEndpoint === 'auth/login.php';
     const isErrorLogEndpoint = cleanEndpoint === 'logs/log_error.php';
 
     // Intercept mutations in Demo Mode
@@ -258,11 +259,16 @@ export class ApiClient {
     const effectiveTimeout = requestTimeout ?? this.timeout;
     const url = new URL(`${this.baseURL}/${endpoint}`);
     // Browser: localStorage jadi single source of truth agar token in-memory tidak usang.
-    let tokenAtRequestStart: string | null =
-      typeof window !== 'undefined'
+    // Login harus selalu anonim. Token sesi lama (khususnya token Demo) tidak
+    // boleh ikut karena backend akan mengaktifkan transaksi read-only untuknya.
+    let tokenAtRequestStart: string | null = isLoginEndpoint
+      ? null
+      : typeof window !== 'undefined'
         ? localStorage.getItem('authToken')
         : (this.token ?? null);
-    this.token = tokenAtRequestStart;
+    if (!isLoginEndpoint) {
+      this.token = tokenAtRequestStart;
+    }
 
     // Refresh proaktif jika token akan kadaluarsa dalam 5 menit (agar tidak pernah kirim token expired)
     if (

@@ -32,10 +32,12 @@ try {
     ]);
 
     // Defense in depth: a valid Demo Mode token always receives a read-only
-    // database session. Controllers also reject demo persistence before side
-    // effects, but this prevents an overlooked SQL write from reaching prod.
+    // database session. The login endpoint is deliberately anonymous so a
+    // stale Demo token cannot make a subsequent real-account login read-only.
     require_once __DIR__ . '/auth.php';
-    $requestAuth = auth_optional();
+    $requestPath = (string)(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '');
+    $isLoginRequest = preg_match('~/api/auth/login\.php$~', $requestPath) === 1;
+    $requestAuth = $isLoginRequest ? null : auth_optional();
     if (auth_is_demo($requestAuth)) {
         try {
             $pdo->exec('SET SESSION TRANSACTION READ ONLY');
