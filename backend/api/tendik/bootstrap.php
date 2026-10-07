@@ -87,7 +87,7 @@ function tendik_issue_tokens(string $userId,string $username): array
 {
     $payload=['sub'=>$userId,'username'=>$username,'role'=>'tendik'];
     $token=auth_generate_token($payload);
-    return ['token'=>$token,'jwt'=>$token,'refreshToken'=>auth_generate_token($payload,JWT_REFRESH_EXPIRATION)];
+    return ['token'=>$token,'jwt'=>$token,'refreshToken'=>auth_generate_token($payload,JWT_REFRESH_EXPIRATION,'refresh')];
 }
 
 function tendik_create_account(PDO $pdo,string $tendikId,string $nip,string $nama): string

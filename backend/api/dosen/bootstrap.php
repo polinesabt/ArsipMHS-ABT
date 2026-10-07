@@ -165,7 +165,7 @@ function dosen_issue_tokens(array $user): array
     return [
         'token' => $token,
         'jwt' => $token,
-        'refreshToken' => auth_generate_token($payload, JWT_REFRESH_EXPIRATION),
+        'refreshToken' => auth_generate_token($payload, JWT_REFRESH_EXPIRATION, 'refresh'),
     ];
 }
 

@@ -290,7 +290,7 @@ try {
         $tokenPayload['sid'] = bin2hex(random_bytes(18));
     }
     $accessToken = auth_generate_token($tokenPayload);
-    $refreshToken = auth_generate_token($tokenPayload, JWT_REFRESH_EXPIRATION);
+    $refreshToken = auth_generate_token($tokenPayload, JWT_REFRESH_EXPIRATION, 'refresh');
 
     $verify = auth_verify_token_detailed($accessToken);
     if (!($verify['ok'] ?? false)) {

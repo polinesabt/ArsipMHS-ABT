@@ -74,9 +74,8 @@ try {
     $tokens = auth_get_bearer_tokens();
     if (count($tokens) > 0) {
         foreach ($tokens as $t) {
-            $verify = auth_verify_token_detailed($t);
-            if ($verify['ok'] ?? false) {
-                $payload = $verify['payload'] ?? [];
+            $payload = auth_verify_token($t);
+            if ($payload !== null) {
                 $userId = $payload['sub'] ?? null;
                 $username = $payload['username'] ?? null;
                 $pRole = $payload['role'] ?? 'guest';

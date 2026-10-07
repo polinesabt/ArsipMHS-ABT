@@ -41,25 +41,26 @@ try {
     }
 
     $payload = $verify['payload'] ?? null;
-    if (!is_array($payload) || empty($payload['sub']) || empty($payload['role'])) {
+    if (!is_array($payload) || ($payload['typ'] ?? null) !== 'refresh'
+        || empty($payload['sub']) || empty($payload['role'])) {
         refresh_fail(401, 'Token tidak valid', 'AUTH_REFRESH_INVALID_PAYLOAD');
+    }
+
+    $stmt = $pdo->prepare('SELECT username, role FROM users WHERE id = ? AND is_active = 1 LIMIT 1');
+    $stmt->execute([(string)$payload['sub']]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$user || $user['role'] !== $payload['role'] || $user['role'] === 'demo') {
+        refresh_fail(401, 'Sesi tidak lagi aktif', 'AUTH_REFRESH_USER_INACTIVE');
     }
 
     $tokenPayload = [
         'sub' => $payload['sub'],
-        'username' => $payload['username'] ?? '',
-        'role' => $payload['role'],
+        'username' => $user['username'],
+        'role' => $user['role'],
+        'session_exp' => $payload['session_exp'],
     ];
-    if (($payload['role'] ?? null) === 'demo') {
-        if (empty($payload['sid'])) {
-            refresh_fail(401, 'Sesi Demo Mode tidak valid', 'AUTH_REFRESH_INVALID_DEMO_SESSION');
-        }
-        $tokenPayload['demo_mode'] = true;
-        $tokenPayload['sid'] = (string)$payload['sid'];
-    }
-
     $newAccessToken = auth_generate_token($tokenPayload);
-    $newRefreshToken = auth_generate_token($tokenPayload, JWT_REFRESH_EXPIRATION);
+    $newRefreshToken = auth_generate_token($tokenPayload, JWT_REFRESH_EXPIRATION, 'refresh');
 
     echo json_encode([
         'success' => true,

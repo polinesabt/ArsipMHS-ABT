@@ -172,13 +172,14 @@ function auth_get_bearer_token(): ?string {
 }
 
 /**
- * Generate JWT (access or refresh by expiration).
+ * Generate a purpose-bound JWT. A session cannot be extended past its first
+ * refresh-token lifetime.
  *
  * @param array $payload claims (sub, username, role, etc.)
  * @param int|null $expirationSeconds null = use JWT_ACCESS_EXPIRATION
  * @return string JWT
  */
-function auth_generate_token(array $payload, ?int $expirationSeconds = null): string {
+function auth_generate_token(array $payload, ?int $expirationSeconds = null, string $tokenType = 'access'): string {
     if (JWT_ALGORITHM !== 'HS256') {
         throw new Exception('JWT_ALGORITHM tidak didukung');
     }
@@ -188,11 +189,24 @@ function auth_generate_token(array $payload, ?int $expirationSeconds = null): st
         throw new Exception('JWT_SECRET tidak boleh kosong');
     }
 
+    if (!in_array($tokenType, ['access', 'refresh'], true)) {
+        throw new InvalidArgumentException('Jenis token tidak valid');
+    }
+
     $exp = $expirationSeconds !== null ? $expirationSeconds : JWT_ACCESS_EXPIRATION;
+    if ($exp <= 0) {
+        throw new InvalidArgumentException('Masa berlaku token tidak valid');
+    }
     $now = time();
     $tokenPayload = $payload;
+    $sessionExpiry = isset($payload['session_exp']) ? (int)$payload['session_exp'] : $now + JWT_REFRESH_EXPIRATION;
+    if ($sessionExpiry <= $now) {
+        throw new InvalidArgumentException('Sesi telah kedaluwarsa');
+    }
+    $tokenPayload['typ'] = $tokenType;
+    $tokenPayload['session_exp'] = $sessionExpiry;
     $tokenPayload['iat'] = $now;
-    $tokenPayload['exp'] = $now + $exp;
+    $tokenPayload['exp'] = min($now + $exp, $sessionExpiry);
 
     $headerEncoded = auth_base64url_encode(json_encode([
         'alg' => JWT_ALGORITHM,
@@ -257,7 +271,14 @@ function auth_verify_token_detailed(string $token): array {
     if (($payload['role'] ?? null) === 'demo') {
         return ['ok' => false, 'reason' => 'malformed'];
     }
-    if (isset($payload['exp']) && (int)$payload['exp'] < $now) {
+    if (!in_array($payload['typ'] ?? null, ['access', 'refresh'], true)
+        || empty($payload['sub']) || empty($payload['role'])
+        || !isset($payload['iat'], $payload['exp'], $payload['session_exp'])
+        || !is_int($payload['iat']) || !is_int($payload['exp']) || !is_int($payload['session_exp'])
+        || $payload['iat'] > $now || $payload['exp'] > $payload['session_exp']) {
+        return ['ok' => false, 'reason' => 'malformed'];
+    }
+    if ($payload['exp'] <= $now || $payload['session_exp'] <= $now) {
         return ['ok' => false, 'reason' => 'expired'];
     }
 
@@ -270,7 +291,8 @@ function auth_verify_token_detailed(string $token): array {
 
 function auth_verify_token(string $token): ?array {
     $verify = auth_verify_token_detailed($token);
-    if (!($verify['ok'] ?? false) || !isset($verify['payload']) || !is_array($verify['payload'])) {
+    if (!($verify['ok'] ?? false) || !isset($verify['payload']) || !is_array($verify['payload'])
+        || ($verify['payload']['typ'] ?? null) !== 'access') {
         return null;
     }
 
@@ -469,6 +491,10 @@ function requireAuth(?string $requiredRole = null): array {
 
         $payload = $verify['payload'] ?? null;
         if (!is_array($payload)) {
+            $verifyFailures[] = 'malformed';
+            continue;
+        }
+        if (($payload['typ'] ?? null) !== 'access') {
             $verifyFailures[] = 'malformed';
             continue;
         }
