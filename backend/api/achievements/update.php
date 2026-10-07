@@ -32,6 +32,7 @@ try {
 
     $currentConfig = $found['config'];
     $existingRow = $found['row'];
+    requireStudentWriteAccess($pdo, $auth, (string)($existingRow['id_mahasiswa'] ?? ''));
 
     $finalCategory = isset($input['category'])
         ? trim((string)$input['category'])
@@ -59,6 +60,8 @@ try {
     if (($commonData['id_mahasiswa'] ?? '') === '') {
         throw new Exception('student_id tidak valid');
     }
+
+    requireStudentWriteAccess($pdo, $auth, (string)$commonData['id_mahasiswa']);
 
     $studentStmt = $pdo->prepare('SELECT id FROM students WHERE id = ? AND deleted_at IS NULL LIMIT 1');
     $studentStmt->execute([$commonData['id_mahasiswa']]);

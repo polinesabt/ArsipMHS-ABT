@@ -36,6 +36,7 @@ try {
     }
 
     $config = $found['config'];
+    requireStudentWriteAccess($pdo, $auth, (string)($found['row']['id_mahasiswa'] ?? ''));
     $chartSync = null;
 
     $pdo->beginTransaction();

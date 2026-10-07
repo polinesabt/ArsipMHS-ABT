@@ -1,0 +1,13 @@
+# Tidak ada directory listing di seluruh backend
+Options -Indexes
+
+# File proyek/composer tidak boleh diunduh dari web
+<FilesMatch "^(composer\.(json|lock|phar)|composer copy\.lock|.*\.(sql|md|bat|log|bak))$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>

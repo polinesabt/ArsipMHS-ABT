@@ -41,6 +41,8 @@ try {
         throw new Exception('Kategori atau subkategori prestasi tidak dikenali');
     }
 
+    requireStudentWriteAccess($pdo, $auth, (string)$studentId);
+
     $studentStmt = $pdo->prepare('SELECT id FROM students WHERE id = ? AND deleted_at IS NULL LIMIT 1');
     $studentStmt->execute([$studentId]);
     if (!$studentStmt->fetch(PDO::FETCH_ASSOC)) {
