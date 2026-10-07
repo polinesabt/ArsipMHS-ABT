@@ -2,9 +2,13 @@
 require_once __DIR__ . '/../../config/cors.php';
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../config/auth.php';
+require_once __DIR__ . '/../../config/access.php';
 require_once __DIR__ . '/status_effective_sql.php';
 
 try {
+    $auth = requireAuth();
+    $ownStudentId = requireStudentDataRead($pdo, $auth);
     $id = $_GET['id'] ?? null;
     $nim = $_GET['nim'] ?? null;
     $status = $_GET['status'] ?? null;
@@ -32,6 +36,11 @@ try {
     $join = '';
     $conditions = [];
     $params = [];
+    if ($ownStudentId !== null) {
+        $conditions[] = 's.id = ?';
+        $params[] = $ownStudentId;
+        $includeDeleted = false;
+    }
     $statusEffectiveExpr = student_status_effective_expr('s');
     if (!$includeDeleted) {
         $conditions[] = 's.deleted_at IS NULL';
@@ -118,6 +127,10 @@ try {
     $stmt = $pdo->prepare($dataQuery);
     $stmt->execute($params);
     $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($students as &$student) {
+        unset($student['email_verification_token_hash'], $student['email_verification_otp_hash']);
+    }
+    unset($student);
 
     echo json_encode([
         'success' => true,
@@ -126,9 +139,9 @@ try {
         'count' => count($students),
     ]);
 } catch (Exception $e) {
-    http_response_code(500);
+    http_response_code(api_exception_status($e));
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage(),
+        'error' => api_public_error($e),
     ]);
 }

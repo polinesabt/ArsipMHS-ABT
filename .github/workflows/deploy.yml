@@ -28,6 +28,18 @@ jobs:
       - name: Build Frontend
         run: npm run build
 
+      - name: Assemble safe backend upload
+        run: |
+          mkdir -p deploy-backend/vendor deploy-backend/storage
+          cp -R backend/api backend/config deploy-backend/
+          cp backend/.htaccess deploy-backend/.htaccess
+          cp backend/vendor/.htaccess deploy-backend/vendor/.htaccess
+          cp backend/storage/.htaccess deploy-backend/storage/.htaccess
+          if find deploy-backend -type f \( -name '*.sql' -o -name '*.phar' -o -name '.env' -o -name '*.log' \) | grep -q .; then
+            echo 'Unsafe backend artifact in deployment package' >&2
+            exit 1
+          fi
+
       # Upload frontend (dist)
       - name: Deploy Frontend
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -53,12 +65,11 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftp
           port: 21
-          local-dir: ./backend/
+          local-dir: ./deploy-backend/
           server-dir: public_html/backend/
+          dangerous-clean-slate: false
           exclude: |
             **/.git*
             **/.git*/**
-            **/vendor/**
-            **/storage/**
             **/.env
             **/node_modules/**

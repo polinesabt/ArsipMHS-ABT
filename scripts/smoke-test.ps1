@@ -85,18 +85,49 @@ Write-TestResult -Name "SPA Deep Route" `
   -Passed ($deepRoute.StatusCode -eq 200 -and $deepRoute.Content -match "<div id=`"root`">") `
   -Detail ("HTTP {0}" -f $deepRoute.StatusCode)
 
-$dbHealth = Invoke-RequestSafe -Method "GET" -Url "$apiBase/test_db.php"
-$dbHealthPassed = $dbHealth.StatusCode -eq 200 -and `
-  $dbHealth.ContentType -match "application/json" -and `
-  $dbHealth.Content -match '"success"\s*:'
-Write-TestResult -Name "API DB Health JSON" `
-  -Passed $dbHealthPassed `
-  -Detail ("HTTP {0}; Content-Type: {1}" -f $dbHealth.StatusCode, $dbHealth.ContentType)
+$settingsResponse = Invoke-RequestSafe -Method "GET" -Url "$apiBase/settings/get_settings.php"
+$settingsJson = $null
+try {
+  $settingsJson = $settingsResponse.Content | ConvertFrom-Json
+} catch {
+  $settingsJson = $null
+}
+$settingsPassed = $settingsResponse.StatusCode -eq 200 -and `
+  $settingsResponse.ContentType -match "application/json" -and `
+  $settingsJson -ne $null -and $settingsJson.success -eq $true
+Write-TestResult -Name "API settings and DB connection" `
+  -Passed $settingsPassed `
+  -Detail ("HTTP {0}; Content-Type: {1}" -f $settingsResponse.StatusCode, $settingsResponse.ContentType)
+
+$studentsAnonymous = Invoke-RequestSafe -Method "GET" -Url "$apiBase/students/list.php?limit=1"
+Write-TestResult -Name "Student list requires login" `
+  -Passed ($studentsAnonymous.StatusCode -eq 401 -and $studentsAnonymous.ContentType -match "application/json") `
+  -Detail ("HTTP {0}; Content-Type: {1}" -f $studentsAnonymous.StatusCode, $studentsAnonymous.ContentType)
+
+$tracerAnonymous = Invoke-RequestSafe -Method "GET" -Url "$apiBase/tracer/list.php"
+Write-TestResult -Name "Tracer list requires login" `
+  -Passed ($tracerAnonymous.StatusCode -eq 401 -and $tracerAnonymous.ContentType -match "application/json") `
+  -Detail ("HTTP {0}; Content-Type: {1}" -f $tracerAnonymous.StatusCode, $tracerAnonymous.ContentType)
+
+$achievementsAnonymous = Invoke-RequestSafe -Method "GET" -Url "$apiBase/achievements/list.php"
+Write-TestResult -Name "Achievements list requires login" `
+  -Passed ($achievementsAnonymous.StatusCode -eq 401 -and $achievementsAnonymous.ContentType -match "application/json") `
+  -Detail ("HTTP {0}; Content-Type: {1}" -f $achievementsAnonymous.StatusCode, $achievementsAnonymous.ContentType)
+
+$loginGet = Invoke-RequestSafe -Method "GET" -Url "$apiBase/auth/login.php"
+Write-TestResult -Name "Login rejects GET" `
+  -Passed ($loginGet.StatusCode -eq 405 -and $loginGet.ContentType -match "application/json") `
+  -Detail ("HTTP {0}; Content-Type: {1}" -f $loginGet.StatusCode, $loginGet.ContentType)
 
 $envProbe = Invoke-RequestSafe -Method "GET" -Url "$baseUrl/.env"
 Write-TestResult -Name ".env exposure" `
   -Passed ($envProbe.StatusCode -in @(403, 404)) `
   -Detail ("HTTP {0}" -f $envProbe.StatusCode)
+
+$sqlProbe = Invoke-RequestSafe -Method "GET" -Url "$baseUrl/backend/database/install.sql"
+Write-TestResult -Name "Backend SQL access denied" `
+  -Passed ($sqlProbe.StatusCode -in @(403, 404)) `
+  -Detail ("HTTP {0}" -f $sqlProbe.StatusCode)
 
 $cronUnauthorized = Invoke-RequestSafe -Method "POST" -Url "$apiBase/evaluations/cron_reminder.php" -Headers @{ "Content-Type" = "application/json" } -Body "{}"
 $cronUnauthorizedPassed = $cronUnauthorized.StatusCode -eq 401 -and $cronUnauthorized.ContentType -match "application/json"

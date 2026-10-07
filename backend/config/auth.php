@@ -254,6 +254,9 @@ function auth_verify_token_detailed(string $token): array {
     }
 
     $now = time();
+    if (($payload['role'] ?? null) === 'demo') {
+        return ['ok' => false, 'reason' => 'malformed'];
+    }
     if (isset($payload['exp']) && (int)$payload['exp'] < $now) {
         return ['ok' => false, 'reason' => 'expired'];
     }
@@ -322,13 +325,7 @@ function auth_pick_best_failure_reason(array $reasons): string {
  * @return array token payload
  */
 function auth_role_allows(string $actualRole, string $requiredRole): bool {
-    if ($actualRole === $requiredRole) {
-        return true;
-    }
-
-    // Demo mode is a read-capable facade for both privileged portals. Persistence
-    // is guarded separately by requireProductionWrite().
-    return $actualRole === 'demo' && in_array($requiredRole, ['admin', 'developer'], true);
+    return $actualRole === $requiredRole;
 }
 
 function auth_is_demo(?array $payload): bool {

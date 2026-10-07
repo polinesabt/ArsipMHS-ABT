@@ -4,8 +4,12 @@ require_once __DIR__ . '/../../config/cors.php';
 
 
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../config/auth.php';
+require_once __DIR__ . '/../../config/access.php';
 
 try {
+    $auth = requireAuth();
+    $ownStudentId = requireStudentDataRead($pdo, $auth);
     $student_id = $_GET['student_id'] ?? null;
     $id = $_GET['id'] ?? null;
     
@@ -16,6 +20,10 @@ try {
     ';
     $conditions = [];
     $params = [];
+    if ($ownStudentId !== null) {
+        $conditions[] = 't.student_id = ?';
+        $params[] = $ownStudentId;
+    }
     
     if ($student_id) {
         $conditions[] = 't.student_id = ?';

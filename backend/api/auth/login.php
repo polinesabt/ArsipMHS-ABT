@@ -6,6 +6,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     exit();
 }
 
+if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Allow: POST, OPTIONS');
+    http_response_code(405);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Metode tidak diizinkan',
+        'code' => 'AUTH_LOGIN_METHOD_NOT_ALLOWED',
+    ]);
+    exit();
+}
+
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/auth.php';
 require_once __DIR__ . '/../students/status_effective_sql.php';
@@ -156,6 +168,9 @@ try {
     $role = isset($input['role']) ? trim((string)$input['role']) : null;
 
     $usernameLower = mb_strtolower($username);
+    if ($role === 'demo') {
+        auth_login_fail('Username atau password salah');
+    }
 
     $user = null;
     $studentData = null;
@@ -251,7 +266,7 @@ try {
         }
     }
 
-    if (!$user || !password_verify($password, $user['password_hash'])) {
+    if (!$user || ($user['role'] ?? '') === 'demo' || !password_verify($password, $user['password_hash'])) {
         auth_login_fail('Username atau password salah');
     }
 

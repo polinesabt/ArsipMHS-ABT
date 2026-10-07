@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../config/auth.php';
+require_once __DIR__ . '/../../config/access.php';
 require_once __DIR__ . '/store_helper.php';
 
 function achievement_list_has_column(PDO $pdo, string $table, string $column): bool {
@@ -34,6 +36,8 @@ function achievement_list_get_config_from_row(array $row): ?array {
 }
 
 try {
+    $auth = requireAuth();
+    $ownStudentId = requireStudentDataRead($pdo, $auth);
     $category = $_GET['category'] ?? null;
     $student_id = $_GET['student_id'] ?? null;
     $id = $_GET['id'] ?? null;
@@ -87,6 +91,10 @@ try {
     ";
     $conditions = [];
     $params = [];
+    if ($ownStudentId !== null) {
+        $conditions[] = 'a.student_id = ?';
+        $params[] = $ownStudentId;
+    }
     
     if ($category) {
         $conditions[] = 'a.category = ?';
