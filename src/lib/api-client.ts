@@ -53,6 +53,8 @@ const TRANSIENT_AUTH_RETRY_ENDPOINTS = new Set([
 ]);
 
 const UNAUTHORIZED_LOGOUT_DELAY_MS = 400;
+const NETWORK_RETRY_DELAY_MS = 1000;
+const NETWORK_ERROR_MESSAGE = 'Koneksi ke server terputus. Periksa internet Anda lalu coba lagi.';
 
 let pendingUnauthorizedLogoutId: ReturnType<typeof setTimeout> | null = null;
 
@@ -234,9 +236,10 @@ export class ApiClient {
       _retriedAfterRefresh?: boolean;
       _retriedWithLatestToken?: boolean;
       _retriedTransientAuth?: boolean;
+      _retriedNetwork?: boolean;
     } = {}
   ): Promise<ApiResponse<T>> {
-    const { _retriedAfterRefresh, _retriedWithLatestToken, _retriedTransientAuth, timeout: requestTimeout, ...requestOptions } = options;
+    const { _retriedAfterRefresh, _retriedWithLatestToken, _retriedTransientAuth, _retriedNetwork, timeout: requestTimeout, ...requestOptions } = options;
     const cleanEndpoint = endpoint.replace(/^\/+/, '').split('?')[0];
     const isAuthEndpoint = cleanEndpoint.startsWith('auth/');
     const isLoginEndpoint = cleanEndpoint === 'auth/login.php';
@@ -499,6 +502,22 @@ export class ApiClient {
         };
       }
 
+      // fetch() rejects with a TypeError ("Failed to fetch") when the connection drops before a
+      // response arrives, e.g. the shared host briefly refusing connections under load.
+      // GET is safe to repeat, so retry it once after a short pause.
+      const isNetworkError = error instanceof TypeError;
+      if (isNetworkError && method === 'GET' && !_retriedNetwork) {
+        await new Promise((resolve) => setTimeout(resolve, NETWORK_RETRY_DELAY_MS));
+        return this.makeRequest<T>(method, endpoint, {
+          ...requestOptions,
+          timeout: requestTimeout,
+          _retriedAfterRefresh,
+          _retriedWithLatestToken,
+          _retriedTransientAuth,
+          _retriedNetwork: true,
+        });
+      }
+
       // If demo mode is active and GET failed due to network error, fallback to IndexedDB snapshot
       if (
         !requestOptions.skipSandbox &&
@@ -531,7 +550,9 @@ export class ApiClient {
       // Handle network errors
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        error: isNetworkError
+          ? NETWORK_ERROR_MESSAGE
+          : error instanceof Error ? error.message : 'Unknown error occurred',
       };
     }
   }
