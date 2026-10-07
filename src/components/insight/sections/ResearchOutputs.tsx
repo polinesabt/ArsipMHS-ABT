@@ -1,5 +1,8 @@
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ChartSkeleton } from '@/components/ui/loading';
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, Tooltip, XAxis, YAxis } from 'recharts';
+import { MotionChartContainer as ResponsiveContainer } from '@/components/chart/MotionChartContainer';
+import { categoryColor } from '@/components/chart/chart-interactions';
 import { DashboardCard } from '@/components/insight/dashboard/DashboardCard';
 import { ChartTooltip, PieChartTooltip } from '@/components/insight/dashboard/ChartTooltip';
 import { InsightDataEmpty } from '@/components/insight/InsightDataEmpty';
@@ -7,12 +10,10 @@ import { useInsightDashboard } from '@/contexts/InsightDashboardContext';
 import { getInsightStats, type ResearchOutputsData, type InsightStatsResponse } from '@/repositories/insight.repository';
 import { getInsightErrorMessage } from '@/lib/insight-errors';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2 } from 'lucide-react';
 import { isResearchOutputsTab, type ResearchOutputsTab } from '@/types/insight-tabs';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const HAKI_COLORS = ['hsl(var(--chart-academic))', 'hsl(var(--chart-nonacademic))', 'hsl(var(--chart-success))', 'hsl(var(--chart-warning))', 'hsl(var(--level-local))', 'hsl(var(--level-national))', 'hsl(var(--level-international))', 'hsl(var(--chart-neutral))'];
-const OTHER_COLORS = ['hsl(var(--chart-academic))', 'hsl(var(--chart-success))', 'hsl(var(--chart-nonacademic))', 'hsl(var(--chart-warning))', 'hsl(var(--chart-neutral))', 'hsl(var(--level-national))'];
 
 interface ResearchOutputsProps {
   activeTab?: ResearchOutputsTab;
@@ -25,7 +26,7 @@ function truncateLabel(label: string, maxLength = 26): string {
 }
 
 export function ResearchOutputs({ activeTab, onActiveTabChange }: ResearchOutputsProps = {}) {
-  const { selectedYear } = useInsightDashboard();
+  const { selectedYear, refreshTrigger } = useInsightDashboard();
   const isMobile = useIsMobile();
   const [internalTab, setInternalTab] = useState<ResearchOutputsTab>('haki');
   const [data, setData] = useState<ResearchOutputsData | null>(null);
@@ -34,6 +35,8 @@ export function ResearchOutputs({ activeTab, onActiveTabChange }: ResearchOutput
   const [error, setError] = useState<string | null>(null);
   const yearParam = selectedYear === 'all' ? undefined : (selectedYear as number);
   const tab = activeTab ?? internalTab;
+  const queryKeyRef = useRef<string | null>(null);
+  const queryKey = `${yearParam ?? 'all'}:${tab}`;
 
   const applyTab = useCallback((nextTab: ResearchOutputsTab) => {
     if (activeTab === undefined) {
@@ -46,7 +49,8 @@ export function ResearchOutputs({ activeTab, onActiveTabChange }: ResearchOutput
 
   useLayoutEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    if (queryKeyRef.current !== queryKey) setLoading(true);
+    queryKeyRef.current = queryKey;
     setError(null);
     getInsightStats('research_outputs', yearParam, tab)
       .then((res) => {
@@ -68,7 +72,7 @@ export function ResearchOutputs({ activeTab, onActiveTabChange }: ResearchOutput
     return () => {
       cancelled = true;
     };
-  }, [tab, yearParam]);
+  }, [tab, yearParam, refreshTrigger, queryKey]);
 
   const ip = useMemo(() => data?.intellectual_property ?? [], [data?.intellectual_property]);
   const tech = useMemo(() => data?.technology ?? { softwareDevelopment: 0, products: 0, breakdown: [] }, [data?.technology]);
@@ -97,7 +101,7 @@ export function ResearchOutputs({ activeTab, onActiveTabChange }: ResearchOutput
       other
         .filter((item) => item.count > 0)
         .sort((a, b) => b.count - a.count)
-        .map((item, index) => ({ ...item, fill: OTHER_COLORS[index % OTHER_COLORS.length] })),
+        .map((item) => ({ ...item, fill: categoryColor(item.name) })),
     [other]
   );
   const otherChartHeight = Math.max(220, otherChartData.length * 44);
@@ -147,15 +151,13 @@ export function ResearchOutputs({ activeTab, onActiveTabChange }: ResearchOutput
 
           <TabsContent value="haki" className="mt-4 min-h-[320px]">
             {loading ? (
-              <div className="flex h-[240px] items-center justify-center text-muted-foreground sm:h-[280px]">
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
+              <ChartSkeleton kind="pie" className="h-[300px] sm:h-[340px]" />
             ) : hakiChartData.length === 0 ? (
-              <div className="flex min-h-[240px] items-center justify-center sm:min-h-[280px]">
+              <div className="flex min-h-[300px] items-center justify-center sm:min-h-[340px]">
                 <InsightDataEmpty />
               </div>
             ) : (
-              <div className="relative mx-auto h-[240px] w-full max-w-[520px] sm:h-[280px]">
+              <div className="relative mx-auto h-[300px] w-full max-w-[600px] sm:h-[340px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={hakiChartData} cx="50%" cy="50%" innerRadius={isMobile ? 52 : 60} outerRadius={isMobile ? 88 : 100} paddingAngle={2} dataKey="value">
@@ -178,9 +180,7 @@ export function ResearchOutputs({ activeTab, onActiveTabChange }: ResearchOutput
 
           <TabsContent value="technology" className="mt-4 min-h-[320px]">
             {loading ? (
-              <div className="flex h-[240px] items-center justify-center text-muted-foreground sm:h-[280px]">
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
+              <ChartSkeleton kind="bar" className="h-[240px] sm:h-[280px]" />
             ) : totalTech === 0 ? (
               <div className="flex min-h-[240px] items-center justify-center sm:min-h-[280px]">
                 <InsightDataEmpty />
@@ -202,9 +202,7 @@ export function ResearchOutputs({ activeTab, onActiveTabChange }: ResearchOutput
 
           <TabsContent value="other" className="mt-4 min-h-[320px]">
             {loading ? (
-              <div className="flex h-[240px] items-center justify-center text-muted-foreground sm:h-[280px]">
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
+              <ChartSkeleton kind="bar" className="h-[240px] sm:h-[280px]" />
             ) : otherChartData.length === 0 ? (
               <div className="flex min-h-[240px] items-center justify-center sm:min-h-[280px]">
                 <InsightDataEmpty />

@@ -7,6 +7,7 @@
 require_once __DIR__ . '/../../../config/cors.php';
 require_once __DIR__ . '/../../../config/database.php';
 require_once __DIR__ . '/../../../config/auth.php';
+require_once __DIR__ . '/../../../config/access.php';
 require_once __DIR__ . '/../store_helper.php';
 
 header('Content-Type: application/json');
@@ -44,10 +45,11 @@ try {
         throw new Exception('Ukuran file tidak valid atau melebihi batas 2MB.');
     }
 
-    $mime = mime_content_type($file['tmp_name']) ?: $file['type'];
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($file['tmp_name']);
     if (!in_array($mime, ALLOWED_TYPES, true)) {
         throw new Exception('Tipe file tidak diizinkan. Gunakan gambar (JPEG, PNG, GIF, WebP) atau PDF.');
     }
+    $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp', 'application/pdf' => 'pdf'];
 
     $found = achievement_store_find_record($pdo, $achievementId);
     if (!$found) {
@@ -56,6 +58,7 @@ try {
 
     $row = $found['row'];
     $config = $found['config'];
+    requireStudentWriteAccess($pdo, $auth, (string)($row['id_mahasiswa'] ?? ''));
 
     $ownerStmt = $pdo->prepare('SELECT id FROM students WHERE id = ? AND deleted_at IS NULL LIMIT 1');
     $ownerStmt->execute([(string)($row['id_mahasiswa'] ?? '')]);
@@ -73,8 +76,6 @@ try {
     }
 
     $originalName = $file['name'];
-    $safeName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalName);
-    $safeName = substr((string)$safeName, 0, 200);
     $attachmentId = bin2hex(random_bytes(18));
 
     $baseDir = __DIR__ . '/../../../storage/achievements/' . $achievementId;
@@ -84,7 +85,7 @@ try {
         }
     }
 
-    $storedName = $attachmentId . '_' . $safeName;
+    $storedName = $attachmentId . '.' . $extensions[$mime];
     $fullPath = $baseDir . '/' . $storedName;
 
     if (!move_uploaded_file($file['tmp_name'], $fullPath)) {
@@ -111,9 +112,9 @@ try {
         'file_path' => $relativePath,
     ]);
 } catch (Exception $e) {
-    http_response_code(500);
+    http_response_code(api_exception_status($e));
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage(),
+        'error' => api_public_error($e),
     ]);
 }

@@ -18,6 +18,7 @@ import {
   WifiOff,
   X,
 } from 'lucide-react';
+import { DemoDummyDataButton } from '@/components/sandbox/DemoDummyDataButton';
 
 export function DemoModeBanner() {
   const {
@@ -132,6 +133,11 @@ export function DemoModeBanner() {
               {pendingCount} perubahan demo
             </span>
           )}
+
+          <DemoDummyDataButton
+            size="sm"
+            className="h-7 border-amber-500/40 bg-background/90 px-2.5 text-xs font-medium hover:bg-amber-500/10"
+          />
 
           {/* Manual Sync Button */}
           <Button

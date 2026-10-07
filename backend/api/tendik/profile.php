@@ -32,7 +32,7 @@ try{
     if($nipChanged)$data=array_merge($data,tendik_issue_tokens($userId,$profile['nip']));
     tendik_json_response(200,['success'=>true,'data'=>$data,'message'=>'Profil tendik berhasil disimpan.']);
 }catch(InvalidArgumentException $error){
-    if($pdo->inTransaction())$pdo->rollBack();tendik_json_response(422,['success'=>false,'error'=>$error->getMessage()]);
+    if($pdo->inTransaction())$pdo->rollBack();tendik_json_response(400,['success'=>false,'error'=>$error->getMessage()]);
 }catch(Throwable $error){
     if($pdo->inTransaction())$pdo->rollBack();tendik_json_response(409,['success'=>false,'error'=>$error->getMessage()]);
 }

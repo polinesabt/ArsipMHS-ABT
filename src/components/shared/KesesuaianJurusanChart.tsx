@@ -1,4 +1,5 @@
-import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { Cell, Legend, Pie, PieChart, Tooltip } from 'recharts';
+import { MotionChartContainer as ResponsiveContainer } from '@/components/chart/MotionChartContainer';
 
 export interface KesesuaianJurusanEntry {
   key: string;
@@ -45,9 +46,9 @@ function KesesuaianJurusanTooltip({ active, payload }: TooltipProps) {
   if (!row) return null;
 
   return (
-    <div className="rounded-md border bg-background p-3 shadow-md min-w-[140px]">
+    <div className="rounded-md border bg-background p-3 shadow-md min-w-[140px]" role="tooltip">
       <p className="text-sm font-semibold">{row.displayLabel}</p>
-      <p className="text-xs text-muted-foreground mt-1">{formatPercent(row.percent)}</p>
+      <p className="text-xs text-muted-foreground mt-1">{row.value.toLocaleString('id-ID')} · {formatPercent(row.percent)}</p>
     </div>
   );
 }
@@ -90,7 +91,7 @@ export function KesesuaianJurusanChart({
             {chartData.map((entry) => (
               <Cell
                 key={entry.key}
-                fill={entry.key === 'ya' ? '#16a34a' : '#ef4444'}
+                fill={entry.key === 'ya' ? 'hsl(var(--chart-series-teal))' : 'hsl(var(--chart-series-red))'}
               />
             ))}
           </Pie>

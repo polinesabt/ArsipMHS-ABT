@@ -20,6 +20,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/auth.php';
+require_once __DIR__ . '/../../config/login_rate_limit.php';
 require_once __DIR__ . '/../students/status_effective_sql.php';
 
 function auth_login_map_student_data(array $row): array {
@@ -65,11 +66,11 @@ function auth_login_fetch_student_join_by_identifier(PDO $pdo, string $identifie
         JOIN users u ON s.user_id = u.id AND u.is_active = 1
         WHERE s.deleted_at IS NULL
           AND (
-            LOWER(TRIM(s.nim)) = ?
+            s.nim = ?
             OR (
                 s.is_email_login_enabled = 1
                 AND s.login_email IS NOT NULL
-                AND LOWER(TRIM(s.login_email)) = ?
+                AND s.login_email = ?
             )
           )
         LIMIT 1
@@ -168,7 +169,9 @@ try {
     $role = isset($input['role']) ? trim((string)$input['role']) : null;
 
     $usernameLower = mb_strtolower($username);
+    login_limit_check($pdo, $usernameLower);
     if ($role === 'demo') {
+        login_limit_failed($pdo, $usernameLower);
         auth_login_fail('Username atau password salah');
     }
 
@@ -192,7 +195,7 @@ try {
         }
 
         if (!$user) {
-            $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE LOWER(TRIM(username)) = ? AND role = ? AND is_active = 1 LIMIT 1');
+            $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE username = ? AND role = ? AND is_active = 1 LIMIT 1');
             $stmt->execute([$usernameLower, 'student']);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -202,34 +205,34 @@ try {
             }
         }
     } elseif ($role === 'dosen') {
-        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE LOWER(TRIM(username)) = ? AND role = ? AND is_active = 1 LIMIT 1');
+        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE username = ? AND role = ? AND is_active = 1 LIMIT 1');
         $stmt->execute([$usernameLower, 'dosen']);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$user) {
-            $stmtD = $pdo->prepare('SELECT u.id, u.username, u.nama, u.role, u.password_hash FROM dosen d JOIN users u ON d.user_id = u.id WHERE d.deleted_at IS NULL AND u.role = \'dosen\' AND u.is_active = 1 AND (LOWER(TRIM(d.nidn)) = ? OR (d.email IS NOT NULL AND LOWER(TRIM(d.email)) = ?)) LIMIT 1');
+            $stmtD = $pdo->prepare('SELECT u.id, u.username, u.nama, u.role, u.password_hash FROM dosen d JOIN users u ON d.user_id = u.id WHERE d.deleted_at IS NULL AND u.role = \'dosen\' AND u.is_active = 1 AND (d.nidn = ? OR (d.email IS NOT NULL AND d.email = ?)) LIMIT 1');
             $stmtD->execute([$usernameLower, $usernameLower]);
             $user = $stmtD->fetch(PDO::FETCH_ASSOC);
         }
         if ($user) $dosenData = auth_login_fetch_dosen_by_user_id($pdo, (string)$user['id']);
     } elseif ($role === 'tendik') {
-        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE LOWER(TRIM(username)) = ? AND role = ? AND is_active = 1 LIMIT 1');
+        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE username = ? AND role = ? AND is_active = 1 LIMIT 1');
         $stmt->execute([$usernameLower, 'tendik']);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($user) $tendikData = auth_login_fetch_tendik_by_user_id($pdo, (string)$user['id']);
     } elseif ($role === 'demo') {
-        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE LOWER(TRIM(username)) = ? AND role = ? AND is_active = 1 LIMIT 1');
+        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE username = ? AND role = ? AND is_active = 1 LIMIT 1');
         $stmt->execute([$usernameLower, 'demo']);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
     } elseif ($role === 'developer') {
-        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE LOWER(TRIM(username)) = ? AND role = ? AND is_active = 1 LIMIT 1');
+        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE username = ? AND role = ? AND is_active = 1 LIMIT 1');
         $stmt->execute([$usernameLower, 'developer']);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
     } elseif ($role === 'admin') {
-        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE LOWER(TRIM(username)) = ? AND role = ? AND is_active = 1 LIMIT 1');
+        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE username = ? AND role = ? AND is_active = 1 LIMIT 1');
         $stmt->execute([$usernameLower, 'admin']);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
     } else {
-        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE LOWER(TRIM(username)) = ? AND is_active = 1 LIMIT 1');
+        $stmt = $pdo->prepare('SELECT id, username, nama, role, password_hash FROM users WHERE username = ? AND is_active = 1 LIMIT 1');
         $stmt->execute([$usernameLower]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -256,7 +259,7 @@ try {
                 ];
                 $studentData = auth_login_map_student_data($row);
             } else {
-                $stmtD = $pdo->prepare('SELECT u.id, u.username, u.nama, u.role, u.password_hash FROM dosen d JOIN users u ON d.user_id = u.id WHERE d.deleted_at IS NULL AND u.role = \'dosen\' AND u.is_active = 1 AND (LOWER(TRIM(d.nidn)) = ? OR (d.email IS NOT NULL AND LOWER(TRIM(d.email)) = ?)) LIMIT 1');
+                $stmtD = $pdo->prepare('SELECT u.id, u.username, u.nama, u.role, u.password_hash FROM dosen d JOIN users u ON d.user_id = u.id WHERE d.deleted_at IS NULL AND u.role = \'dosen\' AND u.is_active = 1 AND (d.nidn = ? OR (d.email IS NOT NULL AND d.email = ?)) LIMIT 1');
                 $stmtD->execute([$usernameLower, $usernameLower]);
                 $user = $stmtD->fetch(PDO::FETCH_ASSOC);
                 if ($user && $user['role'] === 'dosen') {
@@ -267,18 +270,23 @@ try {
     }
 
     if (!$user || ($user['role'] ?? '') === 'demo' || !password_verify($password, $user['password_hash'])) {
+        login_limit_failed($pdo, $usernameLower);
         auth_login_fail('Username atau password salah');
     }
 
     if (($user['role'] ?? '') === 'student' && !$studentData) {
+        login_limit_failed($pdo, $usernameLower);
         auth_login_fail('Akun mahasiswa tidak aktif');
     }
     if (($user['role'] ?? '') === 'dosen' && !$dosenData) {
+        login_limit_failed($pdo, $usernameLower);
         auth_login_fail('Akun dosen tidak aktif');
     }
     if (($user['role'] ?? '') === 'tendik' && !$tendikData) {
+        login_limit_failed($pdo, $usernameLower);
         auth_login_fail('Akun tendik tidak aktif');
     }
+    login_limit_succeeded($pdo, $usernameLower);
 
     $tokenPayload = [
         'sub' => $user['id'],
@@ -371,10 +379,11 @@ try {
         'message' => 'Login berhasil',
     ]);
 } catch (Exception $e) {
-    http_response_code(500);
+    error_log('AUTH_LOGIN_ERROR ' . $e->getMessage());
+    http_response_code(api_exception_status($e));
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage(),
+        'error' => api_public_error($e),
     ]);
 }
 ?>

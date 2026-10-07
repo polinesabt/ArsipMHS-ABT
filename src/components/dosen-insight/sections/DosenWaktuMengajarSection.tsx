@@ -1,17 +1,7 @@
 import React, { useMemo } from 'react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from 'recharts';
+import { ChartSkeleton } from '@/components/ui/loading';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
+import { MotionChartContainer as ResponsiveContainer } from '@/components/chart/MotionChartContainer';
 import { Clock, ExternalLink } from 'lucide-react';
 import { useDosen } from '@/contexts/DosenContext';
 import { Link } from 'react-router-dom';
@@ -20,22 +10,22 @@ import { ChartTooltip, PieChartTooltip } from '@/components/insight/dashboard/Ch
 import { calculateTotalSks, latestWaktuMengajarPerDosen } from '@/data/mockWaktuMengajarData';
 
 const KEPATUHAN_COLORS = {
-  underload: '#ef4444', // Red
-  ideal: '#10b981',     // Emerald
-  overload: '#f59e0b',  // Amber
+  underload: 'hsl(var(--chart-series-red))', // Red
+  ideal: 'hsl(var(--chart-series-teal))',     // Emerald
+  overload: 'hsl(var(--chart-series-amber))',  // Amber
 };
 
 const KOMPONEN_COLORS = [
-  '#3b82f6', // PS Sendiri (Blue)
-  '#6366f1', // PS Lain (Indigo)
-  '#06b6d4', // PT Lain (Cyan)
-  '#10b981', // Riset (Emerald)
-  '#f59e0b', // PKM (Amber)
-  '#ec4899', // Tugas Tambahan (Pink)
+  'hsl(var(--chart-series-navy))', // PS Sendiri (Blue)
+  'hsl(var(--chart-series-indigo))', // PS Lain (Indigo)
+  'hsl(var(--chart-series-cyan))', // PT Lain (Cyan)
+  'hsl(var(--chart-series-teal))', // Riset (Emerald)
+  'hsl(var(--chart-series-amber))', // PKM (Amber)
+  'hsl(var(--chart-series-rose))', // Tugas Tambahan (Pink)
 ];
 
 export function DosenWaktuMengajarSection() {
-  const { dosenList, waktuMengajarList } = useDosen();
+  const { dosenList, waktuMengajarList, isLoading } = useDosen();
   const latestRecords = useMemo(() => latestWaktuMengajarPerDosen(waktuMengajarList), [waktuMengajarList]);
 
   // 1. Data Distribusi Kepatuhan Beban Kerja (Underload, Ideal, Overload)
@@ -173,7 +163,7 @@ export function DosenWaktuMengajarSection() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Chart 1: Distribusi Kepatuhan Beban Kerja (Histogram Kategori BKD) */}
-        <div className="lg:col-span-6 adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
+        <div className="lg:col-span-6 chart-panel adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <div>
               <h4 className="text-sm font-semibold text-foreground">Distribusi Kepatuhan Beban Kerja Dosen (BKD)</h4>
@@ -182,6 +172,7 @@ export function DosenWaktuMengajarSection() {
           </div>
 
           <div className="h-[250px] sm:h-[270px] w-full">
+            {isLoading && waktuMengajarList.length === 0 ? <ChartSkeleton kind="bar" className="h-full" /> : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={kepatuhanData} margin={{ top: 15, right: 15, left: -10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -189,15 +180,16 @@ export function DosenWaktuMengajarSection() {
                 <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
                 <Tooltip content={<ChartTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
-                <Bar dataKey="Dosen Tetap" stackId="kepatuhan" fill="#3b82f6" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="Dosen Tidak Tetap" stackId="kepatuhan" fill="#93c5fd" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Dosen Tetap" stackId="kepatuhan" fill="hsl(var(--chart-series-navy))" radius={[0, 0, 0, 0]} />
+                <Bar dataKey="Dosen Tidak Tetap" stackId="kepatuhan" fill="hsl(var(--chart-series-navy-light))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+            )}
           </div>
         </div>
 
         {/* Chart 2: Rata-rata SKS per Komponen Beban Kerja */}
-        <div className="lg:col-span-6 adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
+        <div className="lg:col-span-6 chart-panel adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <div>
               <h4 className="text-sm font-semibold text-foreground">Rata-rata SKS per Komponen Tridharma</h4>
@@ -206,19 +198,21 @@ export function DosenWaktuMengajarSection() {
           </div>
 
           <div className="h-[250px] sm:h-[270px] w-full">
+            {isLoading && waktuMengajarList.length === 0 ? <ChartSkeleton kind="bar" className="h-full" /> : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={rataRataKomponenData} layout="vertical" margin={{ top: 10, right: 25, left: 25, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
                 <XAxis type="number" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
                 <YAxis dataKey="name" type="category" width={140} tick={{ fontSize: 11, fill: 'hsl(var(--foreground))' }} />
                 <Tooltip content={<ChartTooltip />} />
-                <Bar dataKey="Rata-rata SKS" fill="#06b6d4" radius={[0, 4, 4, 0]}>
+                <Bar dataKey="Rata-rata SKS" fill="hsl(var(--chart-series-cyan))" radius={[0, 4, 4, 0]}>
                   {rataRataKomponenData.map((entry, index) => (
                     <Cell key={`komp-${index}`} fill={entry.fill} />
                   ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>

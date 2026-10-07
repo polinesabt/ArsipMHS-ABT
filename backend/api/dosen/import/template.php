@@ -117,5 +117,5 @@ try {
 } catch (Throwable $error) {
     http_response_code($error instanceof InvalidArgumentException?422:500);
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(['success'=>false,'error'=>$error->getMessage()],JSON_UNESCAPED_UNICODE);
+    echo json_encode(['success'=>false,'error'=>api_public_error($error)],JSON_UNESCAPED_UNICODE);
 }

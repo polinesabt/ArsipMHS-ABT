@@ -1,5 +1,9 @@
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
-import { Bar, BarChart, CartesianGrid, Customized, LabelList, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, m, useReducedMotion } from 'framer-motion';
+import { ChartSkeleton } from '@/components/ui/loading';
+import { Bar, BarChart, CartesianGrid, Customized, LabelList, Legend, Tooltip, XAxis, YAxis } from 'recharts';
+import { MotionChartContainer as ResponsiveContainer } from '@/components/chart/MotionChartContainer';
+import { ActiveBarWithGuide } from '@/components/chart/chart-interactions';
 import { DashboardCard } from '@/components/insight/dashboard/DashboardCard';
 import { ChartTooltip } from '@/components/insight/dashboard/ChartTooltip';
 import { InsightDataEmpty } from '@/components/insight/InsightDataEmpty';
@@ -14,7 +18,6 @@ import {
   type PublicationsSeminarByYearRow,
 } from '@/repositories/insight.repository';
 import { getInsightErrorMessage } from '@/lib/insight-errors';
-import { Loader2 } from 'lucide-react';
 import { isPublicationsTab, type PublicationsTab } from '@/types/insight-tabs';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -435,12 +438,6 @@ function PublicationsPercentLabel({ x, y, width, height, value, fill }: Publicat
   );
 }
 
-const PUBLICATION_ACTIVE_BAR_STYLE = {
-  fillOpacity: 0.8,
-  stroke: 'hsl(var(--foreground) / 0.45)',
-  strokeWidth: 1,
-};
-
 const TAB_LABELS: Record<PublicationsTab, string> = {
   jurnal: 'Jurnal',
   seminar: 'Publikasi di Seminar',
@@ -486,30 +483,20 @@ function PublicationsJurnalPercentTooltip({ active, payload, levelConfig }: Publ
   const row = (first as { payload?: unknown }).payload;
   if (!dataKey || !row || typeof row !== 'object') return null;
 
-  const resolveInfo = () => {
-    for (const level of levelConfig) {
-      if (dataKey === `${level.mandiriKey}Pct`) {
-        return { levelLabel: level.label, categoryLabel: 'Mandiri', countKey: level.mandiriKey, totalKey: 'totalMandiri' as const };
-      }
-      if (dataKey === `${level.kolaborasiKey}Pct`) {
-        return { levelLabel: level.label, categoryLabel: 'Kolaborasi', countKey: level.kolaborasiKey, totalKey: 'totalKolaborasi' as const };
-      }
-    }
-    return null;
-  };
-
-  const info = resolveInfo();
-  if (!info) return null;
+  const isMandiri = dataKey.startsWith('mandiri');
+  const baseKey = dataKey.replace(/Pct$/, '');
+  const level = levelConfig.find((item) => (isMandiri ? item.mandiriKey : item.kolaborasiKey) === baseKey);
+  if (!level) return null;
 
   const rowRecord = row as Record<string, unknown>;
-  const count = Number(rowRecord[info.countKey] ?? 0);
-  const total = Number(rowRecord[info.totalKey] ?? 0);
+  const count = Number(rowRecord[isMandiri ? level.mandiriKey : level.kolaborasiKey] ?? 0);
+  const total = Number(rowRecord[isMandiri ? 'totalMandiri' : 'totalKolaborasi'] ?? 0);
   const percentValue = Number(rowRecord[dataKey] ?? 0);
   const displayPercent = percentValue < 1 && percentValue > 0 ? '<1%' : `${Math.round(percentValue)}%`;
 
   return (
     <div className="chart-tooltip">
-      <p className="font-medium text-foreground mb-2">{`${info.levelLabel} (${info.categoryLabel})`}</p>
+      <p className="font-medium text-foreground mb-2">{`${level.label} (${isMandiri ? 'Mandiri' : 'Kolaborasi'})`}</p>
       <div className="space-y-1 text-sm text-muted-foreground">
         <div>
           <span className="font-medium text-foreground">{Number.isFinite(count) ? count.toLocaleString() : '0'}</span>
@@ -651,9 +638,11 @@ function resolveTotalByTab(data: PublicationsData | null, tab: PublicationsTab):
 }
 
 export function Publications({ activeTab, onActiveTabChange }: PublicationsProps = {}) {
-  const { selectedYear } = useInsightDashboard();
+  const { selectedYear, refreshTrigger } = useInsightDashboard();
   const isMobile = useIsMobile();
+  const reducedMotion = Boolean(useReducedMotion());
   const [internalTab, setInternalTab] = useState<PublicationsTab>('jurnal');
+  const tab = activeTab ?? internalTab;
   const [data, setData] = useState<PublicationsData | null>(null);
   const [meta, setMeta] = useState<InsightStatsResponse['meta']>(null);
   const [loading, setLoading] = useState(true);
@@ -661,10 +650,12 @@ export function Publications({ activeTab, onActiveTabChange }: PublicationsProps
   const [hoveredDataKey, setHoveredDataKey] = useState<string | null>(null);
 
   const yearParam = selectedYear === 'all' ? undefined : (selectedYear as number);
-  const tab = activeTab ?? internalTab;
+  const queryKeyRef = useRef<string | null>(null);
+  const queryKey = String(yearParam ?? 'all');
   const levelConfig = TAB_LEVELS[tab];
 
   const applyTab = useCallback((nextTab: PublicationsTab) => {
+    setHoveredDataKey(null);
     if (activeTab === undefined) {
       setInternalTab(nextTab);
     }
@@ -675,10 +666,11 @@ export function Publications({ activeTab, onActiveTabChange }: PublicationsProps
 
   useLayoutEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    if (queryKeyRef.current !== queryKey) setLoading(true);
+    queryKeyRef.current = queryKey;
     setError(null);
 
-    getInsightStats('publications', yearParam, tab)
+    getInsightStats('publications', yearParam)
       .then((res) => {
         if (cancelled) return;
         const typed = res as InsightStatsResponse<PublicationsData>;
@@ -699,46 +691,45 @@ export function Publications({ activeTab, onActiveTabChange }: PublicationsProps
     return () => {
       cancelled = true;
     };
-  }, [tab, yearParam]);
+  }, [yearParam, refreshTrigger, queryKey]);
 
   const byYearRows = useMemo(() => resolveRowsByTab(data, tab), [data, tab]);
   const totalRecords = resolveTotalByTab(data, tab);
   const usePercentageChart = tab === 'jurnal';
 
-  const chartData = useMemo(
-    () =>
-      byYearRows.map((row) => {
-        const mapped: Record<string, number | string> = { year: String(row.year) };
-        let totalMandiri = 0;
-        let totalKolaborasi = 0;
+  const chartData = useMemo(() => {
+    return byYearRows.map((row) => {
+      const mapped: Record<string, number | string> = { year: String(row.year) };
+      let totalMandiri = 0;
+      let totalKolaborasi = 0;
 
+      levelConfig.forEach((level) => {
+        const rowRecord = row as unknown as Record<string, unknown>;
+        const mandiriValue = Number(rowRecord[level.mandiriKey] ?? 0);
+        const kolaborasiValue = Number(rowRecord[level.kolaborasiKey] ?? 0);
+
+        mapped[level.mandiriKey] = mandiriValue;
+        mapped[level.kolaborasiKey] = kolaborasiValue;
+        totalMandiri += mandiriValue;
+        totalKolaborasi += kolaborasiValue;
+      });
+
+      mapped.totalMandiri = totalMandiri;
+      mapped.totalKolaborasi = totalKolaborasi;
+
+      if (usePercentageChart) {
         levelConfig.forEach((level) => {
-          const rowRecord = row as unknown as Record<string, unknown>;
-          const mandiriValue = Number(rowRecord[level.mandiriKey] ?? 0);
-          const kolaborasiValue = Number(rowRecord[level.kolaborasiKey] ?? 0);
-
-          mapped[level.mandiriKey] = mandiriValue;
-          mapped[level.kolaborasiKey] = kolaborasiValue;
-          totalMandiri += mandiriValue;
-          totalKolaborasi += kolaborasiValue;
+          const mandiriVal = Number(mapped[level.mandiriKey] ?? 0);
+          const kolaborasiVal = Number(mapped[level.kolaborasiKey] ?? 0);
+          mapped[`${level.mandiriKey}Pct`] = resolvePublicationPercentage(mandiriVal, totalMandiri);
+          mapped[`${level.kolaborasiKey}Pct`] = resolvePublicationPercentage(kolaborasiVal, totalKolaborasi);
         });
+      }
 
-        mapped.totalMandiri = totalMandiri;
-        mapped.totalKolaborasi = totalKolaborasi;
+      return mapped;
+    });
+  }, [byYearRows, levelConfig, usePercentageChart]);
 
-        if (usePercentageChart) {
-          levelConfig.forEach((level) => {
-            const mandiriValue = Number(mapped[level.mandiriKey] ?? 0);
-            const kolaborasiValue = Number(mapped[level.kolaborasiKey] ?? 0);
-            mapped[`${level.mandiriKey}Pct`] = resolvePublicationPercentage(mandiriValue, totalMandiri);
-            mapped[`${level.kolaborasiKey}Pct`] = resolvePublicationPercentage(kolaborasiValue, totalKolaborasi);
-          });
-        }
-
-        return mapped;
-      }),
-    [byYearRows, levelConfig, usePercentageChart]
-  );
   const mobileChartMinWidth = useMemo(() => {
     if (!isMobile) return undefined;
     return `${Math.max(560, chartData.length * 108)}px`;
@@ -789,7 +780,7 @@ export function Publications({ activeTab, onActiveTabChange }: PublicationsProps
       const shortLevel = MOBILE_LEVEL_LABELS[tab][level.id] ?? level.label;
       return `${shortLevel} (${category === 'Mandiri' ? 'M' : 'K'})`;
     },
-    [isMobile, tab]
+    [tab, isMobile]
   );
 
   return (
@@ -827,112 +818,133 @@ export function Publications({ activeTab, onActiveTabChange }: PublicationsProps
 
           <div className="mt-4 min-h-[280px] sm:min-h-[320px]">
             {loading ? (
-              <div className="flex h-[240px] items-center justify-center text-muted-foreground sm:h-[280px]">
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
+              <ChartSkeleton kind="bar" className="h-[240px] sm:h-[280px]" />
             ) : chartData.length === 0 ? (
               <div className="flex min-h-[240px] items-center justify-center sm:min-h-[280px]">
                 <InsightDataEmpty />
               </div>
             ) : (
-               <div className="w-full">
-                 <div className="flex h-[240px] flex-col sm:h-[320px]">
-                   {usePercentageChart && (
-                     <p className="mb-2 text-xs text-muted-foreground">
-                       Distribusi level publikasi per tahun (tinggi bar = 100%, angka di atas menunjukkan total publikasi).
-                     </p>
-                   )}
-                   <div className={usePercentageChart && isMobile ? 'flex-1 overflow-x-auto pb-1' : 'flex-1'}>
-                     <div className="h-full" style={{ minWidth: mobileChartMinWidth }}>
-                       <ResponsiveContainer width="100%" height="100%">
-                         <BarChart
-                           data={chartData}
-                           margin={isMobile ? { top: 14, right: 8, left: -8, bottom: 10 } : { top: 18, right: 20, left: 6, bottom: 32 }}
-                           barCategoryGap={isMobile ? 18 : 24}
-                           onMouseMove={handleChartMouseMove}
-                           onMouseLeave={() => setHoveredDataKey(null)}
-                         >
-                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                         <XAxis
-                           dataKey="year"
-                           orientation="top"
-                           tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: isMobile ? 10 : 12 }}
-                           axisLine={{ stroke: 'hsl(var(--border))' }}
-                           tickLine={false}
-                           tickMargin={isMobile ? 6 : 10}
-                         />
-                         <YAxis
-                           hide
-                           allowDecimals={false}
-                           domain={usePercentageChart ? [0, 100] : undefined}
-                           padding={usePercentageChart ? { top: isMobile ? 10 : 16 } : undefined}
-                         />
-                         <Tooltip
-                           shared={false}
-                           content={usePercentageChart ? (
-                             <PublicationsJurnalPercentTooltip levelConfig={levelConfig} />
-                           ) : (
-                             <ChartTooltip
-                               hideZeroValues
-                               valueFormatter={(value) => Number(value).toLocaleString()}
-                             />
-                           )}
-                         />
-                         <Legend
-                           wrapperStyle={{
-                             paddingTop: isMobile ? 14 : 28,
-                             fontSize: isMobile ? 10 : 12,
-                             lineHeight: 1.4,
-                           }}
-                           iconSize={isMobile ? 8 : 10}
-                           formatter={(value) => (
-                             <span style={{ color: 'hsl(var(--muted-foreground) / 0.9)' }}>{value}</span>
-                           )}
-                         />
+              <div className="flex h-[240px] flex-col sm:h-[320px]">
+                <p
+                  className={`mb-2 min-h-4 text-xs text-muted-foreground transition-opacity duration-200 ${usePercentageChart ? 'opacity-100' : 'opacity-0'}`}
+                  aria-hidden={!usePercentageChart}
+                >
+                  Distribusi level publikasi per tahun (tinggi bar = 100%, angka di atas menunjukkan total publikasi).
+                </p>
+                <div className={usePercentageChart && isMobile ? 'relative flex-1 overflow-x-auto pb-1' : 'relative flex-1'}>
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    <m.div
+                      key={tab}
+                      initial={reducedMotion ? false : { opacity: 0, scaleY: 0.88 }}
+                      animate={{ opacity: 1, scaleY: 1 }}
+                      exit={reducedMotion ? undefined : { opacity: 0, scaleY: 0.88 }}
+                      transition={{
+                        duration: reducedMotion ? 0 : 0.28,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                      style={{ transformOrigin: 'bottom center' }}
+                      className="publication-transition-chart h-full w-full"
+                    >
+                      <div className="h-full w-full" style={{ minWidth: mobileChartMinWidth }}>
+                        <ResponsiveContainer
+                          width="100%"
+                          height="100%"
+                          chartAnimationDuration={450}
+                          chartAnimationStagger={0}
+                        >
+                          <BarChart
+                            data={chartData}
+                            margin={isMobile ? { top: 14, right: 8, left: -8, bottom: 10 } : { top: 18, right: 20, left: 6, bottom: 32 }}
+                            barCategoryGap={isMobile ? 18 : 24}
+                            onMouseMove={handleChartMouseMove}
+                            onClick={handleChartMouseMove}
+                            onMouseLeave={() => setHoveredDataKey(null)}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                            <XAxis
+                              dataKey="year"
+                              orientation="top"
+                              tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: isMobile ? 10 : 12 }}
+                              axisLine={{ stroke: 'hsl(var(--border))' }}
+                              tickLine={false}
+                              tickMargin={isMobile ? 6 : 10}
+                            />
+                            <YAxis
+                              hide
+                              allowDecimals={false}
+                              domain={usePercentageChart ? [0, 100] : undefined}
+                              padding={usePercentageChart ? { top: isMobile ? 10 : 16 } : undefined}
+                            />
+                            <Tooltip
+                              shared={false}
+                              content={usePercentageChart ? (
+                                <PublicationsJurnalPercentTooltip levelConfig={levelConfig} />
+                              ) : (
+                                <ChartTooltip hideZeroValues valueFormatter={(value) => Number(value).toLocaleString()} />
+                              )}
+                            />
+                            <Legend
+                              wrapperStyle={{
+                                paddingTop: isMobile ? 14 : 28,
+                                fontSize: isMobile ? 10 : 12,
+                                lineHeight: 1.4,
+                              }}
+                              iconSize={isMobile ? 8 : 10}
+                              formatter={(value) => (
+                                <span style={{ color: 'hsl(var(--muted-foreground) / 0.9)' }}>{value}</span>
+                              )}
+                            />
 
-                         {levelConfig.map((level) => {
-                           const dataKey = usePercentageChart ? `${level.mandiriKey}Pct` : level.mandiriKey;
-                           return (
-                             <Bar
-                               key={`mandiri-${level.id}`}
-                               activeBar={hoveredDataKey === dataKey ? PUBLICATION_ACTIVE_BAR_STYLE : false}
-                               dataKey={dataKey}
-                               name={getLegendName(level, 'Mandiri')}
-                               stackId="mandiri"
-                               fill={level.mandiriColor}
-                             >
-                               {!isMobile && usePercentageChart && <LabelList dataKey={dataKey} content={PublicationsPercentLabel} />}
-                             </Bar>
-                           );
-                         })}
-                         {levelConfig.map((level) => {
-                           const dataKey = usePercentageChart ? `${level.kolaborasiKey}Pct` : level.kolaborasiKey;
-                           return (
-                             <Bar
-                               key={`kolaborasi-${level.id}`}
-                               activeBar={hoveredDataKey === dataKey ? PUBLICATION_ACTIVE_BAR_STYLE : false}
-                               dataKey={dataKey}
-                               name={getLegendName(level, 'Kolaborasi')}
-                               stackId="kolaborasi"
-                               fill={level.kolaborasiColor}
-                             >
-                               {!isMobile && usePercentageChart && <LabelList dataKey={dataKey} content={PublicationsPercentLabel} />}
-                             </Bar>
-                           );
-                         })}
+                            {levelConfig.map((level) => {
+                              const dataKey = usePercentageChart ? `${level.mandiriKey}Pct` : level.mandiriKey;
+                              return (
+                                <Bar
+                                  key={`mandiri-${level.id}`}
+                                  className="publication-series-bar"
+                                  activeBar={hoveredDataKey === dataKey ? <ActiveBarWithGuide /> : false}
+                                  dataKey={dataKey}
+                                  name={getLegendName(level, 'Mandiri')}
+                                  stackId="mandiri"
+                                  fill={level.mandiriColor}
+                                >
+                                  {!isMobile && usePercentageChart && (
+                                    <LabelList dataKey={dataKey} content={PublicationsPercentLabel} />
+                                  )}
+                                </Bar>
+                              );
+                            })}
+                            {levelConfig.map((level) => {
+                              const dataKey = usePercentageChart ? `${level.kolaborasiKey}Pct` : level.kolaborasiKey;
+                              return (
+                                <Bar
+                                  key={`kolaborasi-${level.id}`}
+                                  className="publication-series-bar"
+                                  activeBar={hoveredDataKey === dataKey ? <ActiveBarWithGuide /> : false}
+                                  dataKey={dataKey}
+                                  name={getLegendName(level, 'Kolaborasi')}
+                                  stackId="kolaborasi"
+                                  fill={level.kolaborasiColor}
+                                >
+                                  {!isMobile && usePercentageChart && (
+                                    <LabelList dataKey={dataKey} content={PublicationsPercentLabel} />
+                                  )}
+                                </Bar>
+                              );
+                            })}
 
-                         {!isMobile && usePercentageChart && <Customized component={<PublicationsTotalsLabels data={chartData} />} />}
-                         {!isMobile && <Customized component={PublicationsCategoryLabels} />}
-                       </BarChart>
-                     </ResponsiveContainer>
-                   </div>
-                   </div>
-                 </div>
-               </div>
-             )}
-           </div>
-         </Tabs>
-       )}
+                            {!isMobile && usePercentageChart && <Customized component={<PublicationsTotalsLabels data={chartData} />} />}
+                            {!isMobile && <Customized component={PublicationsCategoryLabels} />}
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </m.div>
+                  </AnimatePresence>
+                </div>
+              </div>
+            )}
+          </div>
+        </Tabs>
+      )}
     </DashboardCard>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAlumni } from '@/contexts/AlumniContext';
 import { StatCard } from '@/components/shared';
@@ -10,7 +10,8 @@ import { Link } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 
 export default function AIInsightPage() {
-  const { alumniData, masterData } = useAlumni();
+  const { alumniData, masterData, refreshData } = useAlumni();
+  useEffect(() => { void refreshData(); }, [refreshData]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [insights, setInsights] = useState<string[]>([]);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -127,10 +128,10 @@ export default function AIInsightPage() {
 
             {/* Stats Overview */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 animate-fade-up">
-              <StatCard title="Data Dianalisis" value={stats.total} icon={Users} color="primary" animate={false} />
-              <StatCard title="Bekerja" value={stats.bekerja} icon={Briefcase} color="primary" animate={false} />
-              <StatCard title="Wirausaha" value={stats.wirausaha} icon={Rocket} color="success" animate={false} />
-              <StatCard title="Tingkat Kerja" value={`${stats.tingkatKerja}%`} icon={TrendingUp} color="info" animate={false} />
+              <StatCard title="Data Dianalisis" value={stats.total} icon={Users} color="primary" />
+              <StatCard title="Bekerja" value={stats.bekerja} icon={Briefcase} color="primary" />
+              <StatCard title="Wirausaha" value={stats.wirausaha} icon={Rocket} color="success" />
+              <StatCard title="Tingkat Kerja" value={`${stats.tingkatKerja}%`} icon={TrendingUp} color="info" />
             </div>
 
             {/* Generate Button */}

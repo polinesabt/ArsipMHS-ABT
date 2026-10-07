@@ -41,19 +41,19 @@ try {
   Assert-PathExists "dist/.htaccess"
   Assert-PathExists "backend/api"
   Assert-PathExists "backend/config"
-  Assert-PathExists "backend/database/schema.sql"
-  Assert-PathExists "backend/database/seed.sql"
+  Assert-PathExists "backend/vendor/autoload.php"
+  Assert-PathExists "backend/.htaccess"
+  Assert-PathExists "backend/vendor/.htaccess"
+  Assert-PathExists "backend/storage/.htaccess"
 
   $releaseRoot = Join-Path $repoRoot $OutputDir
   $stagingRoot = Join-Path $releaseRoot "staging-$timestamp"
   $publicRoot = Join-Path $stagingRoot "public_html"
   $backendRoot = Join-Path $publicRoot "backend"
-  $dbRoot = Join-Path $stagingRoot "backend/database"
 
   New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
   New-Item -ItemType Directory -Path $publicRoot -Force | Out-Null
   New-Item -ItemType Directory -Path $backendRoot -Force | Out-Null
-  New-Item -ItemType Directory -Path $dbRoot -Force | Out-Null
 
   Write-Host "Copying frontend build..."
   Get-ChildItem -Path "dist" -Force | ForEach-Object {
@@ -63,6 +63,11 @@ try {
   Write-Host "Copying backend API/config..."
   Copy-Item -Path "backend/api" -Destination $backendRoot -Recurse -Force
   Copy-Item -Path "backend/config" -Destination $backendRoot -Recurse -Force
+  Copy-Item -Path "backend/vendor" -Destination $backendRoot -Recurse -Force
+  Copy-Item -Path "backend/.htaccess" -Destination $backendRoot -Force
+  New-Item -ItemType Directory -Path (Join-Path $backendRoot "storage") -Force | Out-Null
+  Copy-Item -Path "backend/vendor/.htaccess" -Destination (Join-Path $backendRoot "vendor") -Force
+  Copy-Item -Path "backend/storage/.htaccess" -Destination (Join-Path $backendRoot "storage") -Force
 
   Write-Host "Pruning local logs and backup artifacts from release..."
   $apiReleasePath = Join-Path $backendRoot "api"
@@ -76,10 +81,6 @@ try {
       Remove-Item -Path $logsDir -Recurse -Force
     }
   }
-
-  Write-Host "Copying SQL files..."
-  Copy-Item -Path "backend/database/schema.sql" -Destination (Join-Path $dbRoot "schema.sql") -Force
-  Copy-Item -Path "backend/database/seed.sql" -Destination (Join-Path $dbRoot "seed.sql") -Force
 
   $notes = @"
 DEPLOYMENT NOTES

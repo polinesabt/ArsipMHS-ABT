@@ -1,17 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from 'recharts';
+import { ChartSkeleton } from '@/components/ui/loading';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
+import { MotionChartContainer as ResponsiveContainer } from '@/components/chart/MotionChartContainer';
 import { GraduationCap, FlaskConical, HeartHandshake, ExternalLink, TrendingUp, Calendar, CheckCircle2 } from 'lucide-react';
 import { useDosen } from '@/contexts/DosenContext';
 import { Link } from 'react-router-dom';
@@ -19,14 +9,15 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChartTooltip, PieChartTooltip } from '@/components/insight/dashboard/ChartTooltip';
 
-const PENGAJARAN_COLORS = ['#3b82f6', '#8b5cf6']; // Biru (PS ABT), Ungu (PS Lain)
+const PENGAJARAN_COLORS = ['hsl(var(--chart-series-navy))', 'hsl(var(--chart-series-indigo))']; // Biru (PS ABT), Ungu (PS Lain)
 const DUAL_BAR_COLORS = {
-  penelitian: '#3b82f6', // Biru
-  pengabdian: '#10b981', // Emerald
+  penelitian: 'hsl(var(--chart-series-navy))', // Biru
+  pengabdian: 'hsl(var(--chart-series-teal))', // Emerald
 };
 
 export function DosenKontribusiSection() {
   const {
+    isLoading,
     kontribusiPengajaranList,
     kontribusiPenelitianList,
     kontribusiPengabdianList,
@@ -204,7 +195,7 @@ export function DosenKontribusiSection() {
         <TabsContent value="overview" className="mt-0">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             {/* Chart 1 (Pie Chart): Modul Pengajaran ABT vs PS Lain dalam % */}
-            <div className="lg:col-span-4 adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
+            <div className="lg:col-span-4 chart-panel adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-semibold text-foreground">Distribusi Pengajaran Dosen</h4>
@@ -217,7 +208,7 @@ export function DosenKontribusiSection() {
                 </p>
               </div>
 
-              <div className="h-[190px] w-full mt-2">
+              <div className="h-[260px] w-full mt-2">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -242,7 +233,7 @@ export function DosenKontribusiSection() {
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/40 text-center">
                 <div className="p-2 rounded-xl bg-blue-500/5 border border-blue-500/20">
                   <div className="text-[11px] font-medium text-muted-foreground flex items-center justify-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+                    <span className="w-2 h-2 rounded-full chart-legend-navy inline-block" />
                     PS ABT
                   </div>
                   <div className="text-base font-bold text-blue-600 dark:text-blue-400 mt-0.5">
@@ -255,7 +246,7 @@ export function DosenKontribusiSection() {
 
                 <div className="p-2 rounded-xl bg-purple-500/5 border border-purple-500/20">
                   <div className="text-[11px] font-medium text-muted-foreground flex items-center justify-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-purple-500 inline-block" />
+                    <span className="w-2 h-2 rounded-full chart-legend-indigo inline-block" />
                     PS Lain
                   </div>
                   <div className="text-base font-bold text-purple-600 dark:text-purple-400 mt-0.5">
@@ -269,7 +260,7 @@ export function DosenKontribusiSection() {
             </div>
 
             {/* Chart 2 (Dual Bar): Gabungan Penelitian dan Pengabdian per Tahun */}
-            <div className="lg:col-span-8 adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
+            <div className="lg:col-span-8 chart-panel adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between mb-2">
                 <div>
                   <h4 className="text-sm font-semibold text-foreground">
@@ -282,7 +273,9 @@ export function DosenKontribusiSection() {
               </div>
 
               <div className="h-[260px] sm:h-[280px] w-full">
-                {trenDualBarData.length === 0 ? (
+                {isLoading && kontribusiPenelitianList.length === 0 && kontribusiPengabdianList.length === 0 ? (
+                  <ChartSkeleton kind="bar" className="h-full" />
+                ) : trenDualBarData.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-xs text-muted-foreground border border-dashed rounded-xl">
                     Belum ada data penelitian &amp; pengabdian
                   </div>
@@ -306,7 +299,7 @@ export function DosenKontribusiSection() {
 
         {/* TAB 2: PENELITIAN (1 Grafik Tunggal Banyaknya Penelitian per Tahun) */}
         <TabsContent value="penelitian" className="mt-0">
-          <div className="adaptive-mobile-card p-4 sm:p-6 rounded-2xl bg-card/80 border border-border/60 shadow-xs space-y-4">
+          <div className="chart-panel adaptive-mobile-card p-4 sm:p-6 rounded-2xl bg-card/80 border border-border/60 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/40">
               <div>
                 <div className="flex items-center gap-2">
@@ -335,7 +328,9 @@ export function DosenKontribusiSection() {
 
             {/* Single Full-width Bar Chart */}
             <div className="h-[280px] sm:h-[320px] w-full pt-2">
-              {penelitianPerTahunData.chartData.length === 0 ? (
+              {isLoading && kontribusiPenelitianList.length === 0 ? (
+                  <ChartSkeleton kind="bar" className="h-full" />
+                ) : penelitianPerTahunData.chartData.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-xs text-muted-foreground border border-dashed rounded-xl">
                   Belum ada data penelitian terdaftar
                 </div>
@@ -346,7 +341,7 @@ export function DosenKontribusiSection() {
                     <XAxis dataKey="tahun" tick={{ fontSize: 12, fill: 'hsl(var(--foreground))' }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
                     <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="Jumlah Penelitian" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="Jumlah Penelitian" fill="hsl(var(--chart-series-navy))" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -356,7 +351,7 @@ export function DosenKontribusiSection() {
 
         {/* TAB 3: PENGABDIAN (1 Grafik Tunggal Banyaknya Pengabdian per Tahun) */}
         <TabsContent value="pengabdian" className="mt-0">
-          <div className="adaptive-mobile-card p-4 sm:p-6 rounded-2xl bg-card/80 border border-border/60 shadow-xs space-y-4">
+          <div className="chart-panel adaptive-mobile-card p-4 sm:p-6 rounded-2xl bg-card/80 border border-border/60 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/40">
               <div>
                 <div className="flex items-center gap-2">
@@ -385,7 +380,9 @@ export function DosenKontribusiSection() {
 
             {/* Single Full-width Bar Chart */}
             <div className="h-[280px] sm:h-[320px] w-full pt-2">
-              {pengabdianPerTahunData.chartData.length === 0 ? (
+              {isLoading && kontribusiPengabdianList.length === 0 ? (
+                  <ChartSkeleton kind="bar" className="h-full" />
+                ) : pengabdianPerTahunData.chartData.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-xs text-muted-foreground border border-dashed rounded-xl">
                   Belum ada data pengabdian terdaftar
                 </div>
@@ -396,7 +393,7 @@ export function DosenKontribusiSection() {
                     <XAxis dataKey="tahun" tick={{ fontSize: 12, fill: 'hsl(var(--foreground))' }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
                     <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="Jumlah Pengabdian" fill="#10b981" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="Jumlah Pengabdian" fill="hsl(var(--chart-series-teal))" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}

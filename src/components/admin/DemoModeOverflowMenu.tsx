@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { FloatingPopoverSurface } from '@/components/admin/FloatingIconPopup';
 import { LongPressIconButton } from '@/components/admin/LongPressIconButton';
 import { useLoggedInDemo } from '@/contexts/AlumniContext';
+import { DemoDummyDataButton } from '@/components/sandbox/DemoDummyDataButton';
 
 interface DemoModeOverflowMenuProps {
   open: boolean;
@@ -156,6 +157,8 @@ export function DemoModeOverflowMenu({ open, onOpenChange }: DemoModeOverflowMen
           </span>
           <span className="text-xs font-semibold tabular-nums text-foreground">{pendingCount}</span>
         </div>
+
+        <DemoDummyDataButton fullWidth className="h-10" />
 
         <div className="grid grid-cols-2 gap-2">
           <Button

@@ -36,7 +36,7 @@ function getDbName(sid: string): string {
 const dbConnections = new Map<string, IDBDatabase>();
 
 export function isIndexedDbAvailable(): boolean {
-  return typeof window !== 'undefined' && typeof window.indexedDB !== 'undefined';
+  return typeof indexedDB !== 'undefined';
 }
 
 function handleDbError(err: unknown): never {
@@ -142,7 +142,20 @@ function runTransaction<T>(
       let isCompleted = false;
       let runnerFinished = false;
 
-      Promise.resolve(runner(storeMap, tx))
+      let runnerResult: Promise<T> | T;
+      try {
+        runnerResult = runner(storeMap, tx);
+      } catch (err) {
+        try {
+          tx.abort();
+        } catch {
+          // The transaction may already have been aborted by IndexedDB.
+        }
+        reject(err);
+        return;
+      }
+
+      Promise.resolve(runnerResult)
         .then((res) => {
           result = res;
           runnerFinished = true;
@@ -241,6 +254,32 @@ export async function addJournalEntry(
     stores.journal.put(fullEntry);
   });
   return fullEntry;
+}
+
+/**
+ * Append a related set of sandbox mutations in one IndexedDB transaction.
+ * This is used by demo data generation so a parent and its dependent record
+ * can never be left partially written.
+ */
+export async function addJournalEntries(
+  sid: string,
+  entries: Array<Omit<SandboxJournalEntry, 'id' | 'createdAt'> & { id?: string }>
+): Promise<SandboxJournalEntry[]> {
+  if (entries.length === 0) return [];
+
+  const db = await openSandboxDB(sid);
+  const createdAt = Date.now();
+  const fullEntries: SandboxJournalEntry[] = entries.map((entry, index) => ({
+    ...entry,
+    id: entry.id || generateDemoId('op'),
+    createdAt: createdAt + index,
+  }));
+
+  await runTransaction(db, 'journal', 'readwrite', (stores) => {
+    for (const entry of fullEntries) stores.journal.put(entry);
+  });
+
+  return fullEntries;
 }
 
 export async function getJournal(

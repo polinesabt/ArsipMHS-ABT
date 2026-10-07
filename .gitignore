@@ -14,6 +14,9 @@ backend.zip
 *.bak
 *.backup
 *.log
+*.phar
+*.dump
+*.sql.gz
 *.tmp
 *.temp
 .tmp-*
@@ -21,4 +24,24 @@ backend.zip
 .agents/
 *.tsbuildinfo
 backend/storage/insight_stats_cache/
+backend/database productin ekspor/*.sql
+backend/database productin ekspor/
+backend/database/production_*.sql
+backend/database/backups/
+backend/database/seed*.sql
+backend/database/create_developer_account.sql
+backend/database/migrations/2026-03-05-replace-admin-accounts-hard-remap.sql
+backend/database/migrations/2026-03-15-safe-hosting-structure-migration.sql
+backend/database/migrations/2026-08-14-add-developer-role-and-settings.sql
+backend/database/migrations/*production-schema-update.sql
+backend/database/migrations/2026-09-11-add-demo-mode.sql
+backend/database/migrations/2026-09-12-remove-demo-and-reset-admin.sql
+backend/scripts/clean-all-dummy-data.php
+backend/scripts/replace-admin-account.php
+backend/scripts/seed-demo-20-full.php
+.chart-build-check/
+.security-build-check/
+bug fix/*.sql
+scripts/normalize-api-errors.py
+scripts/scrub-public-secrets.py
 skills-lock.json

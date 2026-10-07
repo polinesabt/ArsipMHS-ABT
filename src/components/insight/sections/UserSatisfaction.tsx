@@ -1,5 +1,7 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
+import { ChartSkeleton } from '@/components/ui/loading';
 import { DashboardCard } from '@/components/insight/dashboard/DashboardCard';
+import { useInsightDashboard } from '@/contexts/InsightDashboardContext';
 import { InsightDataEmpty } from '@/components/insight/InsightDataEmpty';
 import {
   DistribusiPenilaianChart,
@@ -24,6 +26,8 @@ const CHART_META_JOB_MATCH: ChartMeta = {
 };
 
 export function UserSatisfaction() {
+  const { refreshTrigger } = useInsightDashboard();
+  const loadedRef = useRef(false);
   const [aspectData, setAspectData] = useState<DistribusiPenilaianRow[]>([]);
   const [jobMatchData, setJobMatchData] = useState<KesesuaianJurusanEntry[]>([]);
   const [totalRespondents, setTotalRespondents] = useState(0);
@@ -32,7 +36,7 @@ export function UserSatisfaction() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    if (!loadedRef.current) setLoading(true);
     setError(null);
     getEvaluationCharts('all')
       .then((res) => {
@@ -67,12 +71,15 @@ export function UserSatisfaction() {
         }
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          loadedRef.current = true;
+          setLoading(false);
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshTrigger]);
 
   const hasAspectData = aspectData.length > 0;
   const hasJobMatchData = jobMatchData.length > 0 && jobMatchData.some((e) => e.value > 0);
@@ -107,9 +114,7 @@ export function UserSatisfaction() {
         chartMeta={CHART_META_LIKERT}
       >
         {loading ? (
-          <div className="flex min-h-[280px] items-center justify-center text-muted-foreground">
-            Memuat data…
-          </div>
+          <ChartSkeleton kind="bar" className="h-[240px] sm:h-[280px]" />
         ) : error ? (
           <div className="flex min-h-[280px] flex-col items-center justify-center px-4 py-16 text-center text-muted-foreground">
             <p className="font-medium text-destructive">{error}</p>
@@ -135,9 +140,7 @@ export function UserSatisfaction() {
         chartMeta={CHART_META_JOB_MATCH}
       >
         {loading ? (
-          <div className="flex min-h-[280px] items-center justify-center text-muted-foreground">
-            Memuat data…
-          </div>
+          <ChartSkeleton kind="pie" className="h-[240px] sm:h-[280px]" />
         ) : error ? (
           <div className="flex min-h-[280px] flex-col items-center justify-center px-4 py-16 text-center text-muted-foreground">
             <p className="font-medium text-destructive">{error}</p>

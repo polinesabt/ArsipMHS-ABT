@@ -45,13 +45,6 @@ const IGNORE_LOGOUT_ENDPOINTS = new Set([
   'insight/records.php',
 ]);
 
-/** Endpoint dashboard chart yang boleh retry auth sekali lagi untuk meredam race antar-request */
-const TRANSIENT_AUTH_RETRY_ENDPOINTS = new Set([
-  'insight/stats.php',
-  'achievements/stats.php',
-  'insight/records.php',
-]);
-
 const UNAUTHORIZED_LOGOUT_DELAY_MS = 400;
 
 let pendingUnauthorizedLogoutId: ReturnType<typeof setTimeout> | null = null;
@@ -204,12 +197,14 @@ export class ApiClient {
           body: JSON.stringify({ refresh_token: refreshToken }),
         });
         const data = await res.json().catch(() => ({}));
-        if (res.ok && data?.success && data?.data?.token) {
+        if (res.ok && data?.success && data?.data?.token && data?.data?.refreshToken) {
           return {
             token: data.data.token,
-            refreshToken: data.data.refreshToken ?? data.data.token,
+            refreshToken: data.data.refreshToken,
           };
         }
+        return null;
+      } catch {
         return null;
       } finally {
         this.refreshPromise = null;
@@ -233,10 +228,10 @@ export class ApiClient {
       skipSandbox?: boolean;
       _retriedAfterRefresh?: boolean;
       _retriedWithLatestToken?: boolean;
-      _retriedTransientAuth?: boolean;
+      _retriedNetwork?: boolean;
     } = {}
   ): Promise<ApiResponse<T>> {
-    const { _retriedAfterRefresh, _retriedWithLatestToken, _retriedTransientAuth, timeout: requestTimeout, ...requestOptions } = options;
+    const { _retriedAfterRefresh, _retriedWithLatestToken, _retriedNetwork, timeout: requestTimeout, ...requestOptions } = options;
     const cleanEndpoint = endpoint.replace(/^\/+/, '').split('?')[0];
     const isAuthEndpoint = cleanEndpoint.startsWith('auth/');
     const isLoginEndpoint = cleanEndpoint === 'auth/login.php';
@@ -397,29 +392,8 @@ export class ApiClient {
               timeout: requestTimeout,
               _retriedAfterRefresh: true,
               _retriedWithLatestToken,
-              _retriedTransientAuth,
             });
           }
-        }
-
-        // Retry sekali lagi khusus endpoint chart untuk meredam 401 transient akibat race/concurrency.
-        if (
-          isAuth401 &&
-          TRANSIENT_AUTH_RETRY_ENDPOINTS.has(endpoint) &&
-          !_retriedTransientAuth
-        ) {
-          await new Promise((resolve) => setTimeout(resolve, 250));
-          const latestToken =
-            typeof window !== 'undefined' ? localStorage.getItem('authToken') : this.token;
-          this.token = latestToken ?? null;
-          cancelPendingUnauthorizedLogout();
-          return this.makeRequest<T>(method, endpoint, {
-            ...requestOptions,
-            timeout: requestTimeout,
-            _retriedAfterRefresh,
-            _retriedWithLatestToken,
-            _retriedTransientAuth: true,
-          });
         }
 
         if (isAuth401) {
@@ -491,6 +465,17 @@ export class ApiClient {
     } catch (error) {
       clearTimeout(timeoutId);
 
+      if (!_retriedNetwork && error instanceof TypeError && (method === 'GET' || isLoginEndpoint)) {
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        return this.makeRequest<T>(method, endpoint, {
+          ...requestOptions,
+          timeout: requestTimeout,
+          _retriedAfterRefresh,
+          _retriedWithLatestToken,
+          _retriedNetwork: true,
+        });
+      }
+
       // Handle abort (timeout)
       if (error instanceof Error && error.name === 'AbortError') {
         return {
@@ -531,7 +516,7 @@ export class ApiClient {
       // Handle network errors
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        error: 'Koneksi ke server terputus. Coba lagi.',
       };
     }
   }

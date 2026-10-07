@@ -13,7 +13,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
-  const { loggedInStudent, loggedInAdmin, loggedInDeveloper, loggedInDosen, loggedInTendik, loggedInDemo, sessionHydrated } = useAlumni();
+  const { loggedInStudent, loggedInAdmin, loggedInDeveloper, loggedInDosen, loggedInTendik, sessionHydrated } = useAlumni();
   const location = useLocation();
   const hasToken = Boolean(localStorage.getItem('authToken'));
 
@@ -23,9 +23,7 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
 
   // Check authentication based on required role
   if (requiredRole === 'demo') {
-    if (!loggedInDemo || !hasToken) {
-      return <Navigate to="/validasi" state={{ from: location, role: 'demo' }} replace />;
-    }
+    return <Navigate to="/validasi" replace />;
   } else if (requiredRole === 'dosen') {
     if (!loggedInDosen || !hasToken) {
       return <Navigate to="/validasi" state={{ from: location, role: 'dosen' }} replace />;
@@ -35,13 +33,11 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
       return <Navigate to="/validasi" state={{ from: location, role: 'tendik' }} replace />;
     }
   } else if (requiredRole === 'developer') {
-    // Demo user has full access to developer area
-    if ((!loggedInDeveloper && !loggedInDemo) || !hasToken) {
+    if (!loggedInDeveloper || !hasToken) {
       return <Navigate to="/validasi" state={{ from: location, role: 'developer' }} replace />;
     }
   } else if (requiredRole === 'admin') {
-    // Demo user has full access to admin area
-    if ((!loggedInAdmin && !loggedInDemo) || !hasToken) {
+    if (!loggedInAdmin || !hasToken) {
       // Redirect to login with return URL
       return <Navigate to="/validasi" state={{ from: location, role: 'admin' }} replace />;
     }

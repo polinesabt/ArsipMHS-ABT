@@ -732,11 +732,14 @@ export default function AdminHistoryLogbookPage() {
 
         <TabsContent value="recycle" className="mt-4">
           <Tabs value={recycleTab} onValueChange={(value) => setRecycleTab(value as RecycleTab)}>
-            <TabsList>
-              <TabsTrigger value="students">Akun</TabsTrigger>
-              <TabsTrigger value="attachments">Lampiran</TabsTrigger>
-              <TabsTrigger value="evaluations">Evaluasi</TabsTrigger>
-              <TabsTrigger value="satisfaction_template">Template Form Kepuasan Pengguna</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-4 gap-1 sm:w-auto">
+              <TabsTrigger value="students" className="px-1 text-[10px] sm:px-3 sm:text-sm">Akun</TabsTrigger>
+              <TabsTrigger value="attachments" className="px-1 text-[10px] sm:px-3 sm:text-sm">Lampiran</TabsTrigger>
+              <TabsTrigger value="evaluations" className="px-1 text-[10px] sm:px-3 sm:text-sm">Evaluasi</TabsTrigger>
+              <TabsTrigger value="satisfaction_template" className="px-1 text-[10px] sm:px-3 sm:text-sm">
+                <span className="sm:hidden">Template</span>
+                <span className="hidden sm:inline">Template Form Kepuasan Pengguna</span>
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="students" className="mt-4">

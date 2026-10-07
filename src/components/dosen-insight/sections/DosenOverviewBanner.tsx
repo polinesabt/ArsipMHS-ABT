@@ -4,6 +4,7 @@ import { useDosen } from '@/contexts/DosenContext';
 import { Button } from '@/components/ui/button';
 import { calculateAvgSks, latestWaktuMengajarPerDosen } from '@/data/mockWaktuMengajarData';
 import { calculateTotalLuaran } from '@/data/mockLuaranPenelitianPkmData';
+import { AnimatedKpiValue } from '@/components/chart/AnimatedKpiValue';
 
 export function DosenOverviewBanner() {
   const {
@@ -78,7 +79,7 @@ export function DosenOverviewBanner() {
       {/* 5 KPI Metric Cards Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
         {/* Total Dosen */}
-        <div className="adaptive-mobile-card p-3.5 sm:p-4 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
+        <div className="chart-kpi adaptive-mobile-card p-3.5 sm:p-4 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] sm:text-xs font-medium text-muted-foreground">Total Dosen</span>
             <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
@@ -86,7 +87,7 @@ export function DosenOverviewBanner() {
             </div>
           </div>
           <div className="mt-2">
-            <h4 className="text-xl sm:text-2xl font-bold text-foreground">{stats.totalDosen}</h4>
+            <h4 className="text-xl sm:text-2xl font-bold text-foreground"><AnimatedKpiValue value={stats.totalDosen} enabled={!isLoading} /></h4>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               <span className="font-semibold text-foreground">{stats.dosenTetap}</span> Dosen Tetap
             </p>
@@ -94,7 +95,7 @@ export function DosenOverviewBanner() {
         </div>
 
         {/* Kualifikasi Doktor */}
-        <div className="adaptive-mobile-card p-3.5 sm:p-4 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
+        <div className="chart-kpi adaptive-mobile-card p-3.5 sm:p-4 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] sm:text-xs font-medium text-muted-foreground">Kualifikasi S3</span>
             <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
@@ -102,7 +103,7 @@ export function DosenOverviewBanner() {
             </div>
           </div>
           <div className="mt-2">
-            <h4 className="text-xl sm:text-2xl font-bold text-foreground">{stats.persenS3}%</h4>
+            <h4 className="text-xl sm:text-2xl font-bold text-foreground"><AnimatedKpiValue value={`${stats.persenS3}%`} enabled={!isLoading} /></h4>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               <span className="font-semibold text-foreground">{stats.dosenS3}</span> Dosen Bergelar Doktor
             </p>
@@ -110,7 +111,7 @@ export function DosenOverviewBanner() {
         </div>
 
         {/* Rata-rata EWMP */}
-        <div className="adaptive-mobile-card p-3.5 sm:p-4 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
+        <div className="chart-kpi adaptive-mobile-card p-3.5 sm:p-4 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] sm:text-xs font-medium text-muted-foreground">Rata-rata EWMP</span>
             <div className="w-8 h-8 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
@@ -118,7 +119,7 @@ export function DosenOverviewBanner() {
             </div>
           </div>
           <div className="mt-2">
-            <h4 className="text-xl sm:text-2xl font-bold text-foreground">{stats.avgEWMP} <span className="text-sm font-normal text-muted-foreground">SKS</span></h4>
+            <h4 className="text-xl sm:text-2xl font-bold text-foreground"><AnimatedKpiValue value={stats.avgEWMP} enabled={!isLoading} /> <span className="text-sm font-normal text-muted-foreground">SKS</span></h4>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               Target Beban: <span className="font-medium text-emerald-600 dark:text-emerald-400">12 - 16 SKS</span>
             </p>
@@ -126,7 +127,7 @@ export function DosenOverviewBanner() {
         </div>
 
         {/* Total Luaran Riset & PKM */}
-        <div className="adaptive-mobile-card p-3.5 sm:p-4 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
+        <div className="chart-kpi adaptive-mobile-card p-3.5 sm:p-4 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="text-[11px] sm:text-xs font-medium text-muted-foreground">Luaran Riset & PKM</span>
             <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
@@ -134,7 +135,7 @@ export function DosenOverviewBanner() {
             </div>
           </div>
           <div className="mt-2">
-            <h4 className="text-xl sm:text-2xl font-bold text-foreground">{stats.totalLuaran}</h4>
+            <h4 className="text-xl sm:text-2xl font-bold text-foreground"><AnimatedKpiValue value={stats.totalLuaran} enabled={!isLoading} /></h4>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               Publikasi, Seminar & Media
             </p>
@@ -142,7 +143,7 @@ export function DosenOverviewBanner() {
         </div>
 
         {/* Tenaga Kependidikan */}
-        <div className="adaptive-mobile-card p-3.5 sm:p-4 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between col-span-2 lg:col-span-1">
+        <div className="chart-kpi adaptive-mobile-card p-3.5 sm:p-4 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between col-span-2 lg:col-span-1">
           <div className="flex items-center justify-between">
             <span className="text-[11px] sm:text-xs font-medium text-muted-foreground">Tenaga Kependidikan</span>
             <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
@@ -150,7 +151,7 @@ export function DosenOverviewBanner() {
             </div>
           </div>
           <div className="mt-2">
-            <h4 className="text-xl sm:text-2xl font-bold text-foreground">{stats.totalTendik} <span className="text-sm font-normal text-muted-foreground">Staf</span></h4>
+            <h4 className="text-xl sm:text-2xl font-bold text-foreground"><AnimatedKpiValue value={stats.totalTendik} enabled={!isLoading} /> <span className="text-sm font-normal text-muted-foreground">Staf</span></h4>
             <p className="text-[11px] text-muted-foreground mt-0.5">
               <span className="font-semibold text-foreground">{stats.persenTendikSertif}%</span> Bersertifikasi Profesi
             </p>

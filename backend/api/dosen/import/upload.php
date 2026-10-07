@@ -214,7 +214,7 @@ try {
             if ($status==='inserted' && $identity) $affected[$identity]=true;
         } catch (Throwable $rowError) {
             if ($pdo->inTransaction()) $pdo->rollBack();
-            $status='error'; $identity=$row['nidn']??$row['nip']??null; $message=$rowError->getMessage();
+            $status='error'; $identity=$row['nidn']??$row['nip']??null; $message=$rowError instanceof PDOException ? 'Kesalahan database saat impor' : $rowError->getMessage();
             $summary['failed']++;
         }
         dosen_import_log_detail($pdo,$logId,$rowNumber,$identity,$status,$message,$row);
@@ -228,9 +228,10 @@ try {
 } catch (InvalidArgumentException $error) {
     if ($logId && $pdo->inTransaction()) $pdo->rollBack();
     if ($logId) { try { $pdo->prepare("UPDATE dosen_import_logs SET status='failed', finished_at=NOW() WHERE id=?")->execute([$logId]); } catch (Throwable $ignore) {} }
-    dosen_json_response(422,['success'=>false,'error'=>$error->getMessage()]);
+    dosen_json_response(400,['success'=>false,'error'=>$error->getMessage()]);
 } catch (Throwable $error) {
     if ($logId && $pdo->inTransaction()) $pdo->rollBack();
     if ($logId) { try { $pdo->prepare("UPDATE dosen_import_logs SET status='failed', finished_at=NOW() WHERE id=?")->execute([$logId]); } catch (Throwable $ignore) {} }
-    dosen_json_response(500,['success'=>false,'error'=>'Impor gagal: '.$error->getMessage()]);
+    error_log('DOSEN_IMPORT_ERROR ' . $error->getMessage());
+    dosen_json_response(500,['success'=>false,'error'=>'Impor gagal']);
 }

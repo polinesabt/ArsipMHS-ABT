@@ -29,6 +29,15 @@ CREATE TABLE IF NOT EXISTS users (
   INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Unified authentication table for admins and students';
 
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  ip_hash CHAR(64) NOT NULL,
+  identifier_hash CHAR(64) NOT NULL,
+  failed_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  INDEX idx_login_attempts_pair (ip_hash, identifier_hash, failed_at),
+  INDEX idx_login_attempts_ip (ip_hash, failed_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- =====================================================================
 -- 2. STUDENTS TABLE - Main Profile Hub
 -- =====================================================================
@@ -84,6 +93,7 @@ CREATE TABLE IF NOT EXISTS students (
   INDEX idx_email_verification_otp_hash (email_verification_otp_hash),
   INDEX idx_status_tahun (status, tahun_lulus),
   INDEX idx_deleted_at (deleted_at),
+  INDEX idx_students_deleted_updated (deleted_at, updated_at),
   INDEX idx_deleted_by (deleted_by),
   
   -- Constraints
@@ -98,6 +108,8 @@ CREATE TABLE IF NOT EXISTS students (
 CREATE TABLE IF NOT EXISTS admins (
   id VARCHAR(36) PRIMARY KEY COMMENT 'FK to users.id',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Admin creation date',
+  can_edit_dosen TINYINT(1) NOT NULL DEFAULT 1,
+  can_edit_mahasiswa TINYINT(1) NOT NULL DEFAULT 1,
   
   FOREIGN KEY (id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Admin role mapping';

@@ -23,7 +23,7 @@ try {
     $search = isset($_GET['search']) ? trim($_GET['search']) : null;
     $jurusan = isset($_GET['jurusan']) ? trim($_GET['jurusan']) : null;
     $prodi = isset($_GET['prodi']) ? trim($_GET['prodi']) : null;
-    $limit = isset($_GET['limit']) ? max(1, min(100, (int) $_GET['limit'])) : null;
+    $limit = isset($_GET['limit']) ? max(1, min(100, (int) $_GET['limit'])) : 50;
     $offset = isset($_GET['offset']) ? max(0, (int) $_GET['offset']) : null;
     $includeDeletedRaw = isset($_GET['include_deleted']) ? strtolower(trim((string)$_GET['include_deleted'])) : '';
     $includeDeleted = in_array($includeDeletedRaw, ['1', 'true', 'yes', 'on'], true);
@@ -118,11 +118,9 @@ try {
     $total = (int) $stmtCount->fetch(PDO::FETCH_ASSOC)['total'];
 
     $dataQuery = 'SELECT s.*, (' . $statusEffectiveExpr . ') AS status_effective FROM students s' . $join . $where . $order;
-    if ($limit !== null) {
-        $dataQuery .= ' LIMIT ' . (int) $limit;
-        if ($offset !== null) {
-            $dataQuery .= ' OFFSET ' . (int) $offset;
-        }
+    $dataQuery .= ' LIMIT ' . (int) $limit;
+    if ($offset !== null) {
+        $dataQuery .= ' OFFSET ' . (int) $offset;
     }
     $stmt = $pdo->prepare($dataQuery);
     $stmt->execute($params);

@@ -7,6 +7,7 @@
 require_once __DIR__ . '/../../../config/cors.php';
 require_once __DIR__ . '/../../../config/database.php';
 require_once __DIR__ . '/../../../config/auth.php';
+require_once __DIR__ . '/../../../config/access.php';
 require_once __DIR__ . '/../store_helper.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -50,6 +51,7 @@ try {
     }
 
     $achievementRow = $achievementFound['row'];
+    requireStudentWriteAccess($pdo, $auth, (string)($achievementRow['id_mahasiswa'] ?? ''));
 
     $ownerStmt = $pdo->prepare('SELECT id FROM students WHERE id = ? AND deleted_at IS NULL LIMIT 1');
     $ownerStmt->execute([(string)($achievementRow['id_mahasiswa'] ?? '')]);
@@ -76,7 +78,7 @@ try {
     $resolvedBase = realpath($basePath);
     $fullPath = realpath($basePath . $attachment['file_path']);
 
-    if ($resolvedBase === false || $fullPath === false || strpos($fullPath, $resolvedBase) !== 0 || !is_file($fullPath)) {
+    if ($resolvedBase === false || $fullPath === false || !str_starts_with($fullPath, $resolvedBase . DIRECTORY_SEPARATOR) || !is_file($fullPath)) {
         http_response_code(404);
         header('Content-Type: application/json');
         echo json_encode(['success' => false, 'error' => 'File tidak ditemukan.']);
@@ -84,16 +86,20 @@ try {
     }
 
     $mime = (string)($attachment['file_type'] ?? 'application/octet-stream');
-    $fileName = (string)($attachment['file_name'] ?? 'lampiran');
+    if (!in_array($mime, ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'], true)) {
+        $mime = 'application/octet-stream';
+    }
+    $fileName = preg_replace('/[\x00-\x1f\x7f"\\\\]/', '_', (string)($attachment['file_name'] ?? 'lampiran'));
     $fileSize = (int)($attachment['file_size'] ?? filesize($fullPath));
 
     header('Content-Type: ' . $mime);
+    header('X-Content-Type-Options: nosniff');
     header('Content-Length: ' . $fileSize);
-    header('Content-Disposition: inline; filename="' . str_replace('"', '\\"', $fileName) . '"');
+    header('Content-Disposition: inline; filename="' . $fileName . '"');
     readfile($fullPath);
     exit;
 } catch (Exception $e) {
-    http_response_code(500);
+    http_response_code(api_exception_status($e));
     header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    echo json_encode(['success' => false, 'error' => api_public_error($e)]);
 }

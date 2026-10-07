@@ -45,6 +45,8 @@ export default tseslint.config(
             "useStudentAccounts",
             "getRemainingDays",
             "useDosen",
+            "useDemoDummyData",
+            "useOptionalDemoDummyData",
             "useInsightDashboard",
             "useFormField",
             "useSidebar",

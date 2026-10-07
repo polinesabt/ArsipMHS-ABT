@@ -1,39 +1,23 @@
-import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { useCallback, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { DashboardCard } from '@/components/insight/dashboard/DashboardCard';
-import { ChartTooltip, PieChartTooltip } from '@/components/insight/dashboard/ChartTooltip';
 import { InsightDataEmpty } from '@/components/insight/InsightDataEmpty';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChartRefreshOverlay, ChartSkeleton } from '@/components/ui/loading';
+import { AnimatePresence, LayoutGroup, m, useReducedMotion } from 'framer-motion';
 import { useInsightDashboard } from '@/contexts/InsightDashboardContext';
 import { getAchievementStats, type AchievementStatsResponse } from '@/repositories/api-student.repository';
 import type { ChartMeta } from '@/repositories/insight.repository';
 import type { ApiResponse } from '@/lib/api-client';
 import type { StudentAchievementsTab } from '@/types/insight-tabs';
 import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  StudentAchievementMorphChart,
+  type AchievementBreakdownLevel,
+  type AchievementBreakdownRow,
+} from './StudentAchievementMorphChart';
 
 type AnalysisMode = 'all' | 'academic' | 'nonAcademic';
 type AchievementType = 'academic' | 'non_academic';
-type BreakdownLevel = 'local' | 'national' | 'international';
-
-interface BreakdownChartRow {
-  key: BreakdownLevel;
-  name: string;
-  count: number;
-  fill: string;
-}
 
 const TYPE_LABELS: Record<AchievementType, string> = {
   academic: 'Akademik',
@@ -45,7 +29,7 @@ const TYPE_COLORS: Record<AchievementType, string> = {
   non_academic: 'hsl(var(--chart-nonacademic))',
 };
 
-const BREAKDOWN_META: Array<{ key: BreakdownLevel; name: string; fill: string }> = [
+const BREAKDOWN_META: Array<{ key: AchievementBreakdownLevel; name: string; fill: string }> = [
   { key: 'local', name: 'Lokal', fill: 'hsl(var(--level-local))' },
   { key: 'national', name: 'Nasional', fill: 'hsl(var(--level-national))' },
   { key: 'international', name: 'Internasional', fill: 'hsl(var(--level-international))' },
@@ -60,33 +44,32 @@ function sumBreakdown(input?: { local: number; national: number; international: 
   return (input.local ?? 0) + (input.national ?? 0) + (input.international ?? 0);
 }
 
-function BreakdownChart({
-  rows,
-  isMobile,
+function AchievementTabTrigger({
+  value,
+  active,
+  reducedMotion,
+  children,
 }: {
-  rows: BreakdownChartRow[];
-  isMobile: boolean;
+  value: AnalysisMode;
+  active: boolean;
+  reducedMotion: boolean;
+  children: ReactNode;
 }) {
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={rows} margin={isMobile ? { top: 12, right: 8, left: 0, bottom: 0 } : { top: 20, right: 20, left: 10, bottom: 10 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-        <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: isMobile ? 10 : 12 }} axisLine={{ stroke: 'hsl(var(--border))' }} />
-        <YAxis allowDecimals={false} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: isMobile ? 10 : 12 }} axisLine={{ stroke: 'hsl(var(--border))' }} />
-        <Tooltip content={<ChartTooltip />} />
-        <Bar
-          activeBar
-          dataKey="count"
-          name="Jumlah"
-          radius={[6, 6, 0, 0]}
-          isAnimationActive={false}
-        >
-          {rows.map((row) => (
-            <Cell key={row.key} fill={row.fill} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
+    <TabsTrigger
+      value={value}
+      className="relative isolate h-auto overflow-hidden py-2 text-center text-xs data-[state=active]:bg-transparent data-[state=active]:shadow-none sm:text-sm"
+    >
+      {active && (
+        <m.span
+          layoutId="student-achievement-active-pill"
+          className="absolute inset-0 -z-10 rounded-md bg-card shadow-soft"
+          transition={reducedMotion ? { duration: 0 } : { duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+          aria-hidden="true"
+        />
+      )}
+      <span className="relative z-10">{children}</span>
+    </TabsTrigger>
   );
 }
 
@@ -97,13 +80,17 @@ interface StudentAchievementsProps {
 
 export function StudentAchievements({ activeTab, onActiveTabChange }: StudentAchievementsProps = {}) {
   const { selectedYear, refreshTrigger } = useInsightDashboard();
+  const reducedMotion = Boolean(useReducedMotion());
   const isMobile = useIsMobile();
+  const tabLayoutId = useId();
   const [internalAnalysisMode, setInternalAnalysisMode] = useState<AnalysisMode>('all');
   const [data, setData] = useState<AchievementStatsResponse | null>(null);
   const [meta, setMeta] = useState<ChartMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const yearParam = selectedYear === 'all' ? undefined : (selectedYear as number);
+  const queryKeyRef = useRef<string | null>(null);
+  const queryKey = String(yearParam ?? 'all');
   const analysisMode: AnalysisMode = activeTab ?? internalAnalysisMode;
   const applyAnalysisMode = useCallback((nextMode: AnalysisMode) => {
     if (activeTab === undefined) {
@@ -116,7 +103,8 @@ export function StudentAchievements({ activeTab, onActiveTabChange }: StudentAch
 
   useLayoutEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    if (queryKeyRef.current !== queryKey) setLoading(true);
+    queryKeyRef.current = queryKey;
     setError(null);
 
     getAchievementStats(yearParam, 'all')
@@ -140,7 +128,7 @@ export function StudentAchievements({ activeTab, onActiveTabChange }: StudentAch
     return () => {
       cancelled = true;
     };
-  }, [refreshTrigger, yearParam]);
+  }, [refreshTrigger, yearParam, queryKey]);
 
   const academicBreakdown = useMemo(
     () => data?.academic_breakdown ?? { local: 0, national: 0, international: 0 },
@@ -182,7 +170,21 @@ export function StudentAchievements({ activeTab, onActiveTabChange }: StudentAch
     [countByType]
   );
 
-  const activeBreakdownRows = useMemo<BreakdownChartRow[]>(() => {
+  const academicRows = useMemo<AchievementBreakdownRow[]>(() => BREAKDOWN_META.map((level) => ({
+    key: level.key,
+    name: level.name,
+    count: academicBreakdown[level.key] ?? 0,
+    fill: level.fill,
+  })), [academicBreakdown]);
+
+  const nonAcademicRows = useMemo<AchievementBreakdownRow[]>(() => BREAKDOWN_META.map((level) => ({
+    key: level.key,
+    name: level.name,
+    count: nonAcademicBreakdown[level.key] ?? 0,
+    fill: level.fill,
+  })), [nonAcademicBreakdown]);
+
+  const activeBreakdownRows = useMemo<AchievementBreakdownRow[]>(() => {
     const source = analysisMode === 'academic' ? academicBreakdown : nonAcademicBreakdown;
     return BREAKDOWN_META.map((level) => ({
       key: level.key,
@@ -250,17 +252,19 @@ export function StudentAchievements({ activeTab, onActiveTabChange }: StudentAch
         >
           <div className="mb-4">
             <p className="mb-2 text-sm font-medium text-foreground">Analisis Berdasarkan:</p>
-            <TabsList className="grid h-auto w-full grid-cols-1 gap-1 bg-muted/60 p-1 sm:grid-cols-3">
-              <TabsTrigger value="all" className="h-auto py-2 text-center text-xs sm:text-sm">
-                Semua Prestasi
-              </TabsTrigger>
-              <TabsTrigger value="academic" className="h-auto py-2 text-center text-xs sm:text-sm">
-                Akademik
-              </TabsTrigger>
-              <TabsTrigger value="nonAcademic" className="h-auto py-2 text-center text-xs sm:text-sm">
-                Non Akademik
-              </TabsTrigger>
-            </TabsList>
+            <LayoutGroup id={tabLayoutId}>
+              <TabsList className="grid h-auto w-full grid-cols-1 gap-1 bg-muted/60 p-1 sm:grid-cols-3">
+                <AchievementTabTrigger value="all" active={analysisMode === 'all'} reducedMotion={reducedMotion}>
+                  Semua Prestasi
+                </AchievementTabTrigger>
+                <AchievementTabTrigger value="academic" active={analysisMode === 'academic'} reducedMotion={reducedMotion}>
+                  Akademik
+                </AchievementTabTrigger>
+                <AchievementTabTrigger value="nonAcademic" active={analysisMode === 'nonAcademic'} reducedMotion={reducedMotion}>
+                  Non Akademik
+                </AchievementTabTrigger>
+              </TabsList>
+            </LayoutGroup>
             <p className="mt-2 text-xs text-muted-foreground">
               Mode analisis akademik dan non akademik memakai klasifikasi turunan dari kategori prestasi.
             </p>
@@ -268,71 +272,39 @@ export function StudentAchievements({ activeTab, onActiveTabChange }: StudentAch
 
           <TabsContent value={analysisMode} className="mt-2 min-h-[320px]">
             {loading && !data ? (
-              <ChartSkeleton kind="pie" className="min-h-0 h-[240px] sm:h-[280px]" />
+              <ChartSkeleton kind="pie" className="min-h-0 h-[300px] sm:h-[320px]" />
             ) : !hasData ? (
-              <div className="flex min-h-[240px] items-center justify-center sm:min-h-[280px]">
+              <div className="flex min-h-[300px] items-center justify-center sm:min-h-[320px]">
                 <InsightDataEmpty />
               </div>
             ) : (
               <>
-                <div className="relative mx-auto h-[240px] w-full max-w-[620px] sm:h-[280px]">
-                  {analysisMode === 'all' ? (
-                    <div className="absolute inset-0">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={allChartData}
-                            dataKey="value"
-                            nameKey="name"
-                            innerRadius={isMobile ? 52 : 62}
-                            outerRadius={isMobile ? 88 : 102}
-                            paddingAngle={3}
-                            isAnimationActive={false}
-                            onClick={(entry) => {
-                              if (entry?.type === 'academic') {
-                                applyAnalysisMode('academic');
-                              } else if (entry?.type === 'non_academic') {
-                                applyAnalysisMode('nonAcademic');
-                              }
-                            }}
-                          >
-                            {allChartData.map((entry) => (
-                              <Cell key={entry.type} fill={entry.fill} className="cursor-pointer" />
-                            ))}
-                          </Pie>
-                          <Tooltip content={<PieChartTooltip total={total} />} />
-                          <Legend verticalAlign="bottom" wrapperStyle={{ fontSize: isMobile ? 10 : 12, lineHeight: 1.4 }} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                        <div className="text-center">
-                          <p className="text-xl font-bold text-foreground sm:text-2xl">{total.toLocaleString()}</p>
-                          <p className="text-xs text-muted-foreground">Total Prestasi</p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="absolute inset-0">
-                      {activeBreakdownTotal > 0 ? (
-                        <BreakdownChart
-                          rows={activeBreakdownRows}
-                          isMobile={isMobile}
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center">
-                          <InsightDataEmpty />
-                        </div>
-                      )}
-                    </div>
-                  )}
+                <div className="relative mx-auto w-full max-w-[620px]">
+                  <StudentAchievementMorphChart
+                    mode={analysisMode}
+                    pieRows={allChartData}
+                    academicRows={academicRows}
+                    nonAcademicRows={nonAcademicRows}
+                    total={total}
+                    isMobile={isMobile}
+                    onModeChange={applyAnalysisMode}
+                  />
                   {loading && <ChartRefreshOverlay label="Memuat ulang data prestasi mahasiswa" />}
                 </div>
                 <div className="mt-2 flex min-h-8 items-start justify-center text-center text-xs text-muted-foreground">
-                  {analysisMode === 'all' ? (
-                    <p>Klik irisan untuk membuka mode detail Akademik atau Non Akademik.</p>
-                  ) : (
-                    <p>Total: {activeBreakdownTotal}</p>
-                  )}
+                  <AnimatePresence initial={false} mode="popLayout">
+                    <m.p
+                      key={analysisMode === 'all' ? 'all' : 'detail'}
+                      initial={reducedMotion ? false : { opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={reducedMotion ? undefined : { opacity: 0, y: -4 }}
+                      transition={{ duration: reducedMotion ? 0.08 : 0.2, ease: [0.22, 1, 0.36, 1] }}
+                    >
+                      {analysisMode === 'all'
+                        ? 'Klik irisan untuk membuka mode detail Akademik atau Non Akademik.'
+                        : `Total: ${activeBreakdownTotal}`}
+                    </m.p>
+                  </AnimatePresence>
                 </div>
               </>
             )}

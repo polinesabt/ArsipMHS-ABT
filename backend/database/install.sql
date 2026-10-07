@@ -39,6 +39,15 @@ CREATE TABLE IF NOT EXISTS users (
   INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Unified authentication table for admins and students';
 
+CREATE TABLE IF NOT EXISTS login_attempts (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  ip_hash CHAR(64) NOT NULL,
+  identifier_hash CHAR(64) NOT NULL,
+  failed_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  INDEX idx_login_attempts_pair (ip_hash, identifier_hash, failed_at),
+  INDEX idx_login_attempts_ip (ip_hash, failed_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- =====================================================================
 -- 2. STUDENTS TABLE - Main Profile Hub
 -- =====================================================================
@@ -88,6 +97,8 @@ CREATE TABLE IF NOT EXISTS students (
 CREATE TABLE IF NOT EXISTS admins (
   id VARCHAR(36) PRIMARY KEY COMMENT 'FK to users.id',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP COMMENT 'Admin creation date',
+  can_edit_dosen TINYINT(1) NOT NULL DEFAULT 1,
+  can_edit_mahasiswa TINYINT(1) NOT NULL DEFAULT 1,
   FOREIGN KEY (id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Admin role mapping';
 
@@ -423,20 +434,9 @@ SET @sql := IF(@has_pki > 0,
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- =====================================================================
--- SEED DATA - Data awal (admin + aspek evaluasi)
+-- SEED DATA - Data awal (satu admin resmi + aspek evaluasi)
 -- =====================================================================
--- Admin: username=admin, password=admin123
-INSERT IGNORE INTO users (id, username, password_hash, nama, role, created_at, is_active) VALUES
-('admin-001', 'admin', '$2y$10$hrLNnB/vm3jGnUZNl5KpMOZ4F00A2siE/1C0q26JfCt58ER3QSiJq', 'Administrator ARSIP MAHASISWA ABT', 'admin', NOW(), TRUE);
-
-INSERT IGNORE INTO admins (id, created_at) VALUES
-('admin-001', NOW());
-
--- Demo Mode: username=demo, password=demo123. Role ini read-only di backend;
--- seluruh perubahan disimulasikan di cache browser.
-INSERT INTO users (id, username, password_hash, nama, role, created_at, last_login, is_active) VALUES
-('demo-mode-001', 'demo', '$2y$10$6tdCjwyx/vrrIvXwj9VVx.IoAICFUr44un7sBY77Kv/xheNROATVq', 'Demo Mode', 'demo', NOW(), NULL, TRUE)
-ON DUPLICATE KEY UPDATE password_hash=VALUES(password_hash), nama=VALUES(nama), role=VALUES(role), is_active=TRUE;
+-- Admin dibuat lewat CLI: ADMIN_BOOTSTRAP_PASSWORD=... php backend/scripts/bootstrap-admin.php
 
 -- Aspek evaluasi lulusan (survey kepuasan)
 INSERT IGNORE INTO evaluation_aspects (id, code, name, sort_order, is_active, created_at, updated_at) VALUES

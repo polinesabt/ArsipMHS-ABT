@@ -28,9 +28,9 @@ try {
         'message' => 'Semua riwayat log error berhasil dibersihkan',
     ]);
 } catch (Throwable $e) {
-    http_response_code(500);
+    http_response_code(api_exception_status($e));
     echo json_encode([
         'success' => false,
-        'error' => 'Gagal menghapus log error: ' . $e->getMessage(),
+        'error' => 'Gagal menghapus log error: ' . api_public_error($e),
     ]);
 }

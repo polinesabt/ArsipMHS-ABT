@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { Bar, BarChart, CartesianGrid, LabelList, Legend, Rectangle, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { ChartSkeleton } from '@/components/ui/loading';
+import { Bar, BarChart, CartesianGrid, LabelList, Legend, Rectangle, Tooltip, XAxis, YAxis } from 'recharts';
+import { MotionChartContainer as ResponsiveContainer } from '@/components/chart/MotionChartContainer';
 import { DashboardCard } from '@/components/insight/dashboard/DashboardCard';
 import { InsightDataEmpty } from '@/components/insight/InsightDataEmpty';
 import { useInsightDashboard } from '@/contexts/InsightDashboardContext';
@@ -129,9 +131,10 @@ function loadChartAndStats(
   setMeta: (m: InsightStatsResponse['meta'] | null) => void,
   setError: (e: string | null) => void,
   setLoading: (l: boolean) => void,
-  setStatsRows: (r: ActiveStudentsSemesterRow[]) => void
+  setStatsRows: (r: ActiveStudentsSemesterRow[]) => void,
+  showLoading = true
 ) {
-  setLoading(true);
+  if (showLoading) setLoading(true);
   setError(null);
   Promise.all([
     getInsightStats('active_students', yearParam),
@@ -150,7 +153,7 @@ function loadChartAndStats(
 }
 
 export function ActiveStudents() {
-  const { selectedYear } = useInsightDashboard();
+  const { selectedYear, refreshTrigger } = useInsightDashboard();
   const isMobile = useIsMobile();
   const { toast } = useToast();
   const [data, setData] = useState<ActiveStudentsData | null>(null);
@@ -176,6 +179,7 @@ export function ActiveStudents() {
   const toggleOne = (key: string, checked: boolean) =>
     setSelectedIds((prev) => (checked ? [...prev, key] : prev.filter((id) => id !== key)));
   const yearParam = selectedYear === 'all' ? undefined : (selectedYear as number);
+  const queryKeyRef = useRef<string | null>(null);
 
   const handleEditRow = (row: ActiveStudentsSemesterRow) => {
     setFormTahun(row.tahun);
@@ -199,8 +203,8 @@ export function ActiveStudents() {
   };
 
   const refresh = useCallback(() => {
-    loadChartAndStats(yearParam, setData, setMeta, setError, setLoading, setStatsRows);
-  }, [yearParam]);
+    loadChartAndStats(yearParam, setData, setMeta, setError, setLoading, setStatsRows, data === null);
+  }, [yearParam, data]);
 
   useEffect(() => {
     let cancelled = false;
@@ -209,9 +213,12 @@ export function ActiveStudents() {
     const setErrorSafe = (e: string | null) => { if (!cancelled) setError(e); };
     const setLoadingSafe = (l: boolean) => { if (!cancelled) setLoading(l); };
     const setStatsRowsSafe = (r: ActiveStudentsSemesterRow[]) => { if (!cancelled) setStatsRows(r); };
-    loadChartAndStats(yearParam, setDataSafe, setMetaSafe, setErrorSafe, setLoadingSafe, setStatsRowsSafe);
+    const queryKey = String(yearParam ?? 'all');
+    const showLoading = queryKeyRef.current !== queryKey;
+    queryKeyRef.current = queryKey;
+    loadChartAndStats(yearParam, setDataSafe, setMetaSafe, setErrorSafe, setLoadingSafe, setStatsRowsSafe, showLoading);
     return () => { cancelled = true; };
-  }, [yearParam]);
+  }, [yearParam, refreshTrigger]);
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -272,19 +279,22 @@ export function ActiveStudents() {
 
   const buildBarShape = useCallback(
     (dataKey: ActiveStudentsBarKey) => (props: Record<string, unknown>) => {
-      const shapeProps = props as { fill?: string; payload?: { year?: unknown } };
+      const shapeProps = props as { fill?: string; payload?: { year?: unknown }; x?: number; y?: number; width?: number; height?: number };
       const yearLabel = String(shapeProps.payload?.year ?? '-');
       const isHovered = hoveredBar?.dataKey === dataKey && hoveredBar.yearLabel === yearLabel;
 
       return (
-        <Rectangle
-          {...props}
-          fill={typeof shapeProps.fill === 'string' && shapeProps.fill ? shapeProps.fill : TOOLTIP_FALLBACK_COLOR}
-          fillOpacity={1}
-          stroke={isHovered ? 'hsl(var(--foreground) / 0.9)' : 'none'}
-          strokeWidth={isHovered ? 2 : 0}
-          strokeLinejoin="round"
-        />
+        <g>
+          <Rectangle
+            {...props}
+            fill={typeof shapeProps.fill === 'string' && shapeProps.fill ? shapeProps.fill : TOOLTIP_FALLBACK_COLOR}
+            fillOpacity={1}
+            stroke={isHovered ? 'hsl(var(--foreground) / 0.9)' : 'none'}
+            strokeWidth={isHovered ? 2 : 0}
+            strokeLinejoin="round"
+          />
+          {isHovered && <line className="chart-bar-guide" x1={shapeProps.x ?? 0} x2={(shapeProps.x ?? 0) + (shapeProps.width ?? 0) + 16} y1={(shapeProps.y ?? 0) + (shapeProps.height ?? 0) / 2} y2={(shapeProps.y ?? 0) + (shapeProps.height ?? 0) / 2} />}
+        </g>
       );
     },
     [hoveredBar]
@@ -298,7 +308,7 @@ export function ActiveStudents() {
       chartMeta={meta ?? undefined}
     >
       {loading ? (
-        <div className="flex min-h-[240px] items-center justify-center text-muted-foreground sm:min-h-[320px]">Memuat data...</div>
+        <ChartSkeleton kind="bar" className="h-[240px] sm:h-[280px]" />
       ) : error ? (
         <div className="flex min-h-[240px] flex-col items-center justify-center px-4 py-16 text-center text-muted-foreground sm:min-h-[320px]">
           <p className="font-medium text-destructive">{error}</p>
@@ -348,6 +358,7 @@ export function ActiveStudents() {
                   fill="hsl(var(--chart-active-genap))"
                   radius={[0, 0, 0, 0]}
                   onMouseEnter={handleBarMouseEnter('genap_aktif')}
+                  onClick={handleBarMouseEnter('genap_aktif')}
                   onMouseLeave={handleBarMouseLeave}
                 >
                   {!isMobile && <LabelList dataKey="genap_aktif" content={renderBarLabelByKey('genap_aktif')} />}
@@ -361,6 +372,7 @@ export function ActiveStudents() {
                   fill="hsl(var(--chart-pd-dikti))"
                   radius={[4, 4, 0, 0]}
                   onMouseEnter={handleBarMouseEnter('genap_pd_dikti')}
+                  onClick={handleBarMouseEnter('genap_pd_dikti')}
                   onMouseLeave={handleBarMouseLeave}
                 >
                   {!isMobile && <LabelList dataKey="genap_pd_dikti" content={renderBarLabelByKey('genap_pd_dikti')} />}
@@ -374,6 +386,7 @@ export function ActiveStudents() {
                   fill="hsl(var(--chart-active-ganjil))"
                   radius={[0, 0, 0, 0]}
                   onMouseEnter={handleBarMouseEnter('ganjil_aktif')}
+                  onClick={handleBarMouseEnter('ganjil_aktif')}
                   onMouseLeave={handleBarMouseLeave}
                 >
                   {!isMobile && <LabelList dataKey="ganjil_aktif" content={renderBarLabelByKey('ganjil_aktif')} />}
@@ -387,6 +400,7 @@ export function ActiveStudents() {
                   fill="hsl(var(--chart-pd-dikti-ganjil))"
                   radius={[4, 4, 0, 0]}
                   onMouseEnter={handleBarMouseEnter('ganjil_pd_dikti')}
+                  onClick={handleBarMouseEnter('ganjil_pd_dikti')}
                   onMouseLeave={handleBarMouseLeave}
                 >
                   {!isMobile && <LabelList dataKey="ganjil_pd_dikti" content={renderBarLabelByKey('ganjil_pd_dikti')} />}

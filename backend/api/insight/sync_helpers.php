@@ -1557,13 +1557,14 @@ function backfillResearchOutputLegacyData(PDO $pdo): void {
                 'note' => $result['note'] ?? null,
             ]);
         } catch (Throwable $e) {
+            error_log('RESEARCH_OUTPUT_BACKFILL_ERROR ' . $e->getMessage());
             logResearchOutputBackfill($pdo, [
                 'source_table' => 'prestasi_kekayaan_intelektual',
                 'source_achievement_id' => $sourceId,
                 'source_category' => 'intellectual_property',
                 'source_subcategory' => $row['subcategory'] ?? null,
                 'status' => 'failed',
-                'note' => substr($e->getMessage(), 0, 255),
+                'note' => 'Gagal memproses data',
             ]);
         }
         $processedMap[$sourceKey] = true;
@@ -1608,13 +1609,14 @@ function backfillResearchOutputLegacyData(PDO $pdo): void {
                 'note' => $result['note'] ?? null,
             ]);
         } catch (Throwable $e) {
+            error_log('RESEARCH_OUTPUT_BACKFILL_ERROR ' . $e->getMessage());
             logResearchOutputBackfill($pdo, [
                 'source_table' => 'prestasi_publikasi',
                 'source_achievement_id' => $sourceId,
                 'source_category' => 'scientific_work',
                 'source_subcategory' => $row['subcategory'] ?? null,
                 'status' => 'failed',
-                'note' => substr($e->getMessage(), 0, 255),
+                'note' => 'Gagal memproses data',
             ]);
         }
         $processedMap[$sourceKey] = true;

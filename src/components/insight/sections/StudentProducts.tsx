@@ -1,5 +1,8 @@
-import { useEffect, useState, useMemo } from 'react';
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useEffect, useState, useMemo, useRef } from 'react';
+import { ChartSkeleton } from '@/components/ui/loading';
+import { Bar, BarChart, CartesianGrid, Cell, Tooltip, XAxis, YAxis } from 'recharts';
+import { MotionChartContainer as ResponsiveContainer } from '@/components/chart/MotionChartContainer';
+import { categoryColor } from '@/components/chart/chart-interactions';
 import { DashboardCard } from '@/components/insight/dashboard/DashboardCard';
 import { ChartTooltip } from '@/components/insight/dashboard/ChartTooltip';
 import { InsightDataEmpty } from '@/components/insight/InsightDataEmpty';
@@ -7,24 +10,25 @@ import { useInsightDashboard } from '@/contexts/InsightDashboardContext';
 import { getInsightStats, type StudentProductsData, type InsightStatsResponse } from '@/repositories/insight.repository';
 import { getInsightErrorMessage } from '@/lib/insight-errors';
 
-const BAR_COLORS = ['hsl(var(--chart-academic))', 'hsl(var(--chart-nonacademic))', 'hsl(var(--chart-success))', 'hsl(var(--chart-warning))', 'hsl(var(--chart-neutral))', 'hsl(var(--level-local))', 'hsl(var(--level-national))'];
-
 function truncateLabel(label: string, maxLength = 24): string {
   if (label.length <= maxLength) return label;
   return `${label.slice(0, maxLength - 1)}…`;
 }
 
 export function StudentProducts() {
-  const { selectedYear } = useInsightDashboard();
+  const { selectedYear, refreshTrigger } = useInsightDashboard();
   const [data, setData] = useState<StudentProductsData | null>(null);
   const [meta, setMeta] = useState<InsightStatsResponse['meta']>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const yearParam = selectedYear === 'all' ? undefined : (selectedYear as number);
+  const queryKeyRef = useRef<string | null>(null);
+  const queryKey = String(yearParam ?? 'all');
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    if (queryKeyRef.current !== queryKey) setLoading(true);
+    queryKeyRef.current = queryKey;
     setError(null);
     getInsightStats('student_products', yearParam)
       .then((res) => {
@@ -38,7 +42,7 @@ export function StudentProducts() {
       .catch(() => { if (!cancelled) setError('Gagal memuat data'); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [yearParam]);
+  }, [yearParam, refreshTrigger, queryKey]);
 
   const byCategory = useMemo(() => data?.by_category ?? [], [data?.by_category]);
   const total = data?.total ?? 0;
@@ -47,10 +51,10 @@ export function StudentProducts() {
       byCategory
         .filter((c) => c.count > 0)
         .sort((a, b) => b.count - a.count)
-        .map((c, i) => ({
+        .map((c) => ({
           category: c.label,
           value: c.count,
-          fill: BAR_COLORS[i % BAR_COLORS.length],
+          fill: categoryColor(c.label),
         })),
     [byCategory]
   );
@@ -68,7 +72,7 @@ export function StudentProducts() {
   return (
     <DashboardCard title="Produk Mahasiswa yang Diadopsi" description="Per kategori (tidak difilter per tahun)" interpretation={interpretation} chartMeta={meta ?? undefined}>
       {loading ? (
-        <div className="flex min-h-[280px] items-center justify-center text-muted-foreground">Memuat data…</div>
+        <ChartSkeleton kind="bar" className="h-[240px] sm:h-[280px]" />
       ) : error ? (
         <div className="flex min-h-[280px] flex-col items-center justify-center px-4 py-16 text-center text-muted-foreground">
           <p className="font-medium text-destructive">{error}</p>

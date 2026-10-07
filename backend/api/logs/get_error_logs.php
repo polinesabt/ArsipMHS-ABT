@@ -88,9 +88,9 @@ try {
         'data' => $logs,
     ]);
 } catch (Throwable $e) {
-    http_response_code(500);
+    http_response_code(api_exception_status($e));
     echo json_encode([
         'success' => false,
-        'error' => 'Failed to fetch error logs: ' . $e->getMessage(),
+        'error' => 'Failed to fetch error logs: ' . api_public_error($e),
     ]);
 }

@@ -1,4 +1,4 @@
-import { InsightDashboardProvider } from '@/contexts/InsightDashboardContext';
+import { InsightDashboardProvider, useInsightDashboard } from '@/contexts/InsightDashboardContext';
 import { ActiveStudentsInputProvider } from '@/contexts/ActiveStudentsInputContext';
 import { Header } from '@/components/insight/layout/Header';
 import { ChartRecordsTableEmbedded } from '@/components/insight/ChartRecordsTableEmbedded';
@@ -22,7 +22,10 @@ import {
   type PublicationsTab,
   type ResearchOutputsTab,
   type StudentAchievementsTab,
+  type WorkCoverageTab,
 } from '@/types/insight-tabs';
+import { useOptionalDemoDummyData } from '@/contexts/DemoDummyDataContext';
+import { DEMO_DUMMY_DATA_ADDED_EVENT, type DemoDummyTargetId, type DemoDummyVariant } from '@/lib/sandbox';
 
 export type DashboardSectionId =
   | 'all'
@@ -36,6 +39,18 @@ export type DashboardSectionId =
   | 'active-students'
   | 'student-products'
   | 'research-outputs';
+
+const DUMMY_TARGET_BY_SECTION: Partial<Record<DashboardSectionId, DemoDummyTargetId>> = {
+  'student-achievements': 'student-achievements',
+  'study-period': 'study-period',
+  'waiting-time': 'waiting-time',
+  'work-coverage': 'work-coverage',
+  'user-satisfaction': 'user-satisfaction',
+  publications: 'publications',
+  'active-students': 'active-students',
+  'student-products': 'student-products',
+  'research-outputs': 'research-outputs',
+};
 
 interface InsightDashboardEmbeddedProps {
   topOffset?: number;
@@ -104,12 +119,15 @@ const SECTION_COMPONENTS: Record<DashboardSectionId, ComponentType<object>> = {
 };
 
 function SingleSection({ section }: { section: DashboardSectionId }) {
+  const { selectedYear, invalidateCache } = useInsightDashboard();
   const Component = SECTION_COMPONENTS[section];
   const showTable = section && section !== 'all' && section !== 'overview' && ADVANCED_SETTINGS_SECTION_IDS.includes(section);
-  const [chartRefreshKey, setChartRefreshKey] = useState(0);
   const [activeTab, setActiveTab] = useState<DashboardSectionTab | null>(() =>
     isTabbedDashboardSection(section) ? getDefaultTabForSection(section) : null
   );
+  const demoDummy = useOptionalDemoDummyData();
+  const setDemoDummyTargetVariant = demoDummy?.setTargetVariant;
+  const setDemoDummyTargetYear = demoDummy?.setTargetYear;
 
   useEffect(() => {
     if (isTabbedDashboardSection(section)) {
@@ -120,18 +138,35 @@ function SingleSection({ section }: { section: DashboardSectionId }) {
   }, [section]);
 
   const handleRecordsChanged = useCallback(() => {
-    setChartRefreshKey((prev) => prev + 1);
-  }, []);
+    invalidateCache();
+  }, [invalidateCache]);
+
+  useEffect(() => {
+    const refresh = () => handleRecordsChanged();
+    window.addEventListener(DEMO_DUMMY_DATA_ADDED_EVENT, refresh);
+    return () => window.removeEventListener(DEMO_DUMMY_DATA_ADDED_EVENT, refresh);
+  }, [handleRecordsChanged]);
 
   const resolvedActiveTab = isTabbedDashboardSection(section)
     ? coerceTabForSection(section, activeTab)
     : null;
 
+  useEffect(() => {
+    if (!resolvedActiveTab || !setDemoDummyTargetVariant) return;
+    const targetId = DUMMY_TARGET_BY_SECTION[section];
+    if (targetId) setDemoDummyTargetVariant(targetId, resolvedActiveTab as DemoDummyVariant);
+  }, [resolvedActiveTab, section, setDemoDummyTargetVariant]);
+
+  useEffect(() => {
+    if (!setDemoDummyTargetYear) return;
+    const targetId = DUMMY_TARGET_BY_SECTION[section];
+    if (targetId) setDemoDummyTargetYear(targetId, selectedYear === 'all' ? undefined : Number(selectedYear));
+  }, [section, selectedYear, setDemoDummyTargetYear]);
+
   const sectionContent = (() => {
     if (section === 'student-achievements') {
       return (
         <StudentAchievements
-          key={`${section}-${chartRefreshKey}`}
           activeTab={resolvedActiveTab as StudentAchievementsTab}
           onActiveTabChange={(tab) => setActiveTab(tab)}
         />
@@ -140,8 +175,15 @@ function SingleSection({ section }: { section: DashboardSectionId }) {
     if (section === 'publications') {
       return (
         <Publications
-          key={`${section}-${chartRefreshKey}`}
           activeTab={resolvedActiveTab as PublicationsTab}
+          onActiveTabChange={(tab) => setActiveTab(tab)}
+        />
+      );
+    }
+    if (section === 'work-coverage') {
+      return (
+        <WorkCoverage
+          activeTab={resolvedActiveTab as WorkCoverageTab}
           onActiveTabChange={(tab) => setActiveTab(tab)}
         />
       );
@@ -149,13 +191,12 @@ function SingleSection({ section }: { section: DashboardSectionId }) {
     if (section === 'research-outputs') {
       return (
         <ResearchOutputs
-          key={`${section}-${chartRefreshKey}`}
           activeTab={resolvedActiveTab as ResearchOutputsTab}
           onActiveTabChange={(tab) => setActiveTab(tab)}
         />
       );
     }
-    return Component ? <Component key={`${section}-${chartRefreshKey}`} /> : null;
+    return Component ? <Component /> : null;
   })();
 
   return (

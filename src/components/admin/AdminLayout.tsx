@@ -11,6 +11,7 @@ import { useAlumni } from '@/contexts/AlumniContext';
 import { AdminSidebarProvider, useAdminSidebar } from '@/contexts/AdminSidebarContext';
 import { AdminErrorBoundary } from '@/components/auth/AdminErrorBoundary';
 import { DemoModeBanner } from '@/components/sandbox/DemoModeBanner';
+import { DemoDummyDataProvider } from '@/contexts/DemoDummyDataContext';
 
 const SIDEBAR_COLLAPSED_WIDTH = 80;
 const SIDEBAR_EXPANDED_WIDTH = 260;
@@ -236,7 +237,9 @@ function AdminLayoutShell() {
 export function AdminLayout() {
   return (
     <AdminSidebarProvider>
-      <AdminLayoutShell />
+      <DemoDummyDataProvider>
+        <AdminLayoutShell />
+      </DemoDummyDataProvider>
     </AdminSidebarProvider>
   );
 }

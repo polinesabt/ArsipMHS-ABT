@@ -1,4 +1,5 @@
 import { TooltipProps } from 'recharts';
+import { formatPiePercent, piePercent } from '@/components/chart/chart-interactions';
 
 interface CustomTooltipProps extends TooltipProps<number, string> {
   valueFormatter?: (value: number) => string;
@@ -21,7 +22,7 @@ export function ChartTooltip({
   if (!filteredPayload.length) return null;
 
   return (
-    <div className="chart-tooltip">
+    <div className="chart-tooltip" role="tooltip">
       <p className="font-medium text-foreground mb-2">{labelFormatter(label)}</p>
       <div className="space-y-1">
         {filteredPayload.map((entry, index) => (
@@ -55,10 +56,10 @@ export function PieChartTooltip({ active, payload, total }: PieTooltipProps) {
   if (!active || !payload || !payload.length) return null;
 
   const { name, value, payload: item } = payload[0];
-  const percentage = total ? ((value / total) * 100).toFixed(1) : 0;
+  const percentage = total ? piePercent(value, total) : 0;
 
   return (
-    <div className="chart-tooltip">
+    <div className="chart-tooltip" role="tooltip">
       <div className="flex items-center gap-2 mb-1">
         <div
           className="w-3 h-3 rounded-full"
@@ -68,7 +69,7 @@ export function PieChartTooltip({ active, payload, total }: PieTooltipProps) {
       </div>
       <div className="text-sm text-muted-foreground">
         <span className="font-medium text-foreground">{value.toLocaleString()}</span>
-        {total && <span> ({percentage}%)</span>}
+        {total !== undefined && <span> ({formatPiePercent(percentage)})</span>}
       </div>
     </div>
   );

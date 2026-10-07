@@ -155,6 +155,20 @@ const DOSEN_SESSION_KEY = 'sipal-dosen-session';
 const TENDIK_SESSION_KEY = 'sipal-tendik-session';
 const AUTH_TOKEN_KEY = 'authToken';
 
+function isCurrentAccessToken(token: string | null): boolean {
+  if (!token) return false;
+  try {
+    const payloadPart = token.split('.')[1];
+    const base64 = payloadPart.replace(/-/g, '+').replace(/_/g, '/');
+    const payload = JSON.parse(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '='))) as {
+      typ?: string; role?: string; session_exp?: number;
+    };
+    return payload.typ === 'access' && payload.role !== 'demo' && Number(payload.session_exp) > Date.now() / 1000;
+  } catch {
+    return false;
+  }
+}
+
 // ============ Provider Component ============
 
 interface AlumniProviderProps {
@@ -234,7 +248,7 @@ function mapStudentToMaster(student: ApiStudent): AlumniMaster {
   };
 }
 
-function mapTracerToAlumniData(tracer: ApiTracerStudy): AlumniData {
+export function mapTracerToAlumniData(tracer: ApiTracerStudy): AlumniData {
   const status = mapCareerStatus(tracer.career_status);
   const employment = parseJsonField<Record<string, unknown>>(tracer.employment_data);
   const jobSeeking = parseJsonField<Record<string, unknown>>(tracer.job_seeking_data);
@@ -313,7 +327,7 @@ function mapTracerToAlumniData(tracer: ApiTracerStudy): AlumniData {
 
 function getInitialStoredSession<T>(key: string): T | null {
   if (typeof window === 'undefined') return null;
-  const hasToken = Boolean(localStorage.getItem(AUTH_TOKEN_KEY));
+  const hasToken = isCurrentAccessToken(localStorage.getItem(AUTH_TOKEN_KEY));
   if (!hasToken) return null;
   const raw = localStorage.getItem(key);
   if (!raw) return null;
@@ -345,16 +359,12 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     getInitialStoredSession<StudentProfile>(STUDENT_SESSION_KEY)
   );
   const [loggedInAdmin, setLoggedInAdmin] = useState<AdminProfile | null>(() => {
-    const demo = getInitialStoredSession<AdminProfile>(DEMO_SESSION_KEY);
-    if (demo) return demo;
     return getInitialStoredSession<AdminProfile>(ADMIN_SESSION_KEY);
   });
   const [loggedInDeveloper, setLoggedInDeveloper] = useState<DeveloperProfile | null>(() =>
     getInitialStoredSession<DeveloperProfile>(DEV_SESSION_KEY)
   );
-  const [loggedInDemo, setLoggedInDemo] = useState<AdminProfile | null>(() =>
-    getInitialStoredSession<AdminProfile>(DEMO_SESSION_KEY)
-  );
+  const [loggedInDemo, setLoggedInDemo] = useState<AdminProfile | null>(null);
   const [loggedInDosen, setLoggedInDosen] = useState<DosenProfile | null>(() =>
     getInitialStoredSession<DosenProfile>(DOSEN_SESSION_KEY)
   );
@@ -421,8 +431,14 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     }
 
     refreshSystemSettings();
+    if (localStorage.getItem(DEMO_SESSION_KEY) || localStorage.getItem('sipal-demo-sid')) {
+      clearSessionState();
+      apiLogout();
+      setSessionHydrated(true);
+      return;
+    }
     
-    const hasToken = Boolean(localStorage.getItem(AUTH_TOKEN_KEY));
+    const hasToken = isCurrentAccessToken(localStorage.getItem(AUTH_TOKEN_KEY));
     if (!hasToken) {
       clearSessionState();
       setSessionHydrated(true);
@@ -497,12 +513,11 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
     }
   }, []);
 
-  // Load initial data (students + tracer) when admin OR student is logged in.
-  // Admin: needed for admin dashboard. Student: needed so riwayat karir appears on dashboard and persists after refresh.
+  // Student records are scoped by the API; admin pages request their own paged data.
   useEffect(() => {
-    if (!loggedInAdmin && !loggedInStudent) return;
+    if (!loggedInStudent) return;
     loadInitialData();
-  }, [loggedInAdmin, loggedInStudent, loadInitialData]);
+  }, [loggedInStudent, loadInitialData]);
 
   // ============ Student Authentication Functions ============
 
@@ -662,27 +677,9 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
         const role = (user?.role ?? response.data.role) as UserRole;
 
         if (role === 'demo') {
-          const sid = (response.data as any)?.sid || (response.data as any)?.user?.demo_session_id || `demo_${Date.now()}`;
-          const demoProfile: AdminProfile = {
-            id: user.id || 'demo-user',
-            username: user.username || 'demo',
-            nama: user.nama || user.name || 'Demo Administrator',
-            passwordHash: '',
-            role: 'demo' as any,
-            createdAt: new Date(),
-            lastLogin: new Date(),
-            canEditDosen: true,
-            canEditMahasiswa: true,
-          };
-          await sandboxSession.startSession(sid, demoProfile);
-          setLoggedInDemo(demoProfile);
-          setLoggedInAdmin(demoProfile);
-          localStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(demoProfile));
-          setupSandboxSync();
-          void syncDemoFromProduction(true);
-          return { success: true, admin: demoProfile, demo: demoProfile, role: 'demo' };
+          apiLogout();
+          return { success: false, error: 'Akun demo sudah dinonaktifkan' };
         }
-
         if (role === 'developer') {
           const devProfile: DeveloperProfile = {
             id: user.id,
@@ -729,7 +726,7 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
         }
 
         if (role === 'dosen') {
-          const dosenProfile = (user?.dosen || (response.data as any)?.user?.dosen) as DosenProfile | undefined;
+          const dosenProfile = user?.dosen as DosenProfile | undefined;
           if (!dosenProfile) {
             return { success: false, error: 'Data dosen tidak ditemukan' };
           }
@@ -739,7 +736,7 @@ export function AlumniProvider({ children }: AlumniProviderProps) {
         }
 
         if (role === 'tendik') {
-          const tendikProfile = (user?.tendik || (response.data as any)?.user?.tendik) as TendikProfile | undefined;
+          const tendikProfile = user?.tendik as TendikProfile | undefined;
           if (!tendikProfile) {
             return { success: false, error: 'Data tenaga kependidikan tidak ditemukan' };
           }

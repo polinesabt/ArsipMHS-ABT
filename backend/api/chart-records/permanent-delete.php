@@ -87,9 +87,9 @@ try {
         'message' => 'Data telah dihapus permanen.',
     ]);
 } catch (Exception $e) {
-    http_response_code(500);
+    http_response_code(api_exception_status($e));
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage(),
+        'error' => api_public_error($e),
     ]);
 }

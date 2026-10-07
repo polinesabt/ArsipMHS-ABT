@@ -7,6 +7,7 @@
 require_once __DIR__ . '/../../../config/cors.php';
 require_once __DIR__ . '/../../../config/database.php';
 require_once __DIR__ . '/../../../config/auth.php';
+require_once __DIR__ . '/../../../config/access.php';
 require_once __DIR__ . '/../store_helper.php';
 
 header('Content-Type: application/json');
@@ -27,6 +28,7 @@ try {
 
     $row = $found['row'];
     $config = $found['config'];
+    requireStudentWriteAccess($pdo, $auth, (string)($row['id_mahasiswa'] ?? ''));
 
     $ownerStmt = $pdo->prepare('SELECT id FROM students WHERE id = ? AND deleted_at IS NULL LIMIT 1');
     $ownerStmt->execute([(string)($row['id_mahasiswa'] ?? '')]);
@@ -77,9 +79,9 @@ try {
         'attachments' => $list,
     ]);
 } catch (Exception $e) {
-    http_response_code(500);
+    http_response_code(api_exception_status($e));
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage(),
+        'error' => api_public_error($e),
     ]);
 }

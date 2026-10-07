@@ -1,6 +1,6 @@
 import { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useEffect, useRef, useState } from 'react';
+import { AnimatedKpiValue } from '@/components/chart/AnimatedKpiValue';
 
 interface StatCardProps {
   title: string;
@@ -24,10 +24,6 @@ export function StatCard({
   className,
   animate = true,
 }: StatCardProps) {
-  const [displayValue, setDisplayValue] = useState(animate ? 0 : (typeof value === 'number' ? value : value));
-  const [isVisible, setIsVisible] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
-
   const colorClasses = {
     primary: 'bg-primary/10 text-primary',
     success: 'bg-success/10 text-success',
@@ -36,52 +32,8 @@ export function StatCard({
     info: 'bg-info/10 text-info',
   };
 
-  useEffect(() => {
-    if (!animate || typeof value !== 'number') {
-      setDisplayValue(value);
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !isVisible) {
-          setIsVisible(true);
-        }
-      },
-      { threshold: 0.1 }
-    );
-
-    if (cardRef.current) {
-      observer.observe(cardRef.current);
-    }
-
-    return () => observer.disconnect();
-  }, [animate, value, isVisible]);
-
-  useEffect(() => {
-    if (!isVisible || typeof value !== 'number') return;
-
-    const duration = 1500;
-    const steps = 60;
-    const increment = value / steps;
-    let current = 0;
-
-    const timer = setInterval(() => {
-      current += increment;
-      if (current >= value) {
-        setDisplayValue(value);
-        clearInterval(timer);
-      } else {
-        setDisplayValue(Math.floor(current));
-      }
-    }, duration / steps);
-
-    return () => clearInterval(timer);
-  }, [isVisible, value]);
-
   return (
     <div
-      ref={cardRef}
       className={cn(
         "stat-card group cursor-default",
         className
@@ -91,7 +43,7 @@ export function StatCard({
         <div className="min-w-0 flex-1">
           <p className="mb-1 text-xs text-muted-foreground sm:text-sm">{title}</p>
           <p className="text-2xl font-bold text-foreground tabular-nums sm:text-3xl">
-            {typeof displayValue === 'number' ? displayValue.toLocaleString() : displayValue}
+            <AnimatedKpiValue value={value} enabled={animate} />
           </p>
           {trend && (
             <div className="mt-2 flex flex-wrap items-center gap-1">

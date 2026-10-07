@@ -1,14 +1,5 @@
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  LabelList,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { Bar, BarChart, CartesianGrid, LabelList, Legend, Tooltip, XAxis, YAxis } from 'recharts';
+import { MotionChartContainer as ResponsiveContainer } from '@/components/chart/MotionChartContainer';
 import type { TooltipProps } from 'recharts';
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 
@@ -47,6 +38,26 @@ function parseHexColor(hexColor: string): RGB | null {
   return null;
 }
 
+function parseChartColor(fill: string): RGB | null {
+  const hex = parseHexColor(fill);
+  if (hex) return hex;
+  const variable = /^hsl\(var\((--[\w-]+)\)\)$/.exec(fill)?.[1];
+  if (!variable || typeof document === 'undefined') return null;
+  const components = getComputedStyle(document.documentElement).getPropertyValue(variable).trim().split(/\s+/);
+  if (components.length < 3) return null;
+  const [h, s, l] = components.map(Number.parseFloat);
+  if (![h, s, l].every(Number.isFinite)) return null;
+  const chroma = (1 - Math.abs(2 * l / 100 - 1)) * s / 100;
+  const x = chroma * (1 - Math.abs((h / 60) % 2 - 1));
+  const offset = l / 100 - chroma / 2;
+  const [r, g, b] = h < 60 ? [chroma, x, 0]
+    : h < 120 ? [x, chroma, 0]
+      : h < 180 ? [0, chroma, x]
+        : h < 240 ? [0, x, chroma]
+          : h < 300 ? [x, 0, chroma] : [chroma, 0, x];
+  return { r: (r + offset) * 255, g: (g + offset) * 255, b: (b + offset) * 255 };
+}
+
 function relativeLuminance({ r, g, b }: RGB): number {
   const toLinear = (c: number) => {
     const s = c / 255;
@@ -60,7 +71,7 @@ function relativeLuminance({ r, g, b }: RGB): number {
 }
 
 function getSegmentLabelPaint(segmentFill?: string) {
-  const rgb = typeof segmentFill === 'string' ? parseHexColor(segmentFill) : null;
+  const rgb = typeof segmentFill === 'string' ? parseChartColor(segmentFill) : null;
   const luminance = rgb ? relativeLuminance(rgb) : null;
   const isLight = luminance != null ? luminance > 0.55 : false;
 
@@ -153,11 +164,11 @@ type DistribusiPenilaianChartRow = DistribusiPenilaianRow & {
 };
 
 const RATING_CONFIG: Array<{ key: RatingKey; pctKey: RatingPctKey; name: string; fill: string }> = [
-  { key: 'sangat_baik', pctKey: 'sangat_baik_pct', name: 'Sangat Baik', fill: '#15803d' },
-  { key: 'baik', pctKey: 'baik_pct', name: 'Baik', fill: '#0ea5e9' },
-  { key: 'cukup_baik', pctKey: 'cukup_baik_pct', name: 'Cukup Baik', fill: '#eab308' },
-  { key: 'kurang_baik', pctKey: 'kurang_baik_pct', name: 'Kurang Baik', fill: '#f97316' },
-  { key: 'tidak_baik', pctKey: 'tidak_baik_pct', name: 'Tidak Baik', fill: '#ef4444' },
+  { key: 'sangat_baik', pctKey: 'sangat_baik_pct', name: 'Sangat Baik', fill: 'hsl(var(--chart-series-teal))' },
+  { key: 'baik', pctKey: 'baik_pct', name: 'Baik', fill: 'hsl(var(--chart-series-cyan))' },
+  { key: 'cukup_baik', pctKey: 'cukup_baik_pct', name: 'Cukup Baik', fill: 'hsl(var(--chart-series-amber))' },
+  { key: 'kurang_baik', pctKey: 'kurang_baik_pct', name: 'Kurang Baik', fill: 'hsl(var(--chart-series-orange))' },
+  { key: 'tidak_baik', pctKey: 'tidak_baik_pct', name: 'Tidak Baik', fill: 'hsl(var(--chart-series-red))' },
 ];
 
 function resolveTotalCount(row: DistribusiPenilaianRow): number {
@@ -240,7 +251,7 @@ function DistribusiPenilaianTooltip({ active, payload }: TooltipProps<ValueType,
   if (!row) return null;
 
   return (
-    <div className="rounded-md border bg-background p-3 shadow-md min-w-[220px]">
+    <div className="rounded-md border bg-background p-3 shadow-md min-w-[220px]" role="tooltip">
       <p className="mb-2 text-sm font-semibold">{row.aspect_name}</p>
       <div className="space-y-1.5">
         {RATING_CONFIG.map((rating) => {
@@ -326,7 +337,7 @@ export function DistribusiPenilaianChart({
             dataKey="sangat_baik_pct"
             name="Sangat Baik"
             stackId="a"
-            fill="#15803d"
+            fill="hsl(var(--chart-series-teal))"
             radius={[0, 0, 0, 0]}
           >
             <LabelList dataKey="sangat_baik_pct" content={DistribusiPenilaianSegmentLabel} />
@@ -336,7 +347,7 @@ export function DistribusiPenilaianChart({
             dataKey="baik_pct"
             name="Baik"
             stackId="a"
-            fill="#0ea5e9"
+            fill="hsl(var(--chart-series-cyan))"
             radius={[0, 0, 0, 0]}
           >
             <LabelList dataKey="baik_pct" content={DistribusiPenilaianSegmentLabel} />
@@ -346,7 +357,7 @@ export function DistribusiPenilaianChart({
             dataKey="cukup_baik_pct"
             name="Cukup Baik"
             stackId="a"
-            fill="#eab308"
+            fill="hsl(var(--chart-series-amber))"
             radius={[0, 0, 0, 0]}
           >
             <LabelList dataKey="cukup_baik_pct" content={DistribusiPenilaianSegmentLabel} />
@@ -356,7 +367,7 @@ export function DistribusiPenilaianChart({
             dataKey="kurang_baik_pct"
             name="Kurang Baik"
             stackId="a"
-            fill="#f97316"
+            fill="hsl(var(--chart-series-orange))"
             radius={[0, 0, 0, 0]}
           >
             <LabelList dataKey="kurang_baik_pct" content={DistribusiPenilaianSegmentLabel} />
@@ -366,7 +377,7 @@ export function DistribusiPenilaianChart({
             dataKey="tidak_baik_pct"
             name="Tidak Baik"
             stackId="a"
-            fill="#ef4444"
+            fill="hsl(var(--chart-series-red))"
             radius={[0, 4, 4, 0]}
           >
             <LabelList dataKey="tidak_baik_pct" content={DistribusiPenilaianSegmentLabel} />

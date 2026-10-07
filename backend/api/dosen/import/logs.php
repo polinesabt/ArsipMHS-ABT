@@ -21,5 +21,6 @@ try {
     $stmt = $pdo->query('SELECT id,module,file_name,total_rows,success_rows,skipped_rows,failed_rows,affected_dosen,status,created_at,finished_at FROM dosen_import_logs ORDER BY created_at DESC LIMIT 50');
     dosen_json_response(200, ['success'=>true,'data'=>$stmt->fetchAll(PDO::FETCH_ASSOC)]);
 } catch (Throwable $error) {
-    dosen_json_response(500, ['success'=>false,'error'=>'Gagal memuat log impor: '.$error->getMessage()]);
+    error_log('DOSEN_IMPORT_LOG_ERROR ' . $error->getMessage());
+    dosen_json_response(500, ['success'=>false,'error'=>'Gagal memuat log impor']);
 }

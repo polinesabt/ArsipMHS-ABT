@@ -6,9 +6,9 @@
 -- menggunakan metode IF NOT EXISTS dan idempotent column synchronization.
 -- Tujuan: Menjamin 100% keselarasan struktur antara Development & Production.
 --
--- Data yang ikut terpindah HANYA akun demo resmi:
---   Username : demo
---   Password : demo123
+-- Data yang ikut terpindah HANYA satu akun admin resmi:
+--   Username : AdminABT
+-- Password: dibuat lewat CLI bootstrap-admin.php
 --
 -- Panduan Penggunaan:
 -- 1. Melalui phpMyAdmin:
@@ -1750,28 +1750,7 @@ CREATE OR REPLACE VIEW `v_alumni_overview` AS select `s`.`id` AS `id`,`s`.`nim` 
 CREATE OR REPLACE VIEW `v_student_achievements_summary` AS select `s`.`id` AS `id`,`s`.`nim` AS `nim`,`s`.`nama` AS `nama`,`s`.`status` AS `status`,count(`a`.`id`) AS `total_achievements`,count(distinct `a`.`category`) AS `total_categories`,count(case when `a`.`verified` = 1 then 1 end) AS `verified_achievements`,max(`a`.`tanggal`) AS `latest_achievement_date` from (`students` `s` left join `achievements` `a` on(`s`.`id` = `a`.`student_id`)) where `s`.`deleted_at` is null group by `s`.`id`,`s`.`nim`,`s`.`nama`,`s`.`status`;
 
 -- =====================================================================
--- BAGIAN 9: AKUN DEMO RESMI (SATU-SATUNYA DATA YANG IKUT TERPINDAH)
--- Username: demo
--- Password: demo123
--- Role    : demo (Read-only session di backend, simulasi lokal di frontend)
--- =====================================================================
-
-INSERT INTO `users` (`id`, `username`, `password_hash`, `nama`, `role`, `created_at`, `last_login`, `is_active`)
-VALUES (
-  'demo-mode-001',
-  'demo',
-  '$2y$10$6tdCjwyx/vrrIvXwj9VVx.IoAICFUr44un7sBY77Kv/xheNROATVq',
-  'Demo Mode',
-  'demo',
-  NOW(),
-  NULL,
-  1
-)
-ON DUPLICATE KEY UPDATE
-  `password_hash` = VALUES(`password_hash`),
-  `nama` = VALUES(`nama`),
-  `role` = VALUES(`role`),
-  `is_active` = 1;
+-- Admin dibuat melalui CLI bootstrap-admin.php setelah struktur database siap.
 
 SET FOREIGN_KEY_CHECKS = 1;
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;

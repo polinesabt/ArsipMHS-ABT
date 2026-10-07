@@ -57,7 +57,7 @@ try {
         'sub' => $payload['sub'],
         'username' => $user['username'],
         'role' => $user['role'],
-        'session_exp' => $payload['session_exp'],
+        'session_exp' => (int)$payload['session_exp'],
     ];
     $newAccessToken = auth_generate_token($tokenPayload);
     $newRefreshToken = auth_generate_token($tokenPayload, JWT_REFRESH_EXPIRATION, 'refresh');
@@ -71,7 +71,7 @@ try {
         'message' => 'Token diperbarui',
     ]);
 } catch (Exception $e) {
-    http_response_code(500);
+    http_response_code(api_exception_status($e));
     echo json_encode([
         'success' => false,
         'error' => 'Gagal memperbarui token',

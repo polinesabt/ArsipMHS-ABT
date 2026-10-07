@@ -1,29 +1,17 @@
 import React, { useMemo } from 'react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from 'recharts';
+import { ChartSkeleton } from '@/components/ui/loading';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, AreaChart, Area, PieChart, Pie, Cell, Legend } from 'recharts';
+import { MotionChartContainer as ResponsiveContainer } from '@/components/chart/MotionChartContainer';
 import { FileText, ExternalLink } from 'lucide-react';
 import { useDosen } from '@/contexts/DosenContext';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ChartTooltip, PieChartTooltip } from '@/components/insight/dashboard/ChartTooltip';
 
-const PENDANAAN_COLORS = ['#3b82f6', '#10b981', '#f59e0b'];
+const PENDANAAN_COLORS = ['hsl(var(--chart-series-navy))', 'hsl(var(--chart-series-teal))', 'hsl(var(--chart-series-amber))'];
 
 export function DosenLuaranSection() {
-  const { luaranList } = useDosen();
+  const { luaranList, isLoading } = useDosen();
 
   // 1. Data Bar Chart: Luaran Penelitian vs PKM per Tingkat Publikasi
   const publikasiGroupData = useMemo(() => {
@@ -148,7 +136,7 @@ export function DosenLuaranSection() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Grouped Bar Chart: Luaran Penelitian vs PKM */}
-        <div className="lg:col-span-7 adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
+        <div className="lg:col-span-7 chart-panel adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h4 className="text-sm font-semibold text-foreground">Distribusi Luaran Berdasarkan Tingkat Publikasi</h4>
@@ -157,7 +145,9 @@ export function DosenLuaranSection() {
           </div>
 
           <div className="h-[270px] sm:h-[290px] w-full">
-            {publikasiGroupData.length === 0 ? (
+            {isLoading && luaranList.length === 0 ? (
+                  <ChartSkeleton kind="bar" className="h-full" />
+                ) : publikasiGroupData.length === 0 ? (
               <div className="h-full flex items-center justify-center text-xs text-muted-foreground border border-dashed rounded-xl">
                 Belum ada data luaran publikasi
               </div>
@@ -173,8 +163,8 @@ export function DosenLuaranSection() {
                   <YAxis dataKey="name" type="category" width={175} tick={{ fontSize: 11, fill: 'hsl(var(--foreground))' }} />
                   <Tooltip content={<ChartTooltip />} />
                   <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
-                  <Bar dataKey="Penelitian" fill="#3b82f6" radius={[0, 4, 4, 0]} />
-                  <Bar dataKey="PKM" fill="#f59e0b" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="Penelitian" fill="hsl(var(--chart-series-navy))" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="PKM" fill="hsl(var(--chart-series-amber))" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -184,7 +174,7 @@ export function DosenLuaranSection() {
         {/* Right Column: Area Chart & Donut Chart */}
         <div className="lg:col-span-5 flex flex-col gap-4">
           {/* Trend Area Chart */}
-          <div className="adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex-1">
+          <div className="chart-panel adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex-1">
             <h4 className="text-sm font-semibold text-foreground">Tren Produktivitas Luaran per Tahun</h4>
             <p className="text-xs text-muted-foreground mt-0.5 mb-2">Pertumbuhan publikasi & karya per periode</p>
             <div className="h-[120px] w-full">
@@ -192,25 +182,25 @@ export function DosenLuaranSection() {
                 <AreaChart data={trendTahunanData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
+                      <stop offset="5%" stopColor="hsl(var(--chart-series-navy))" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="hsl(var(--chart-series-navy))" stopOpacity={0.0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="year" tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
                   <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} />
                   <Tooltip content={<ChartTooltip />} />
-                  <Area type="monotone" dataKey="Total" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" />
+                  <Area type="monotone" dataKey="Total" stroke="hsl(var(--chart-series-navy))" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
 
           {/* Donut Chart: Sumber Dana */}
-          <div className="adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex-1">
+          <div className="chart-panel adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex-1">
             <h4 className="text-sm font-semibold text-foreground">Sumber Pendanaan Luaran</h4>
-            <div className="flex items-center gap-3 mt-1">
-              <div className="h-[100px] w-[110px] shrink-0">
+            <div className="flex flex-col gap-3 mt-2">
+              <div className="h-[260px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={sumberDanaData} cx="50%" cy="50%" innerRadius={24} outerRadius={42} paddingAngle={3} dataKey="value">
@@ -218,14 +208,14 @@ export function DosenLuaranSection() {
                         <Cell key={`dana-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip content={<PieChartTooltip />} />
+                    <Tooltip content={<PieChartTooltip total={sumberDanaData.reduce((sum, entry) => sum + entry.value, 0)} />} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
               <div className="text-[10px] text-muted-foreground space-y-1">
-                <p><span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1" />Internal / Mandiri</p>
-                <p><span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1" />Lembaga DN (DRTPM)</p>
-                <p><span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1" />Lembaga LN</p>
+                <p><span className="inline-block w-2 h-2 rounded-full chart-legend-navy mr-1" />Internal / Mandiri</p>
+                <p><span className="inline-block w-2 h-2 rounded-full chart-legend-teal mr-1" />Lembaga DN (DRTPM)</p>
+                <p><span className="inline-block w-2 h-2 rounded-full chart-legend-amber mr-1" />Lembaga LN</p>
               </div>
             </div>
           </div>

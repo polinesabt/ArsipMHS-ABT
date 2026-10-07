@@ -59,7 +59,7 @@ try {
         if (!$stmtUser->fetch()) {
             attachment_delete_fail(403, 'Akses ditolak.');
         }
-    } elseif ($role !== 'admin') {
+    } elseif (!in_array($role, ['admin', 'developer'], true)) {
         attachment_delete_fail(403, 'Akses ditolak.');
     }
 
@@ -76,9 +76,9 @@ try {
     if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    http_response_code(500);
+    http_response_code(api_exception_status($e));
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage(),
+        'error' => api_public_error($e),
     ]);
 }

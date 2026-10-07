@@ -8,6 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/auth.php';
+require_once __DIR__ . '/../../config/access.php';
 require_once __DIR__ . '/../insight/sync_helpers.php';
 require_once __DIR__ . '/store_helper.php';
 
@@ -32,6 +33,7 @@ try {
 
     $currentConfig = $found['config'];
     $existingRow = $found['row'];
+    requireStudentWriteAccess($pdo, $auth, (string)($existingRow['id_mahasiswa'] ?? ''));
 
     $finalCategory = isset($input['category'])
         ? trim((string)$input['category'])
@@ -47,6 +49,7 @@ try {
 
     $mergedInput = array_merge($existingRow, $input);
     $mergedInput['student_id'] = $input['student_id'] ?? ($existingRow['id_mahasiswa'] ?? ($existingRow['student_id'] ?? ''));
+    requireStudentWriteAccess($pdo, $auth, (string)$mergedInput['student_id']);
     $mergedInput['category'] = $finalCategory;
     $mergedInput['subcategory'] = $finalSubcategory;
 
@@ -97,10 +100,10 @@ try {
     if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    http_response_code(500);
+    http_response_code(api_exception_status($e));
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage(),
+        'error' => api_public_error($e),
     ]);
 }
 ?>

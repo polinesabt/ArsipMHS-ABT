@@ -130,10 +130,3 @@ export function authenticateAdmin(
 export function isNimExists(nim: string, students: StudentProfile[]): boolean {
   return students.some(s => s.nim === nim);
 }
-
-/**
- * Generate default password hash for demo
- */
-export function getDefaultPasswordHash(): string {
-  return hashPassword('password123');
-}

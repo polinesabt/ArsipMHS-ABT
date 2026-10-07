@@ -305,10 +305,19 @@ export async function getStudentsListFromAPI(
 }
 
 /**
- * Get all students from API (no pagination)
+ * Get the current student's server-scoped records.
  */
 export async function getAllStudentsFromAPI(): Promise<ApiResponse<Student[]>> {
   return apiClient.get<Student[]>('students/list.php');
+}
+
+export interface StudentSummary {
+  counts: { filled: number; bekerja: number; wirausaha: number; studi: number; mencari: number };
+  nims: string[];
+}
+
+export async function getStudentSummaryFromAPI(): Promise<ApiResponse<StudentSummary>> {
+  return apiClient.get<StudentSummary>('students/summary.php');
 }
 
 /**

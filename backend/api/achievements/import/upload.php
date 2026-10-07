@@ -835,13 +835,15 @@ try {
                         continue;
                     }
                     $failedCount++;
-                    prestasi_import_insert_log_detail($pdo, $logId, $rowNumber, $nim, 'error', 'Gagal insert: ' . $pdoEx->getMessage(), $row);
+                    error_log('ACHIEVEMENT_IMPORT_DB_ERROR ' . $pdoEx->getMessage());
+                    prestasi_import_insert_log_detail($pdo, $logId, $rowNumber, $nim, 'error', 'Kesalahan database saat impor', $row);
                 } catch (AchievementDuplicateException $duplicateEx) {
                     $duplicateCount++;
                     prestasi_import_insert_log_detail($pdo, $logId, $rowNumber, $nim, 'duplicate', $duplicateEx->getMessage(), $row);
                 } catch (Exception $innerEx) {
                     $failedCount++;
-                    prestasi_import_insert_log_detail($pdo, $logId, $rowNumber, $nim, 'error', 'Gagal insert: ' . $innerEx->getMessage(), $row);
+                    error_log('ACHIEVEMENT_IMPORT_ERROR ' . $innerEx->getMessage());
+                    prestasi_import_insert_log_detail($pdo, $logId, $rowNumber, $nim, 'error', 'Gagal memproses baris impor', $row);
                 }
 
                 $batchProcessed++;
@@ -898,9 +900,9 @@ try {
         $failUpdate->execute(['failed', $logId]);
     }
 
-    http_response_code(500);
+    http_response_code(api_exception_status($e));
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage(),
+        'error' => api_public_error($e),
     ]);
 }

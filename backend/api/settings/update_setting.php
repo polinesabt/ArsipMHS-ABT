@@ -56,9 +56,9 @@ try {
         ],
     ]);
 } catch (Throwable $e) {
-    http_response_code(500);
+    http_response_code(api_exception_status($e));
     echo json_encode([
         'success' => false,
-        'error' => 'Gagal mengupdate pengaturan: ' . $e->getMessage(),
+        'error' => 'Gagal mengupdate pengaturan: ' . api_public_error($e),
     ]);
 }

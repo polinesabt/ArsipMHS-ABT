@@ -75,15 +75,11 @@ src/
 └── repositories/      # Data access layer
 ```
 
-## 🔐 Demo Credentials
+## 🔐 Akun dan akses
 
-### Student Account
-- **Username**: `mahasiswa1`
-- **Password**: `student123`
-
-### Admin Account
-- **Username**: `admin`
-- **Password**: `admin123`
+Login demo dinonaktifkan. Siapkan akun admin melalui `php backend/scripts/bootstrap-admin.php`
+dengan `ADMIN_BOOTSTRAP_PASSWORD` dari environment; jangan menyimpan password atau
+dump database di repositori.
 
 ## 📝 Available Scripts
 

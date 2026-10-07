@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DistribusiPenilaianChart, KesesuaianJurusanChart } from '@/components/shared';
+import { AnimatedKpiValue } from '@/components/chart/AnimatedKpiValue';
 import {
   closeEvaluation,
   createEvaluation,
@@ -26,6 +27,7 @@ import type {
 import { useToast } from '@/hooks/use-toast';
 import { exportEvaluationResultsToExcel } from '@/lib/excel-export';
 import { cn } from '@/lib/utils';
+import { DEMO_DUMMY_DATA_ADDED_EVENT } from '@/lib/sandbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -941,6 +943,19 @@ export default function AdminEvaluasiLulusanPage() {
     }
   };
 
+  useEffect(() => {
+    const refresh = () => {
+      void loadEvaluations();
+      void loadCharts();
+      if (selectedEvaluationId) {
+        void loadStudents();
+        void loadResults();
+      }
+    };
+    window.addEventListener(DEMO_DUMMY_DATA_ADDED_EVENT, refresh);
+    return () => window.removeEventListener(DEMO_DUMMY_DATA_ADDED_EVENT, refresh);
+  }, [loadCharts, loadEvaluations, loadResults, loadStudents, selectedEvaluationId]);
+
   if (isLoading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -1547,37 +1562,37 @@ export default function AdminEvaluasiLulusanPage() {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                          <Card>
+                          <Card className="chart-kpi">
                             <CardContent className="p-4">
                               <p className="text-xs text-muted-foreground">Total Target</p>
-                              <p className="text-2xl font-bold">{chartData?.progress.total_targets ?? 0}</p>
+                              <p className="text-2xl font-bold"><AnimatedKpiValue value={chartData?.progress.total_targets ?? 0} /></p>
                             </CardContent>
                           </Card>
-                          <Card>
+                          <Card className="chart-kpi">
                             <CardContent className="p-4">
                               <p className="text-xs text-muted-foreground">Sudah dikirimi</p>
-                              <p className="text-2xl font-bold">{chartData?.progress.total_sent ?? 0}</p>
+                              <p className="text-2xl font-bold"><AnimatedKpiValue value={chartData?.progress.total_sent ?? 0} /></p>
                             </CardContent>
                           </Card>
-                          <Card>
+                          <Card className="chart-kpi">
                             <CardContent className="p-4">
                               <p className="text-xs text-muted-foreground">Sudah mengisi</p>
-                              <p className="text-2xl font-bold">{chartData?.progress.total_submitted ?? 0}</p>
+                              <p className="text-2xl font-bold"><AnimatedKpiValue value={chartData?.progress.total_submitted ?? 0} /></p>
                             </CardContent>
                           </Card>
-                          <Card>
+                          <Card className="chart-kpi">
                             <CardContent className="p-4">
                               <p className="text-xs text-muted-foreground">Response Rate</p>
                               <p className="text-2xl font-bold flex items-center gap-1">
                                 <TrendingUp className="w-5 h-5 text-green-600" />
-                                {chartData?.progress.response_rate ?? 0}%
+                                <AnimatedKpiValue value={`${chartData?.progress.response_rate ?? 0}%`} />
                               </p>
                             </CardContent>
                           </Card>
                         </div>
 
                         <div className="grid grid-cols-1 gap-5 items-stretch">
-                          <Card className="h-full">
+                          <Card className="chart-panel h-full">
                             <CardHeader>
                               <CardTitle className="text-base">Distribusi Penilaian Kompetensi</CardTitle>
                             </CardHeader>
@@ -1597,7 +1612,7 @@ export default function AdminEvaluasiLulusanPage() {
                             </CardContent>
                           </Card>
 
-                          <Card className="h-full">
+                          <Card className="chart-panel h-full">
                             <CardHeader>
                               <CardTitle className="text-base">Kesesuaian Jurusan dengan Pekerjaan</CardTitle>
                             </CardHeader>
@@ -1997,36 +2012,36 @@ export default function AdminEvaluasiLulusanPage() {
                       </CardHeader>
                       <CardContent className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                          <Card>
+                          <Card className="chart-kpi">
                             <CardContent className="p-4">
                               <p className="text-xs text-muted-foreground">Total Target</p>
-                              <p className="text-2xl font-bold">{chartData?.progress.total_targets ?? 0}</p>
+                              <p className="text-2xl font-bold"><AnimatedKpiValue value={chartData?.progress.total_targets ?? 0} /></p>
                             </CardContent>
                           </Card>
-                          <Card>
+                          <Card className="chart-kpi">
                             <CardContent className="p-4">
                               <p className="text-xs text-muted-foreground">Sudah dikirimi</p>
-                              <p className="text-2xl font-bold">{chartData?.progress.total_sent ?? 0}</p>
+                              <p className="text-2xl font-bold"><AnimatedKpiValue value={chartData?.progress.total_sent ?? 0} /></p>
                             </CardContent>
                           </Card>
-                          <Card>
+                          <Card className="chart-kpi">
                             <CardContent className="p-4">
                               <p className="text-xs text-muted-foreground">Sudah mengisi</p>
-                              <p className="text-2xl font-bold">{chartData?.progress.total_submitted ?? 0}</p>
+                              <p className="text-2xl font-bold"><AnimatedKpiValue value={chartData?.progress.total_submitted ?? 0} /></p>
                             </CardContent>
                           </Card>
-                          <Card>
+                          <Card className="chart-kpi">
                             <CardContent className="p-4">
                               <p className="text-xs text-muted-foreground">Response Rate</p>
                               <p className="text-2xl font-bold flex items-center gap-1">
                                 <TrendingUp className="w-5 h-5 text-green-600" />
-                                {chartData?.progress.response_rate ?? 0}%
+                                <AnimatedKpiValue value={`${chartData?.progress.response_rate ?? 0}%`} />
                               </p>
                             </CardContent>
                           </Card>
                         </div>
                         <div className="grid grid-cols-1 gap-5 items-stretch">
-                          <Card className="h-full">
+                          <Card className="chart-panel h-full">
                             <CardHeader>
                               <CardTitle className="text-base">Distribusi Penilaian Kompetensi</CardTitle>
                             </CardHeader>
@@ -2045,7 +2060,7 @@ export default function AdminEvaluasiLulusanPage() {
                               )}
                             </CardContent>
                           </Card>
-                          <Card className="h-full">
+                          <Card className="chart-panel h-full">
                             <CardHeader>
                               <CardTitle className="text-base">Kesesuaian Jurusan dengan Pekerjaan</CardTitle>
                             </CardHeader>

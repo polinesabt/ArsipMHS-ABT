@@ -52,7 +52,7 @@ if (!function_exists('auth_env')) {
 if (!defined('JWT_SECRET')) {
     define(
         'JWT_SECRET',
-        auth_env('JWT_SECRET', 'your-super-secret-jwt-key-change-in-production')
+        auth_env('JWT_SECRET', 'development-only-jwt-secret-change-me')
     );
 }
 if (!defined('JWT_ALGORITHM')) {
@@ -63,13 +63,10 @@ if (!defined('JWT_EXPIRATION')) {
     define('JWT_EXPIRATION', $exp > 0 ? $exp : 86400);
 }
 if (!defined('JWT_ACCESS_EXPIRATION')) {
-    // Default 24 jam (86400) agar token tidak kadaluarsa saat pakai dashboard; production bisa pakai env
-    $exp = (int)auth_env('JWT_ACCESS_EXPIRATION', '86400');
-    define('JWT_ACCESS_EXPIRATION', $exp > 0 ? $exp : 86400);
+    define('JWT_ACCESS_EXPIRATION', 900);
 }
 if (!defined('JWT_REFRESH_EXPIRATION')) {
-    $exp = (int)auth_env('JWT_REFRESH_EXPIRATION', '604800');
-    define('JWT_REFRESH_EXPIRATION', $exp > 0 ? $exp : 604800);
+    define('JWT_REFRESH_EXPIRATION', 604800);
 }
 
 function auth_json_error(int $statusCode, string $error, string $code): void {
@@ -193,7 +190,8 @@ function auth_generate_token(array $payload, ?int $expirationSeconds = null, str
         throw new InvalidArgumentException('Jenis token tidak valid');
     }
 
-    $exp = $expirationSeconds !== null ? $expirationSeconds : JWT_ACCESS_EXPIRATION;
+    $maxExpiration = $tokenType === 'refresh' ? JWT_REFRESH_EXPIRATION : JWT_ACCESS_EXPIRATION;
+    $exp = $expirationSeconds !== null ? min($expirationSeconds, $maxExpiration) : $maxExpiration;
     if ($exp <= 0) {
         throw new InvalidArgumentException('Masa berlaku token tidak valid');
     }
@@ -350,6 +348,16 @@ function auth_role_allows(string $actualRole, string $requiredRole): bool {
     return $actualRole === $requiredRole;
 }
 
+function auth_refresh_account_active(PDO $pdo, array $payload): bool {
+    if (($payload['typ'] ?? null) !== 'refresh' || empty($payload['sub']) || empty($payload['role'])) {
+        return false;
+    }
+    $stmt = $pdo->prepare('SELECT role FROM users WHERE id = ? AND is_active = 1 LIMIT 1');
+    $stmt->execute([(string)$payload['sub']]);
+    $activeRole = $stmt->fetchColumn();
+    return is_string($activeRole) && hash_equals($activeRole, (string)$payload['role']);
+}
+
 function auth_is_demo(?array $payload): bool {
     return is_array($payload)
         && (($payload['role'] ?? null) === 'demo' || ($payload['demo_mode'] ?? false) === true);
@@ -456,6 +464,13 @@ function requireProductionWrite(?array $payload = null): void {
     exit();
 }
 
+if (auth_env('APP_ENV', 'production') !== 'development') {
+    $configuredSecret = auth_trim_bom(trim((string)JWT_SECRET));
+    if (strlen($configuredSecret) < 32 || str_contains(strtolower($configuredSecret), 'change-me') || str_contains(strtolower($configuredSecret), 'your-')) {
+        auth_json_error(503, 'Konfigurasi autentikasi server belum aman', 'AUTH_CONFIGURATION_ERROR');
+    }
+}
+
 function requireCapability(string $capability): array {
     $payload = requireAuth();
     if (!auth_has_capability($payload, $capability)) {
@@ -499,6 +514,10 @@ function requireAuth(?string $requiredRole = null): array {
             continue;
         }
 
+        if (($payload['typ'] ?? null) !== 'access') {
+            $verifyFailures[] = 'malformed';
+            continue;
+        }
         if ($requiredRole !== null && !auth_role_allows((string)($payload['role'] ?? ''), $requiredRole)) {
             $hasRoleMismatch = true;
             continue;

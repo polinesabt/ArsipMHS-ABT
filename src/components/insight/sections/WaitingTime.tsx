@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { useEffect, useRef, useState } from 'react';
+import { ChartSkeleton } from '@/components/ui/loading';
+import { Bar, BarChart, CartesianGrid, Legend, Tooltip, XAxis, YAxis } from 'recharts';
+import { MotionChartContainer as ResponsiveContainer } from '@/components/chart/MotionChartContainer';
 import { DashboardCard } from '@/components/insight/dashboard/DashboardCard';
 import { ChartTooltip } from '@/components/insight/dashboard/ChartTooltip';
 import { InsightDataEmpty } from '@/components/insight/InsightDataEmpty';
@@ -9,17 +11,20 @@ import { getInsightErrorMessage } from '@/lib/insight-errors';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 export function WaitingTime() {
-  const { selectedYear } = useInsightDashboard();
+  const { selectedYear, refreshTrigger } = useInsightDashboard();
   const isMobile = useIsMobile();
   const [data, setData] = useState<WaitingTimeData | null>(null);
   const [meta, setMeta] = useState<InsightStatsResponse['meta']>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const yearParam = selectedYear === 'all' ? undefined : (selectedYear as number);
+  const queryKeyRef = useRef<string | null>(null);
+  const queryKey = String(yearParam ?? 'all');
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    if (queryKeyRef.current !== queryKey) setLoading(true);
+    queryKeyRef.current = queryKey;
     setError(null);
     getInsightStats('waiting_time', yearParam)
       .then((res) => {
@@ -41,7 +46,7 @@ export function WaitingTime() {
     return () => {
       cancelled = true;
     };
-  }, [yearParam]);
+  }, [yearParam, refreshTrigger, queryKey]);
 
   const byYear = data?.by_year ?? [];
   const hasData = (data?.total ?? 0) > 0;
@@ -66,9 +71,7 @@ export function WaitingTime() {
       chartMeta={meta ?? undefined}
     >
       {loading ? (
-        <div className="flex min-h-[240px] items-center justify-center text-muted-foreground sm:min-h-[280px]">
-          Memuat data...
-        </div>
+        <ChartSkeleton kind="bar" className="h-[240px] sm:h-[280px]" />
       ) : error ? (
         <div className="flex min-h-[240px] flex-col items-center justify-center px-4 py-16 text-center text-muted-foreground sm:min-h-[280px]">
           <p className="font-medium text-destructive">{error}</p>

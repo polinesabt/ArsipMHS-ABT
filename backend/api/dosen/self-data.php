@@ -34,7 +34,7 @@ try {
     dosen_json_response(200,['success'=>true,'data'=>dosen_self_data($pdo,$dosen),'message'=>'Data berhasil disimpan.']);
 } catch (InvalidArgumentException $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();
-    dosen_json_response(422,['success'=>false,'error'=>$error->getMessage()]);
+    dosen_json_response(400,['success'=>false,'error'=>$error->getMessage()]);
 } catch (RuntimeException $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     dosen_json_response(404,['success'=>false,'error'=>$error->getMessage()]);

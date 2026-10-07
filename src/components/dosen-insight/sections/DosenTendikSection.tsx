@@ -1,24 +1,15 @@
 import React, { useMemo } from 'react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from 'recharts';
+import { ChartSkeleton } from '@/components/ui/loading';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
+import { MotionChartContainer as ResponsiveContainer } from '@/components/chart/MotionChartContainer';
 import { UserCheck, ExternalLink } from 'lucide-react';
 import { useDosen } from '@/contexts/DosenContext';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ChartTooltip, PieChartTooltip } from '@/components/insight/dashboard/ChartTooltip';
 
-const PENDIDIKAN_COLORS = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b']; // D3, S1, S2, S3
-const TENDIK_SERTIF_COLORS = ['#059669', '#cbd5e1']; // Emerald (Ada Sertif), Slate (Belum)
+const PENDIDIKAN_COLORS = ['hsl(var(--chart-series-navy))', 'hsl(var(--chart-series-teal))', 'hsl(var(--chart-series-indigo))', 'hsl(var(--chart-series-amber))']; // D3, S1, S2, S3
+const TENDIK_SERTIF_COLORS = ['hsl(var(--chart-series-teal))', 'hsl(var(--chart-series-neutral))']; // Emerald (Ada Sertif), Slate (Belum)
 
 // Urutan standar pangkat / golongan ruang ASN / Tendik untuk ordering sumbu yang konsisten
 const STANDARD_GOLONGAN_ORDER = [
@@ -34,7 +25,7 @@ const STANDARD_GOLONGAN_ORDER = [
 ];
 
 export function DosenTendikSection() {
-  const { tendikList } = useDosen();
+  const { tendikList, isLoading } = useDosen();
 
   // 1. Data Distribusi Berdasarkan Golongan Tendik (Dinamis dari Data Riil Tendik)
   const golonganTendikData = useMemo(() => {
@@ -144,7 +135,7 @@ export function DosenTendikSection() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Horizontal Bar Chart: Distribusi Berdasarkan Golongan Tendik */}
-        <div className="lg:col-span-7 adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
+        <div className="lg:col-span-7 chart-panel adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h4 className="text-sm font-semibold text-foreground">Distribusi Berdasarkan Golongan Tendik</h4>
@@ -153,7 +144,9 @@ export function DosenTendikSection() {
           </div>
 
           <div className="h-[250px] sm:h-[270px] w-full">
-            {tendikList.length === 0 || golonganTendikData.length === 0 ? (
+            {isLoading && tendikList.length === 0 ? (
+                  <ChartSkeleton kind="bar" className="h-full" />
+                ) : tendikList.length === 0 || golonganTendikData.length === 0 ? (
               <div className="h-full flex items-center justify-center text-xs text-muted-foreground border border-dashed rounded-xl">
                 Belum ada data golongan tenaga kependidikan
               </div>
@@ -168,7 +161,7 @@ export function DosenTendikSection() {
                   <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} />
                   <YAxis dataKey="name" type="category" width={110} tick={{ fontSize: 11, fill: 'hsl(var(--foreground))' }} />
                   <Tooltip content={<ChartTooltip />} />
-                  <Bar dataKey="Jumlah" fill="#059669" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="Jumlah" fill="hsl(var(--chart-series-teal))" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -176,17 +169,17 @@ export function DosenTendikSection() {
         </div>
 
         {/* Duo Donut Chart: Kualifikasi Pendidikan & Sertifikasi Tendik */}
-        <div className="lg:col-span-5 adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
+        <div className="lg:col-span-5 chart-panel adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
           <div>
             <h4 className="text-sm font-semibold text-foreground">Kualifikasi &amp; Sertifikasi Profesi Tendik</h4>
             <p className="text-xs text-muted-foreground mt-0.5">Jenjang pendidikan formal dan kompetensi BNSP/LSP</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 mt-2">
+          <div className="grid grid-cols-1 gap-5 mt-3">
             {/* Donut 1: Pendidikan */}
             <div className="flex flex-col items-center">
               <span className="text-[11px] font-medium text-muted-foreground mb-1">Pendidikan</span>
-              <div className="h-[140px] w-full">
+              <div className="h-[260px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -208,15 +201,15 @@ export function DosenTendikSection() {
               </div>
               <div className="text-[10px] text-center text-muted-foreground space-y-0.5">
                 <p><span className="inline-block w-2 h-2 rounded-full bg-violet-500 mr-1" />S2 Magister</p>
-                <p><span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1" />S1 Sarjana</p>
-                <p><span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1" />D3 Diploma</p>
+                <p><span className="inline-block w-2 h-2 rounded-full chart-legend-navy mr-1" />S1 Sarjana</p>
+                <p><span className="inline-block w-2 h-2 rounded-full chart-legend-teal mr-1" />D3 Diploma</p>
               </div>
             </div>
 
             {/* Donut 2: Sertifikasi Profesi */}
             <div className="flex flex-col items-center">
               <span className="text-[11px] font-medium text-muted-foreground mb-1">Sertifikat Profesi</span>
-              <div className="h-[140px] w-full">
+              <div className="h-[260px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -237,8 +230,8 @@ export function DosenTendikSection() {
                 </ResponsiveContainer>
               </div>
               <div className="text-[10px] text-center text-muted-foreground space-y-0.5">
-                <p><span className="inline-block w-2 h-2 rounded-full bg-emerald-600 mr-1" />Bersertifikasi</p>
-                <p><span className="inline-block w-2 h-2 rounded-full bg-slate-300 mr-1" />Belum Ada</p>
+                <p><span className="inline-block w-2 h-2 rounded-full chart-legend-teal mr-1" />Bersertifikasi</p>
+                <p><span className="inline-block w-2 h-2 rounded-full chart-legend-neutral mr-1" />Belum Ada</p>
               </div>
             </div>
           </div>

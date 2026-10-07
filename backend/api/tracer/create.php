@@ -8,6 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/auth.php';
+require_once __DIR__ . '/../../config/access.php';
 require_once __DIR__ . '/../../config/security.php';
 require_once __DIR__ . '/../students/status_effective_sql.php';
 
@@ -28,6 +29,7 @@ try {
     
     // Sanitize and validate input
     $student_id = sanitizeInput($input['student_id'], 'string');
+    requireStudentWriteAccess($pdo, $auth, (string)$student_id);
     $career_status = sanitizeInput($input['career_status'], 'string');
     $rawEmail = trim((string)($input['email'] ?? ''));
     $email = $rawEmail === '' ? '' : sanitizeInput($rawEmail, 'email');
@@ -122,11 +124,11 @@ try {
     
 } catch (Exception $e) {
     if (http_response_code() < 400) {
-        http_response_code(500);
+        http_response_code(api_exception_status($e));
     }
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage()
+        'error' => api_public_error($e)
     ]);
 }
 ?>

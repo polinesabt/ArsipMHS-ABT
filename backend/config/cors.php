@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/api_errors.php';
 /**
  * CORS Configuration
  *
@@ -6,14 +7,22 @@
  * Untuk development, ALLOWED_ORIGIN bisa "*".
  */
 
-$allowedOrigin = '*';
+$allowedOrigin = '';
 
 // Load environment untuk production origin (fallback aman jika env tidak ditemukan)
 try {
     require_once __DIR__ . '/env.php';
-    $allowedOrigin = getenv('ALLOWED_ORIGIN') ?: '*';
+    $allowedOrigin = trim((string)(getenv('ALLOWED_ORIGIN') ?: ''));
 } catch (Throwable $e) {
-    $allowedOrigin = '*';
+    $allowedOrigin = '';
+}
+
+$configuredOrigins = array_map('trim', explode(',', $allowedOrigin));
+if ((getenv('APP_ENV') ?: 'production') !== 'development' && ($allowedOrigin === '' || in_array('*', $configuredOrigins, true))) {
+    header('Content-Type: application/json; charset=utf-8');
+    http_response_code(503);
+    echo json_encode(['success' => false, 'error' => 'Konfigurasi CORS server belum aman', 'code' => 'CORS_CONFIGURATION_ERROR']);
+    exit();
 }
 
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
@@ -25,8 +34,7 @@ if ($allowedOrigin === '*' || empty($allowedOrigin)) {
         header("Access-Control-Allow-Origin: $origin");
     }
 } else {
-    $allowedOrigins = array_map('trim', explode(',', $allowedOrigin));
-    if (!empty($origin) && in_array($origin, $allowedOrigins, true)) {
+    if (!empty($origin) && in_array($origin, $configuredOrigins, true)) {
         header("Access-Control-Allow-Origin: $origin");
     }
 }

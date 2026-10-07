@@ -17,11 +17,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/auth.php';
+require_once __DIR__ . '/../../config/access.php';
 require_once __DIR__ . '/recycle_helpers.php';
 
 try {
     $auth = requireAuth('admin');
     requireProductionWrite($auth);
+    requireAdminModuleEdit($pdo, $auth, 'mahasiswa');
     $adminId = (string)($auth['sub'] ?? '');
 
     $input = json_decode(file_get_contents('php://input'), true);
@@ -48,10 +50,10 @@ try {
     if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    http_response_code(500);
+    http_response_code(api_exception_status($e));
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage()
+        'error' => api_public_error($e)
     ]);
 }
 ?>

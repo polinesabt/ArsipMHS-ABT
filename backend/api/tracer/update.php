@@ -8,6 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/auth.php';
+require_once __DIR__ . '/../../config/access.php';
 require_once __DIR__ . '/../students/status_effective_sql.php';
 
 try {
@@ -23,7 +24,7 @@ try {
 
     $statusEffectiveExpr = student_status_effective_expr('s');
     $checkStmt = $pdo->prepare('
-        SELECT t.id, s.status AS student_status, (' . $statusEffectiveExpr . ') AS status_effective
+        SELECT t.id, t.student_id, s.status AS student_status, (' . $statusEffectiveExpr . ') AS status_effective
         FROM tracer_study t
         JOIN students s ON s.id = t.student_id
         WHERE t.id = ? AND s.deleted_at IS NULL
@@ -34,6 +35,7 @@ try {
     if (!$checkRow) {
         throw new Exception('Tracer study tidak ditemukan atau akun mahasiswa tidak aktif');
     }
+    requireStudentWriteAccess($pdo, $auth, (string)$checkRow['student_id']);
     if (($checkRow['status_effective'] ?? '') !== 'alumni') {
         http_response_code(403);
         echo json_encode([
@@ -112,10 +114,10 @@ try {
         'message' => 'Tracer study berhasil diperbarui'
     ]);
 } catch (Exception $e) {
-    http_response_code(500);
+    http_response_code(api_exception_status($e));
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage()
+        'error' => api_public_error($e)
     ]);
 }
 ?>

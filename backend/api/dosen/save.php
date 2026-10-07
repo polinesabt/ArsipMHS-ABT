@@ -7,6 +7,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     exit;
 }
 require_once __DIR__ . '/bootstrap.php';
+require_once __DIR__ . '/../../config/access.php';
 require_once __DIR__ . '/store_helper.php';
 require_once __DIR__ . '/../tendik/bootstrap.php';
 header('Content-Type: application/json; charset=utf-8');
@@ -35,6 +36,7 @@ function dosen_replace_recognitions(PDO $pdo, string $dosenId, string $bidang, a
 try {
     $auth = requireAuth('admin');
     requireProductionWrite($auth);
+    requireAdminModuleEdit($pdo, $auth, 'dosen');
     $input = dosen_request_json();
     $action = trim((string)($input['action'] ?? ''));
     $data = is_array($input['data'] ?? null) ? $input['data'] : (is_array($input['payload'] ?? null) ? $input['payload'] : []);
@@ -137,7 +139,7 @@ try {
     dosen_json_response(200,['success'=>true,'data'=>['action'=>$action],'message'=>'Data berhasil disimpan ke database.']);
 } catch (InvalidArgumentException $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();
-    dosen_json_response(422,['success'=>false,'error'=>$error->getMessage()]);
+    dosen_json_response(400,['success'=>false,'error'=>$error->getMessage()]);
 } catch (Throwable $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     dosen_json_response(409,['success'=>false,'error'=>$error->getMessage()]);

@@ -1,17 +1,7 @@
 import React, { useMemo } from 'react';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from 'recharts';
+import { ChartSkeleton } from '@/components/ui/loading';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
+import { MotionChartContainer as ResponsiveContainer } from '@/components/chart/MotionChartContainer';
 import { Users, Award, ExternalLink } from 'lucide-react';
 import { useDosen } from '@/contexts/DosenContext';
 import { Link } from 'react-router-dom';
@@ -20,8 +10,8 @@ import { ChartTooltip, PieChartTooltip } from '@/components/insight/dashboard/Ch
 
 const JABATAN_ORDER = ['Profesor / Guru Besar', 'Lektor Kepala', 'Lektor', 'Asisten Ahli'];
 
-const STATUS_COLORS = ['#3b82f6', '#f59e0b']; // Biru (Tetap), Amber (Tidak Tetap)
-const SERTIF_COLORS = ['#10b981', '#94a3b8']; // Emerald (Ada Serdos), Slate (Belum)
+const STATUS_COLORS = ['hsl(var(--chart-series-navy))', 'hsl(var(--chart-series-amber))']; // Biru (Tetap), Amber (Tidak Tetap)
+const SERTIF_COLORS = ['hsl(var(--chart-series-teal))', 'hsl(var(--chart-series-neutral))']; // Emerald (Ada Serdos), Slate (Belum)
 
 function normalizeJabatan(jabatan?: string): string {
   if (!jabatan) return 'Asisten Ahli';
@@ -34,7 +24,7 @@ function normalizeJabatan(jabatan?: string): string {
 }
 
 export function DosenDemografiSection() {
-  const { dosenList } = useDosen();
+  const { dosenList, isLoading } = useDosen();
 
   // 1. Data Distribusi Jabatan Fungsional & Kualifikasi
   const jabatanData = useMemo(() => {
@@ -116,7 +106,7 @@ export function DosenDemografiSection() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Horizontal Bar Chart: Jabatan Fungsional & Kualifikasi */}
-        <div className="lg:col-span-7 adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
+        <div className="lg:col-span-7 chart-panel adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h4 className="text-sm font-semibold text-foreground">Distribusi Jabatan Fungsional & Kualifikasi</h4>
@@ -125,7 +115,9 @@ export function DosenDemografiSection() {
           </div>
 
           <div className="h-[260px] sm:h-[280px] w-full">
-            {jabatanData.length === 0 ? (
+            {isLoading && dosenList.length === 0 ? (
+                  <ChartSkeleton kind="bar" className="h-full" />
+                ) : jabatanData.length === 0 ? (
               <div className="h-full flex items-center justify-center text-xs text-muted-foreground border border-dashed rounded-xl">
                 Belum ada data dosen terdaftar
               </div>
@@ -146,8 +138,8 @@ export function DosenDemografiSection() {
                   />
                   <Tooltip content={<ChartTooltip />} />
                   <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
-                  <Bar dataKey="Doktor (S3)" stackId="a" fill="#6366f1" radius={[0, 0, 0, 0]} />
-                  <Bar dataKey="Magister (S2)" stackId="a" fill="#93c5fd" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="Doktor (S3)" stackId="a" fill="hsl(var(--chart-series-indigo))" radius={[0, 0, 0, 0]} />
+                  <Bar dataKey="Magister (S2)" stackId="a" fill="hsl(var(--chart-series-navy-light))" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -155,17 +147,17 @@ export function DosenDemografiSection() {
         </div>
 
         {/* Duo Donut Chart Card */}
-        <div className="lg:col-span-5 adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
+        <div className="lg:col-span-5 chart-panel adaptive-mobile-card p-4 sm:p-5 rounded-2xl bg-card/80 border border-border/60 shadow-xs flex flex-col justify-between">
           <div>
             <h4 className="text-sm font-semibold text-foreground">Status Kepegawaian & Sertifikasi</h4>
             <p className="text-xs text-muted-foreground mt-0.5">Proporsi dosen tetap dan kepemilikan Serdos</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 mt-2">
+          <div className="grid grid-cols-1 gap-5 mt-3">
             {/* Donut 1: Status Kepegawaian */}
             <div className="flex flex-col items-center">
               <span className="text-[11px] font-medium text-muted-foreground mb-1">Status Dosen</span>
-              <div className="h-[140px] w-full">
+              <div className="h-[260px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -186,15 +178,15 @@ export function DosenDemografiSection() {
                 </ResponsiveContainer>
               </div>
               <div className="text-[10px] text-center text-muted-foreground space-y-0.5">
-                <p><span className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-1" />Tetap</p>
-                <p><span className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-1" />Tidak Tetap</p>
+                <p><span className="inline-block w-2 h-2 rounded-full chart-legend-navy mr-1" />Tetap</p>
+                <p><span className="inline-block w-2 h-2 rounded-full chart-legend-amber mr-1" />Tidak Tetap</p>
               </div>
             </div>
 
             {/* Donut 2: Sertifikat Pendidik */}
             <div className="flex flex-col items-center">
               <span className="text-[11px] font-medium text-muted-foreground mb-1">Sertifikasi Pendidik</span>
-              <div className="h-[140px] w-full">
+              <div className="h-[260px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -215,8 +207,8 @@ export function DosenDemografiSection() {
                 </ResponsiveContainer>
               </div>
               <div className="text-[10px] text-center text-muted-foreground space-y-0.5">
-                <p><span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1" />Serdos</p>
-                <p><span className="inline-block w-2 h-2 rounded-full bg-slate-400 mr-1" />Belum Serdos</p>
+                <p><span className="inline-block w-2 h-2 rounded-full chart-legend-teal mr-1" />Serdos</p>
+                <p><span className="inline-block w-2 h-2 rounded-full chart-legend-neutral mr-1" />Belum Serdos</p>
               </div>
             </div>
           </div>

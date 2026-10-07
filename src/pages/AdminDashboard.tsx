@@ -3,13 +3,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useAlumni } from '@/contexts/AlumniContext';
+import { mapTracerToAlumniData, useAlumni } from '@/contexts/AlumniContext';
 import { StatCard, StatusBadge, DataTable } from '@/components/shared';
 import { StudentAccountModal, DeleteStudentDialog, AdminStudentEditModal } from '@/components/admin';
 import type { StudentAccountInput, StudentProfile } from '@/types/student.types';
 import type { AlumniData } from '@/types';
 import {
   getStudentsListFromAPI,
+  getStudentSummaryFromAPI,
+  getTracerStudyFromAPI,
   deleteStudentsBatch,
   resetPasswordBatch,
 } from '@/repositories/api-student.repository';
@@ -24,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { exportStudentsToExcel, exportStudentImportTemplate } from '@/lib/excel-export';
 import { parseStudentAccountsFromExcel } from '@/lib/excel-import';
+import { DEMO_DUMMY_DATA_ADDED_EVENT } from '@/lib/sandbox';
 
 /** Table row shape for Pengelola Mahasiswa (camelCase from API) */
 interface StudentTableRow {
@@ -102,8 +105,11 @@ function rowToStudentProfile(row: StudentTableRow): StudentProfile {
 }
 
 export default function AdminDashboard() {
-  const { masterData, alumniData, studentAccounts, addStudentAccount, deleteStudentAccount, updateStudentAccount, resetStudentPassword, refreshData } = useAlumni();
+  const { addStudentAccount, deleteStudentAccount, updateStudentAccount, resetStudentPassword } = useAlumni();
   const [selectedAlumniId, setSelectedAlumniId] = useState<string | null>(null);
+  const [selectedAlumniData, setSelectedAlumniData] = useState<AlumniData | null>(null);
+  const [existingNims, setExistingNims] = useState<string[]>([]);
+  const [stats, setStats] = useState({ filled: 0, bekerja: 0, wirausaha: 0, studi: 0, mencari: 0 });
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -178,10 +184,7 @@ export default function AdminDashboard() {
 
       const res = await getStudentsListFromAPI(params);
       if (res.success && res.data != null) {
-        const rows = res.data.map((s) => {
-          const filled = alumniData.find((d) => d.alumniMasterId === s.id);
-          return mapApiStudentToRow(s, filled);
-        });
+        const rows = res.data.map((s) => mapApiStudentToRow(s));
         setStudentList(rows);
         setTotalCount(res.total ?? res.data.length);
       } else {
@@ -191,7 +194,7 @@ export default function AdminDashboard() {
     } finally {
       setIsListLoading(false);
     }
-  }, [page, pageSize, alumniData, filterTahunMasukFrom, filterTahunMasukTo, filterTahunLulusFrom, filterTahunLulusTo, filterKelas, appliedSearch]);
+  }, [page, pageSize, filterTahunMasukFrom, filterTahunMasukTo, filterTahunLulusFrom, filterTahunLulusTo, filterKelas, appliedSearch]);
 
   useEffect(() => {
     fetchStudentsList();
@@ -219,32 +222,55 @@ export default function AdminDashboard() {
   const rangeStart = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
   const rangeEnd = Math.min(page * pageSize, totalCount);
 
-  // Statistics
-  const stats = useMemo(() => {
-    const filled = alumniData.length;
-    const bekerja = alumniData.filter(d => d.status === 'bekerja').length;
-    const wirausaha = alumniData.filter(d => d.status === 'wirausaha').length;
-    const studi = alumniData.filter(d => d.status === 'studi').length;
-    const mencari = alumniData.filter(d => d.status === 'mencari').length;
-    return { filled, bekerja, wirausaha, studi, mencari };
-  }, [alumniData]);
+  const fetchSummary = useCallback(async () => {
+    const response = await getStudentSummaryFromAPI();
+    if (response.success && response.data) {
+      setStats(response.data.counts);
+      setExistingNims(response.data.nims);
+    }
+  }, []);
+
+  useEffect(() => { void fetchSummary(); }, [fetchSummary]);
 
   const handleAdminDataChanged = useCallback(async () => {
-    await refreshData();
+    await fetchSummary();
     await fetchStudentsList();
-  }, [refreshData, fetchStudentsList]);
+  }, [fetchSummary, fetchStudentsList]);
+
+  useEffect(() => {
+    const refresh = () => { void handleAdminDataChanged(); };
+    window.addEventListener(DEMO_DUMMY_DATA_ADDED_EVENT, refresh);
+    return () => window.removeEventListener(DEMO_DUMMY_DATA_ADDED_EVENT, refresh);
+  }, [handleAdminDataChanged]);
+
+  useEffect(() => {
+    if (!selectedAlumniId) {
+      setSelectedAlumniData(null);
+      return;
+    }
+    let active = true;
+    setSelectedAlumniData(null);
+    void getTracerStudyFromAPI(selectedAlumniId).then((response) => {
+      if (active) setSelectedAlumniData(response.success && response.data?.[0] ? mapTracerToAlumniData(response.data[0]) : null);
+    });
+    return () => { active = false; };
+  }, [selectedAlumniId]);
 
   const selectedAlumniDetail = useMemo(() => {
-    if (!selectedAlumniId) return null;
-    const master = masterData.find(m => m.id === selectedAlumniId);
-    const filled = alumniData.find(d => d.alumniMasterId === selectedAlumniId);
-    return master ? { ...master, filledData: filled } : null;
-  }, [selectedAlumniId, masterData, alumniData]);
+    const row = studentList.find((student) => student.id === selectedAlumniId);
+    return row ? { ...row, filledData: selectedAlumniData } : null;
+  }, [selectedAlumniId, selectedAlumniData, studentList]);
 
   const handleExport = useCallback(async () => {
-    const params: Record<string, string | number> = { limit: 10000, offset: 0 };
-    const res = await getStudentsListFromAPI(params);
-    const list = res.success && res.data ? res.data : [];
+    const list: Awaited<ReturnType<typeof getStudentsListFromAPI>>['data'] = [];
+    let offset = 0;
+    while (true) {
+      const res = await getStudentsListFromAPI({ limit: 100, offset });
+      if (!res.success || !res.data?.length) break;
+      list.push(...res.data);
+      offset += res.data.length;
+      if (offset >= (res.total ?? offset)) break;
+    }
     const rows = list.map((s) => ({
       nama: s.nama,
       nim: s.nim,
@@ -311,11 +337,6 @@ export default function AdminDashboard() {
       setIsDeleting(false);
     }
   };
-
-  // Get existing NIMs for validation
-  const existingNims = useMemo(() => {
-    return studentAccounts.map(s => s.nim);
-  }, [studentAccounts]);
 
   // Step 1: baca file & siapkan preview (tanpa menyimpan ke DB) — dipakai oleh input file dan drag-and-drop
   const processImportFile = useCallback(async (file: File) => {
@@ -498,13 +519,13 @@ export default function AdminDashboard() {
       if (res.success) {
         setShowBatchDeleteModal(false);
         setSelectedIds([]);
-        await refreshData();
+        await fetchSummary();
         await fetchStudentsList();
       }
     } finally {
       setIsBatchDeleting(false);
     }
-  }, [selectedIds, refreshData, fetchStudentsList]);
+  }, [selectedIds, fetchSummary, fetchStudentsList]);
 
   const handleBatchResetPassword = useCallback(
     async (password: string) => {
@@ -517,14 +538,14 @@ export default function AdminDashboard() {
           setBatchResetPassword('');
           setBatchResetPasswordConfirm('');
           setSelectedIds([]);
-          await refreshData();
+          await fetchSummary();
           await fetchStudentsList();
         }
       } finally {
         setIsBatchResetting(false);
       }
     },
-    [selectedIds, refreshData, fetchStudentsList]
+    [selectedIds, fetchSummary, fetchStudentsList]
   );
 
   const submitBatchReset = useCallback(() => {

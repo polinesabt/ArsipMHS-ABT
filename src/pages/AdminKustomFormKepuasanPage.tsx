@@ -13,6 +13,12 @@ import { FileText, Loader2, Pencil, Plus, CheckSquare, Trash2, Check, FileDown, 
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[char] ?? char);
+}
+
 function buildTemplatePrintHtml(template: SatisfactionFormTemplate): string {
   const sections = template.definition?.sections ?? [];
   const sectionHtml = sections
@@ -21,26 +27,26 @@ function buildTemplatePrintHtml(template: SatisfactionFormTemplate): string {
       const required = sec.required ? ' <span style="color:#dc2626">*</span>' : '';
       let body = '';
       if (sec.type === 'open') {
-        body = `<p style="color:#737373;font-size:14px">${(sec as { placeholder?: string }).placeholder || 'Jawaban terbuka'}</p>`;
+        body = `<p style="color:#737373;font-size:14px">${escapeHtml((sec as { placeholder?: string }).placeholder || 'Jawaban terbuka')}</p>`;
       } else if (sec.type === 'multiple_choice') {
         const opts = (sec as { options?: string[] }).options ?? [];
-        body = opts.map((o) => `<div>☐ ${o}</div>`).join('');
+        body = opts.map((o) => `<div>☐ ${escapeHtml(o)}</div>`).join('');
       } else if (sec.type === 'scale') {
         const s = sec as { scaleMin?: number; scaleMax?: number; questions?: Array<{ title: string }> };
         const min = s.scaleMin ?? 1;
         const max = s.scaleMax ?? 5;
         const scaleLabel = `${min} – ${max}`;
         const questions = s.questions ?? [];
-        body = questions.map((q) => `<div>${q.title} (${scaleLabel})</div>`).join('');
+        body = questions.map((q) => `<div>${escapeHtml(q.title)} (${escapeHtml(scaleLabel)})</div>`).join('');
       } else if (sec.type === 'file_upload') {
         body = '<p style="color:#737373">[Unggah lampiran]</p>';
       }
-      return `<div style="margin-bottom:20px"><strong>${title}${required}</strong><div style="margin-top:8px">${body}</div></div>`;
+      return `<div style="margin-bottom:20px"><strong>${escapeHtml(title)}${required}</strong><div style="margin-top:8px">${body}</div></div>`;
     })
     .join('');
   return `
   <div class="pdf-content" style="font-family:system-ui,sans-serif;width:210mm;padding:20px;background:#fff;color:#111;">
-    <h1 style="font-size:1.5rem;margin-bottom:24px">${template.title}</h1>
+    <h1 style="font-size:1.5rem;margin-bottom:24px">${escapeHtml(template.title)}</h1>
     ${sectionHtml}
   </div>`;
 }

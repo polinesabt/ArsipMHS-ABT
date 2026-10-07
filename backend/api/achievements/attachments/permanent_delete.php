@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../../config/cors.php';
 require_once __DIR__ . '/../../../config/database.php';
 require_once __DIR__ . '/../../../config/auth.php';
+require_once __DIR__ . '/../../../config/access.php';
 require_once __DIR__ . '/recycle_helpers.php';
 
 header('Content-Type: application/json');
@@ -21,9 +22,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 }
 
 try {
-    $auth = requireAuth('admin');
+    $auth = requireAuth();
     requireProductionWrite($auth);
-    $adminId = (string)($auth['sub'] ?? '');
+    $actorId = (string)($auth['sub'] ?? '');
 
     $input = json_decode(file_get_contents('php://input'), true);
     if (!is_array($input)) {
@@ -35,8 +36,14 @@ try {
         throw new Exception('id/attachment_id diperlukan.');
     }
 
+    $existing = attachment_recycle_find($pdo, $attachmentId);
+    if (!$existing || !empty($existing['student_deleted_at'])) {
+        throw new Exception('Lampiran tidak ditemukan.');
+    }
+    requireStudentWriteAccess($pdo, $auth, (string)$existing['student_id']);
+
     $pdo->beginTransaction();
-    $payload = attachment_recycle_permanent_delete($pdo, $attachmentId, $adminId, true);
+    $payload = attachment_recycle_permanent_delete($pdo, $attachmentId, $actorId, true);
     $pdo->commit();
 
     echo json_encode([
@@ -48,9 +55,9 @@ try {
     if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
         $pdo->rollBack();
     }
-    http_response_code(500);
+    http_response_code(api_exception_status($e));
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage(),
+        'error' => api_public_error($e),
     ]);
 }

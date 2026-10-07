@@ -8,10 +8,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/auth.php';
+require_once __DIR__ . '/../../config/access.php';
 
 try {
     $auth = requireAuth('admin');
     requireProductionWrite($auth);
+    requireAdminModuleEdit($pdo, $auth, 'mahasiswa');
     $input = json_decode(file_get_contents('php://input'), true);
 
     if (!$input || !isset($input['ids']) || !is_array($input['ids'])) {
@@ -56,9 +58,9 @@ try {
         'message' => $message,
     ]);
 } catch (Exception $e) {
-    http_response_code(500);
+    http_response_code(api_exception_status($e));
     echo json_encode([
         'success' => false,
-        'error' => $e->getMessage(),
+        'error' => api_public_error($e),
     ]);
 }

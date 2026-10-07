@@ -26,7 +26,9 @@ function extractSidFromToken(token: string | null): string | null {
     if (parsed && (parsed.demo_mode || parsed.role === 'demo') && parsed.sid) {
       return String(parsed.sid);
     }
-  } catch {}
+  } catch {
+    return null;
+  }
   return null;
 }
 
@@ -62,20 +64,14 @@ class SandboxSessionManager {
   }
 
   public getSid(): string | null {
-    if (!this.currentSid && typeof window !== 'undefined') {
-      this.currentSid = localStorage.getItem(DEMO_SID_KEY) || extractSidFromToken(localStorage.getItem('authToken'));
-    }
-    return this.currentSid;
+    return null;
   }
 
   public isDemoActive(): boolean {
-    const sid = this.getSid();
-    if (!sid) return false;
-    if (typeof window === 'undefined') return false;
-    return Boolean(localStorage.getItem(DEMO_USER_KEY) || localStorage.getItem('authToken'));
+    return false;
   }
 
-  public async startSession(sid: string, userData?: any): Promise<void> {
+  public async startSession(sid: string, userData?: unknown): Promise<void> {
     this.currentSid = sid;
     this.syncStatus = 'synced';
     this.lastSyncedAt = Date.now();

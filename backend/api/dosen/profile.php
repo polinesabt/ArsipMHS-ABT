@@ -62,7 +62,7 @@ try {
     dosen_json_response(200, $response);
 } catch (InvalidArgumentException $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();
-    dosen_json_response(422, ['success' => false, 'error' => $error->getMessage()]);
+    dosen_json_response(400, ['success' => false, 'error' => $error->getMessage()]);
 } catch (Throwable $error) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     dosen_json_response(409, ['success' => false, 'error' => $error->getMessage()]);

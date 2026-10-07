@@ -552,9 +552,12 @@ export default function AdminAdvancedSettingsPage() {
               onValueChange={(nextValue) => setPublicationTab(resolvePublicationTableTab(nextValue))}
             >
               <TabsList className="grid h-auto w-full max-w-xl grid-cols-3 rounded-lg border border-border bg-muted/50 p-1">
-                <TabsTrigger value="jurnal">Jurnal</TabsTrigger>
-                <TabsTrigger value="seminar">Publikasi di Seminar</TabsTrigger>
-                <TabsTrigger value="pagelaran">Pagelaran</TabsTrigger>
+                <TabsTrigger value="jurnal" className="px-1 text-[10px] sm:px-3 sm:text-sm">Jurnal</TabsTrigger>
+                <TabsTrigger value="seminar" className="px-1 text-[10px] sm:px-3 sm:text-sm">
+                  <span className="sm:hidden">Seminar</span>
+                  <span className="hidden sm:inline">Publikasi di Seminar</span>
+                </TabsTrigger>
+                <TabsTrigger value="pagelaran" className="px-1 text-[10px] sm:px-3 sm:text-sm">Pagelaran</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
@@ -581,9 +584,15 @@ export default function AdminAdvancedSettingsPage() {
               onValueChange={(nextValue) => setResearchOutputsTab(resolveResearchOutputsTableTab(nextValue))}
             >
               <TabsList className="grid h-auto w-full max-w-xl grid-cols-3 rounded-lg border border-border bg-muted/50 p-1">
-                <TabsTrigger value="haki">HAKI</TabsTrigger>
-                <TabsTrigger value="technology">Teknologi Tepat Guna</TabsTrigger>
-                <TabsTrigger value="other">Luaran Lainnya</TabsTrigger>
+                <TabsTrigger value="haki" className="px-1 text-[10px] sm:px-3 sm:text-sm">HAKI</TabsTrigger>
+                <TabsTrigger value="technology" className="px-1 text-[10px] sm:px-3 sm:text-sm">
+                  <span className="sm:hidden">Teknologi</span>
+                  <span className="hidden sm:inline">Teknologi Tepat Guna</span>
+                </TabsTrigger>
+                <TabsTrigger value="other" className="px-1 text-[10px] sm:px-3 sm:text-sm">
+                  <span className="sm:hidden">Lainnya</span>
+                  <span className="hidden sm:inline">Luaran Lainnya</span>
+                </TabsTrigger>
               </TabsList>
             </Tabs>
           </div>

@@ -13,6 +13,7 @@ import {
   getJournal,
   getMetadata,
   getSnapshot,
+  getTombstones,
   getTombstoneSet,
   removeJournalEntriesForRecord,
   removeJournalEntry,
@@ -26,6 +27,13 @@ import type {
   SandboxResource,
 } from './sandbox-types';
 import { sandboxSession } from './sandbox-session';
+import {
+  overlayDemoAchievementStats,
+  overlayDemoActiveStudentRows,
+  overlayDemoDosenData,
+  overlayDemoInsightRecords,
+  overlayDemoInsightStats,
+} from './demo-dummy-overlays';
 
 export interface SimulatedApiResponse<T = any> {
   success: boolean;
@@ -869,11 +877,30 @@ async function handleSatisfactionFormSetActive(sid: string, body: any): Promise<
 
 async function handleDosenSave(sid: string, body: any): Promise<SimulatedApiResponse> {
   const action = body.action || 'update';
-  const nidn = body.nidn || body.data?.nidn || 'dosen-item';
+  const nidn = body.nidn || body.data?.nidn || body.data?.id || body.data?.nip || 'dosen-item';
+
+  const resourceByAction: Record<string, SandboxResource> = {
+    create_dosen: 'dosen_master',
+    update_dosen: 'dosen_master',
+    delete_dosen: 'dosen_master',
+    restore_dosen: 'dosen_master',
+    permanent_delete_dosen: 'dosen_master',
+    update_pengajaran: 'dosen_pengajaran',
+    update_penelitian: 'dosen_penelitian',
+    update_pengabdian: 'dosen_pengabdian',
+    update_waktu_mengajar: 'dosen_waktu_mengajar',
+    delete_waktu_mengajar: 'dosen_waktu_mengajar',
+    update_luaran: 'dosen_luaran',
+    create_tendik: 'tendik',
+    update_tendik: 'tendik',
+    delete_tendik: 'tendik',
+  };
+  const resource = resourceByAction[action] || 'dosen';
+  const isCreate = action === 'create_dosen' || action === 'create_tendik' || action === 'restore_dosen';
 
   await addJournalEntry(sid, {
-    operation: action === 'create' ? 'create' : 'update',
-    resource: 'dosen',
+    operation: isCreate ? 'create' : 'update',
+    resource,
     recordId: nidn,
     payload: body.data || body,
     patch: body.data || body,
@@ -987,6 +1014,10 @@ export async function applySandboxOverlay<T = any>(
     if (cleanEndpoint === 'achievements/list.php') {
       return (await overlayAchievementsList(sid, productionData)) as unknown as T;
     }
+    if (cleanEndpoint === 'achievements/stats.php') {
+      const journal = await getJournal(sid);
+      return overlayDemoAchievementStats(productionData as Record<string, unknown>, journal, options?.params) as T;
+    }
     if (cleanEndpoint === 'achievements/attachments/list.php') {
       return (await overlayAttachmentsList(sid, productionData, options)) as unknown as T;
     }
@@ -1001,6 +1032,19 @@ export async function applySandboxOverlay<T = any>(
     // 4. CHART RECORDS
     if (cleanEndpoint === 'chart-records/recycle-bin.php') {
       return (await overlayChartRecordsRecycleBin(sid, productionData)) as unknown as T;
+    }
+
+    if (cleanEndpoint === 'insight/records.php') {
+      const [journal, tombstones] = await Promise.all([getJournal(sid), getTombstones(sid)]);
+      return overlayDemoInsightRecords(productionData as Record<string, unknown>, journal, tombstones, options?.params) as T;
+    }
+    if (cleanEndpoint === 'insight/stats.php') {
+      const journal = await getJournal(sid);
+      return overlayDemoInsightStats(productionData as Record<string, unknown>, journal, options?.params) as T;
+    }
+    if (cleanEndpoint === 'insight/active_students_semester.php') {
+      const journal = await getJournal(sid);
+      return overlayDemoActiveStudentRows(productionData as Record<string, unknown>, journal, options?.params) as T;
     }
 
     // 5. EVALUATIONS
@@ -1024,6 +1068,11 @@ export async function applySandboxOverlay<T = any>(
     // 8. SETTINGS
     if (cleanEndpoint === 'settings/get_settings.php') {
       return (await overlaySettings(sid, productionData)) as unknown as T;
+    }
+
+    if (cleanEndpoint === 'dosen/data.php') {
+      const journal = await getJournal(sid);
+      return overlayDemoDosenData(productionData as Record<string, unknown>, journal) as T;
     }
 
     // 9. ERROR LOGS

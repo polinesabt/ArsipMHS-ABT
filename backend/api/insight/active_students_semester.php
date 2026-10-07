@@ -55,8 +55,8 @@ if ($method === 'GET') {
         }
         echo json_encode(['success' => true, 'data' => $rows]);
     } catch (Throwable $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        http_response_code(api_exception_status($e));
+        echo json_encode(['success' => false, 'error' => api_public_error($e)]);
     }
     return;
 }
@@ -123,8 +123,8 @@ if ($method === 'PUT' || $method === 'POST') {
             ],
         ]);
     } catch (Throwable $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        http_response_code(api_exception_status($e));
+        echo json_encode(['success' => false, 'error' => api_public_error($e)]);
     }
     return;
 }
@@ -150,8 +150,8 @@ if ($method === 'DELETE') {
 
         echo json_encode(['success' => true, 'deleted' => $stmt->rowCount() > 0]);
     } catch (Throwable $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        http_response_code(api_exception_status($e));
+        echo json_encode(['success' => false, 'error' => api_public_error($e)]);
     }
     return;
 }

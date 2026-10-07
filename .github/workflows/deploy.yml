@@ -1,9 +1,7 @@
 name: Deploy Website
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
@@ -13,6 +11,9 @@ jobs:
       # Download repository
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Reject sensitive tracked files
+        run: python3 scripts/check-repository-safety.py
 
       # Install Node.js
       - name: Setup Node
@@ -30,8 +31,8 @@ jobs:
 
       - name: Assemble safe backend upload
         run: |
-          mkdir -p deploy-backend/vendor deploy-backend/storage
-          cp -R backend/api backend/config deploy-backend/
+          mkdir -p deploy-backend/storage
+          cp -R backend/api backend/config backend/vendor deploy-backend/
           cp backend/.htaccess deploy-backend/.htaccess
           cp backend/vendor/.htaccess deploy-backend/vendor/.htaccess
           cp backend/storage/.htaccess deploy-backend/storage/.htaccess

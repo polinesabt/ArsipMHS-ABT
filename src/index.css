@@ -58,27 +58,45 @@
     --motion-duration-fast: 180ms;
     --motion-duration-enter: 280ms;
 
-    /* Chart palette – kontras jelas agar perbedaan data terbaca di web */
-    --chart-academic: 215 75% 44%;
-    --chart-academic-light: 205 78% 54%;
-    --chart-academic-dark: 215 78% 32%;
-    --chart-nonacademic: 270 52% 56%;
-    --chart-nonacademic-light: 270 48% 70%;
-    --chart-nonacademic-dark: 270 55% 44%;
-    --chart-success: 145 62% 42%;
-    --chart-success-light: 145 62% 55%;
-    --chart-warning: 35 92% 52%;
-    --chart-warning-light: 35 92% 65%;
-    --chart-neutral: 215 22% 55%;
-    --chart-neutral-light: 215 20% 70%;
-    --chart-active-genap: 142 75% 40%;
-    --chart-active-ganjil: 32 100% 48%;
-    --chart-pd-dikti: 198 88% 46%;
-    --chart-pd-dikti-ganjil: 205 72% 48%;
+    --chart-panel-surface: 0 0% 100%;
+    --chart-panel-edge: 215 25% 85%;
+    --chart-grid: 215 24% 91%;
+    --chart-tooltip-surface: 222 47% 13%;
+    --chart-tooltip-text: 210 30% 98%;
+    --chart-series-navy: 215 70% 38%;
+    --chart-series-navy-light: 206 72% 57%;
+    --chart-series-indigo: 226 48% 52%;
+    --chart-series-teal: 171 68% 35%;
+    --chart-series-cyan: 190 68% 42%;
+    --chart-series-amber: 35 88% 49%;
+    --chart-series-orange: 24 86% 53%;
+    --chart-series-rose: 345 67% 50%;
+    --chart-series-red: 0 69% 49%;
+    --chart-series-neutral: 215 17% 58%;
+    --chart-hover-guide: 215 68% 30%;
+    --chart-label-line: 215 24% 48%;
 
-    --level-local: 205 68% 56%;
-    --level-national: 215 75% 44%;
-    --level-international: 220 82% 38%;
+    /* Chart palette – kontras jelas agar perbedaan data terbaca di web */
+    --chart-academic: 215 70% 38%;
+    --chart-academic-light: 206 72% 57%;
+    --chart-academic-dark: 215 70% 30%;
+    --chart-nonacademic: 226 48% 52%;
+    --chart-nonacademic-light: 226 48% 68%;
+    --chart-nonacademic-dark: 226 50% 42%;
+    --chart-success: 171 68% 35%;
+    --chart-success-light: 171 63% 52%;
+    --chart-warning: 35 88% 49%;
+    --chart-warning-light: 39 88% 64%;
+    --chart-neutral: 215 17% 58%;
+    --chart-neutral-light: 215 17% 73%;
+    --chart-active-genap: 171 68% 35%;
+    --chart-active-ganjil: 35 88% 49%;
+    --chart-pd-dikti: 190 68% 42%;
+    --chart-pd-dikti-ganjil: 215 70% 38%;
+
+    --level-local: 190 68% 42%;
+    --level-national: 215 70% 38%;
+    --level-international: 226 48% 52%;
 
     --satisfaction-very-good: 145 62% 42%;
     --satisfaction-good: 175 58% 42%;
@@ -159,27 +177,45 @@
     --motion-duration-fast: 180ms;
     --motion-duration-enter: 280ms;
 
-    /* Chart – tone lebih terang di dark theme agar data terbaca dan kontras jelas */
-    --chart-academic: 215 70% 52%;
-    --chart-academic-light: 205 75% 62%;
-    --chart-academic-dark: 215 75% 38%;
-    --chart-nonacademic: 270 50% 65%;
-    --chart-nonacademic-light: 270 45% 78%;
-    --chart-nonacademic-dark: 270 55% 52%;
-    --chart-success: 145 55% 50%;
-    --chart-success-light: 145 55% 62%;
-    --chart-warning: 35 90% 58%;
-    --chart-warning-light: 35 90% 72%;
-    --chart-neutral: 215 20% 65%;
-    --chart-neutral-light: 215 20% 78%;
-    --chart-active-genap: 142 72% 52%;
-    --chart-active-ganjil: 32 100% 58%;
-    --chart-pd-dikti: 198 85% 58%;
-    --chart-pd-dikti-ganjil: 205 68% 55%;
+    --chart-panel-surface: 222 40% 12%;
+    --chart-panel-edge: 215 25% 28%;
+    --chart-grid: 215 22% 24%;
+    --chart-tooltip-surface: 210 27% 96%;
+    --chart-tooltip-text: 222 47% 11%;
+    --chart-series-navy: 209 82% 66%;
+    --chart-series-navy-light: 199 83% 70%;
+    --chart-series-indigo: 225 67% 72%;
+    --chart-series-teal: 169 64% 57%;
+    --chart-series-cyan: 187 72% 63%;
+    --chart-series-amber: 39 91% 65%;
+    --chart-series-orange: 25 91% 68%;
+    --chart-series-rose: 345 76% 70%;
+    --chart-series-red: 0 77% 68%;
+    --chart-series-neutral: 215 22% 67%;
+    --chart-hover-guide: 0 0% 100%;
+    --chart-label-line: 215 20% 72%;
 
-    --level-local: 205 65% 62%;
-    --level-national: 215 70% 52%;
-    --level-international: 220 80% 48%;
+    /* Chart – tone lebih terang di dark theme agar data terbaca dan kontras jelas */
+    --chart-academic: 209 82% 66%;
+    --chart-academic-light: 199 83% 70%;
+    --chart-academic-dark: 215 70% 52%;
+    --chart-nonacademic: 225 67% 72%;
+    --chart-nonacademic-light: 225 67% 82%;
+    --chart-nonacademic-dark: 225 55% 59%;
+    --chart-success: 169 64% 57%;
+    --chart-success-light: 169 64% 70%;
+    --chart-warning: 39 91% 65%;
+    --chart-warning-light: 39 91% 77%;
+    --chart-neutral: 215 22% 67%;
+    --chart-neutral-light: 215 22% 78%;
+    --chart-active-genap: 169 64% 57%;
+    --chart-active-ganjil: 39 91% 65%;
+    --chart-pd-dikti: 187 72% 63%;
+    --chart-pd-dikti-ganjil: 209 82% 66%;
+
+    --level-local: 187 72% 63%;
+    --level-national: 209 82% 66%;
+    --level-international: 225 67% 72%;
 
     --satisfaction-very-good: 145 60% 50%;
     --satisfaction-good: 175 55% 50%;
@@ -337,7 +373,10 @@
 
   /* Stat card */
   .stat-card {
-    @apply glass-card rounded-2xl p-4 sm:p-6 transition-all duration-300 hover:shadow-elevated;
+    @apply rounded-2xl border p-4 sm:p-6;
+    background: hsl(var(--chart-panel-surface));
+    border-color: hsl(var(--chart-panel-edge) / 0.75);
+    box-shadow: var(--shadow-card);
   }
 
   /* Chart container */
@@ -352,16 +391,21 @@
 
   /* Insight dashboard cards */
   .dashboard-card {
-    @apply bg-card rounded-xl border border-border p-3.5 sm:p-5 lg:p-6;
-    box-shadow: var(--shadow-card);
+    @apply rounded-2xl border p-4 sm:p-6 lg:p-7;
+    background: hsl(var(--chart-panel-surface));
+    border-color: hsl(var(--chart-panel-edge) / 0.75);
+    box-shadow: 0 1px 2px hsl(222 47% 11% / 0.04), 0 14px 32px -24px hsl(222 47% 11% / 0.28);
   }
 
   .dashboard-card-header {
     @apply mb-3 flex flex-col gap-2.5 sm:mb-4 sm:flex-row sm:items-start sm:justify-between;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px solid hsl(var(--chart-panel-edge) / 0.55);
   }
 
   .dashboard-card-title {
     @apply text-base sm:text-lg leading-tight font-semibold text-foreground;
+    letter-spacing: -0.025em;
   }
 
   .dashboard-card-description {
@@ -373,10 +417,17 @@
   }
 
   .chart-tooltip {
-    @apply bg-card border border-border rounded-lg p-3;
-    box-shadow: var(--shadow-elevated);
-    transition: opacity 0.15s ease-out;
+    @apply rounded-lg border p-3;
+    background: hsl(var(--chart-tooltip-surface));
+    border-color: hsl(var(--chart-tooltip-text) / 0.14);
+    color: hsl(var(--chart-tooltip-text));
+    box-shadow: 0 12px 30px -12px hsl(222 47% 11% / 0.42);
+    pointer-events: none;
+    transition: opacity 160ms cubic-bezier(0.2, 0, 0, 1), transform 160ms cubic-bezier(0.2, 0, 0, 1);
   }
+
+  .chart-tooltip .text-foreground { color: hsl(var(--chart-tooltip-text)); }
+  .chart-tooltip .text-muted-foreground { color: hsl(var(--chart-tooltip-text) / 0.72); }
 
   .filter-badge {
     @apply inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-primary/10 text-primary;
@@ -673,6 +724,168 @@
   stroke: hsl(var(--primary) / 0.8) !important;
 }
 
+.chart-panel,
+.chart-kpi {
+  background: hsl(var(--chart-panel-surface));
+  border: 1px solid hsl(var(--chart-panel-edge) / 0.75);
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px hsl(222 47% 11% / 0.04), 0 14px 32px -24px hsl(222 47% 11% / 0.28);
+}
+
+.chart-legend-navy { background-color: hsl(var(--chart-series-navy)); }
+.chart-legend-indigo { background-color: hsl(var(--chart-series-indigo)); }
+.chart-legend-teal { background-color: hsl(var(--chart-series-teal)); }
+.chart-legend-amber { background-color: hsl(var(--chart-series-amber)); }
+.chart-legend-neutral { background-color: hsl(var(--chart-series-neutral)); }
+
+.chart-panel h4,
+.chart-kpi h4 {
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-plot {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  position: relative;
+}
+
+.chart-plot-content {
+  width: 100%;
+  height: 100%;
+}
+
+.chart-plot-placeholder,
+.chart-skeleton {
+  width: 100%;
+  height: 100%;
+  min-height: 10rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(105deg, hsl(var(--muted) / 0.42), hsl(var(--muted) / 0.78), hsl(var(--muted) / 0.42));
+  background-size: 200% 100%;
+  animation: chart-shimmer 1.35s linear infinite;
+}
+
+.chart-plot-placeholder { min-height: 0; }
+
+.chart-plot .recharts-cartesian-grid line {
+  stroke: hsl(var(--chart-grid));
+  stroke-dasharray: 2 5;
+}
+
+.chart-plot .recharts-cartesian-axis-tick text,
+.chart-plot .recharts-legend-item-text {
+  fill: hsl(var(--muted-foreground));
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-plot .recharts-surface:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: 0.4rem;
+}
+
+.chart-plot .recharts-sector,
+.chart-plot .recharts-rectangle {
+  transition: filter 140ms cubic-bezier(0.2, 0, 0, 1), opacity 140ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.publication-transition-chart .publication-series-bar,
+.publication-transition-chart .publication-series-bar .recharts-rectangle {
+  transition:
+    fill 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    stroke 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 140ms cubic-bezier(0.2, 0, 0, 1),
+    opacity 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.chart-plot .recharts-sector:hover,
+.chart-plot .recharts-active-bar .recharts-rectangle {
+  filter: brightness(1.08);
+}
+
+.chart-plot .chart-active-sector {
+  filter: brightness(1.08) drop-shadow(0 3px 6px hsl(222 47% 10% / 0.2));
+}
+
+.chart-plot .chart-pie-callout { pointer-events: none; }
+.chart-plot .chart-pie-callout-name,
+.chart-plot .chart-pie-callout-value {
+  fill: hsl(var(--foreground));
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.chart-plot .chart-pie-callout-name { fill: hsl(var(--muted-foreground)); }
+.chart-plot .chart-pie-callout-value { font-weight: 700; }
+
+.chart-plot .chart-bar-guide {
+  stroke: hsl(var(--chart-hover-guide));
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+  opacity: 0.88;
+  pointer-events: none;
+}
+
+.chart-focus-detail {
+  position: absolute;
+  z-index: 21;
+  left: 0.5rem;
+  bottom: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  max-width: min(18rem, calc(100% - 1rem));
+  padding: 0.5rem 0.75rem;
+  border: 1px solid hsl(var(--chart-tooltip-text) / 0.14);
+  border-radius: 0.5rem;
+  background: hsl(var(--chart-tooltip-surface));
+  color: hsl(var(--chart-tooltip-text));
+  box-shadow: 0 12px 30px -12px hsl(222 47% 11% / 0.42);
+  pointer-events: none;
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-plot .recharts-tooltip-wrapper {
+  max-width: min(18rem, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+.chart-plot .recharts-tooltip-wrapper > div {
+  background: hsl(var(--chart-tooltip-surface));
+  border: 1px solid hsl(var(--chart-tooltip-text) / 0.14);
+  border-radius: 0.5rem;
+  color: hsl(var(--chart-tooltip-text));
+  box-shadow: 0 12px 30px -12px hsl(222 47% 11% / 0.42);
+}
+
+.chart-plot .recharts-tooltip-wrapper .text-foreground,
+.chart-plot .recharts-tooltip-wrapper .font-semibold {
+  color: hsl(var(--chart-tooltip-text));
+}
+
+.chart-plot .recharts-tooltip-wrapper .text-muted-foreground {
+  color: hsl(var(--chart-tooltip-text) / 0.72);
+}
+
+@keyframes chart-shimmer {
+  to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chart-plot-placeholder,
+  .chart-skeleton { animation: none; }
+  .dashboard-card .animate-pulse,
+  .chart-panel .animate-pulse { animation: none; }
+  .chart-plot .recharts-sector,
+  .chart-plot .recharts-rectangle,
+  .chart-tooltip { transition-duration: 0.001ms; }
+  .publication-transition-chart .publication-series-bar,
+  .publication-transition-chart .recharts-legend-wrapper { animation: none; }
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
@@ -786,4 +999,4 @@ input:-webkit-autofill:active {
     min-height: 44px;
     min-width: 44px;
   }
-}
+}

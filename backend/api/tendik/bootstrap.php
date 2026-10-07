@@ -6,6 +6,10 @@ require_once __DIR__ . '/../../config/auth.php';
 
 function tendik_json_response(int $status, array $body): never
 {
+    if ($status >= 500 && isset($body['error'])) {
+        error_log('TENDIK_API_ERROR ' . (string)$body['error']);
+        $body['error'] = 'Terjadi kesalahan server';
+    }
     http_response_code($status);
     echo json_encode($body, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;

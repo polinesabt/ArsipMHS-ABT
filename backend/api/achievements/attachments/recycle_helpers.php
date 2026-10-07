@@ -223,7 +223,7 @@ function attachment_recycle_permanent_delete(
     return $newData;
 }
 
-function attachment_recycle_list(PDO $pdo, int $page, int $perPage, string $search = ''): array
+function attachment_recycle_list(PDO $pdo, int $page, int $perPage, string $search = '', ?string $ownStudentId = null): array
 {
     $parts = [];
     foreach (achievement_store_configs() as $config) {
@@ -259,6 +259,10 @@ function attachment_recycle_list(PDO $pdo, int $page, int $perPage, string $sear
     $unionSql = implode(" UNION ALL ", $parts);
     $where = ' WHERE 1=1';
     $params = [];
+    if ($ownStudentId !== null) {
+        $where .= ' AND x.student_id = ?';
+        $params[] = $ownStudentId;
+    }
     if ($search !== '') {
         $where .= ' AND (x.file_name LIKE ? OR x.student_nim LIKE ? OR x.student_nama LIKE ?)';
         $term = '%' . $search . '%';
