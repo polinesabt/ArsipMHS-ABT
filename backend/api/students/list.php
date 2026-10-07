@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/status_effective_sql.php';
 
 try {
+    $scopeStudentId = requireStudentListScope($pdo);
     $id = $_GET['id'] ?? null;
     $nim = $_GET['nim'] ?? null;
     $status = $_GET['status'] ?? null;
@@ -22,7 +23,7 @@ try {
     $limit = isset($_GET['limit']) ? max(1, min(100, (int) $_GET['limit'])) : null;
     $offset = isset($_GET['offset']) ? max(0, (int) $_GET['offset']) : null;
     $includeDeletedRaw = isset($_GET['include_deleted']) ? strtolower(trim((string)$_GET['include_deleted'])) : '';
-    $includeDeleted = in_array($includeDeletedRaw, ['1', 'true', 'yes', 'on'], true);
+    $includeDeleted = $scopeStudentId === null && in_array($includeDeletedRaw, ['1', 'true', 'yes', 'on'], true);
 
     $valid_career = ['working', 'job_seeking', 'entrepreneur', 'further_study'];
     if ($career_status !== null && $career_status !== '' && !in_array($career_status, $valid_career)) {
@@ -42,6 +43,10 @@ try {
         $params[] = $career_status;
     }
 
+    if ($scopeStudentId !== null) {
+        $conditions[] = 's.id = ?';
+        $params[] = $scopeStudentId;
+    }
     if ($id) {
         $conditions[] = 's.id = ?';
         $params[] = $id;
@@ -118,6 +123,10 @@ try {
     $stmt = $pdo->prepare($dataQuery);
     $stmt->execute($params);
     $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($students as &$student) {
+        unset($student['email_verification_token_hash'], $student['email_verification_otp_hash']);
+    }
+    unset($student);
 
     echo json_encode([
         'success' => true,

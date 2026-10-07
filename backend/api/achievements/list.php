@@ -34,6 +34,7 @@ function achievement_list_get_config_from_row(array $row): ?array {
 }
 
 try {
+    $scopeStudentId = requireStudentListScope($pdo);
     $category = $_GET['category'] ?? null;
     $student_id = $_GET['student_id'] ?? null;
     $id = $_GET['id'] ?? null;
@@ -92,6 +93,10 @@ try {
         $conditions[] = 'a.category = ?';
         $params[] = $category;
     }
+    if ($scopeStudentId !== null) {
+        $conditions[] = 'a.student_id = ?';
+        $params[] = $scopeStudentId;
+    }
     if ($student_id) {
         $conditions[] = 'a.student_id = ?';
         $params[] = $student_id;
@@ -107,8 +112,17 @@ try {
     
     $query .= ' ORDER BY a.tanggal DESC';
     
-    $stmt = $pdo->prepare($query);
-    $stmt->execute($params);
+    // `achievements` is a UNION ALL view. With native prepared statements MariaDB
+    // cannot push the student_id/id filter into the view, so every request
+    // materializes all prestasi rows. Emulated prepares inline the (escaped)
+    // values and let the filter use each table's student index.
+    $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, true);
+    try {
+        $stmt = $pdo->prepare($query);
+        $stmt->execute($params);
+    } finally {
+        $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
+    }
     
     $achievements = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

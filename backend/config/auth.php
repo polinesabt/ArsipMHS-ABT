@@ -493,4 +493,29 @@ function requireAuth(?string $requiredRole = null): array {
     if ($authDebug) error_log('[auth] requireAuth: abort reason=' . $bestReason);
     auth_abort_from_reason($bestReason);
 }
+
+/**
+ * Scope for student data list endpoints (students, tracer, achievements).
+ * Admin-level readers (admin, developer, demo) get every record: returns null.
+ * A student only gets their own records: returns their students.id.
+ * Any other caller is rejected with 401/403.
+ */
+function requireStudentListScope(PDO $pdo): ?string {
+    $payload = requireAuth();
+    if (auth_has_capability($payload, 'read:admin')) {
+        return null;
+    }
+
+    if (($payload['role'] ?? '') === 'student') {
+        $stmt = $pdo->prepare('SELECT id FROM students WHERE user_id = ? AND deleted_at IS NULL LIMIT 1');
+        $stmt->execute([(string)($payload['sub'] ?? '')]);
+        $studentId = $stmt->fetchColumn();
+        if ($studentId !== false) {
+            return (string)$studentId;
+        }
+    }
+
+    auth_abort_from_reason('role_forbidden');
+    exit();
+}
 ?>
