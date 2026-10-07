@@ -16,7 +16,7 @@ import {
   resetPasswordBatch,
 } from '@/repositories/api-student.repository';
 import {
-  Search, Download, Users2, Briefcase, Rocket, BookOpen, TrendingUp,
+  Search, Download, Users2, Briefcase, Rocket, TrendingUp,
   User, Mail, Phone, Building2, MapPin, Calendar, ExternalLink, X,
   UserPlus, Trash2, KeyRound, ChevronLeft, ChevronRight, Filter, CheckSquare,
   Pencil
@@ -883,11 +883,10 @@ export default function AdminDashboard() {
           </div>
 
           {/* Stats Cards */}
-          <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 animate-fade-up sm:grid-cols-2 xl:grid-cols-5">
+          <div className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 animate-fade-up sm:grid-cols-2 xl:grid-cols-4">
             <StatCard title="Total Pengisi" value={stats.filled} icon={Users2} color="primary" className="col-span-2 sm:col-span-1" />
             <StatCard title="Bekerja" value={stats.bekerja} icon={Briefcase} color="primary" />
             <StatCard title="Wirausaha" value={stats.wirausaha} icon={Rocket} color="success" />
-            <StatCard title="Studi Lanjut" value={stats.studi} icon={BookOpen} color="destructive" />
             <StatCard title="Mencari Kerja" value={stats.mencari} icon={Search} color="warning" />
           </div>
 
