@@ -63,18 +63,9 @@ try {
         throw new Exception('Achievement tidak ditemukan.');
     }
 
-    if ($role === 'student') {
-        $stmtUser = $pdo->prepare('SELECT id FROM students WHERE user_id = ? AND id = ? AND deleted_at IS NULL');
-        $stmtUser->execute([$userId, $row['id_mahasiswa']]);
-        if (!$stmtUser->fetch()) {
-            http_response_code(403);
-            throw new Exception('Anda tidak berhak menambah lampiran untuk achievement ini.');
-        }
-    }
+    requireStudentWriteAccess($pdo, $auth, (string)($row['id_mahasiswa'] ?? ''));
 
     $originalName = $file['name'];
-    $safeName = preg_replace('/[^a-zA-Z0-9._-]/', '_', $originalName);
-    $safeName = substr((string)$safeName, 0, 200);
     $attachmentId = bin2hex(random_bytes(18));
 
     $baseDir = __DIR__ . '/../../../storage/achievements/' . $achievementId;
@@ -84,7 +75,16 @@ try {
         }
     }
 
-    $storedName = $attachmentId . '_' . $safeName;
+    // Nama file di disk memakai ekstensi dari MIME hasil deteksi, bukan dari nama asli,
+    // supaya file seperti "foto.php" tidak pernah tersimpan dengan ekstensi yang bisa dieksekusi.
+    $extByMime = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/gif' => 'gif',
+        'image/webp' => 'webp',
+        'application/pdf' => 'pdf',
+    ];
+    $storedName = $attachmentId . '.' . $extByMime[$mime];
     $fullPath = $baseDir . '/' . $storedName;
 
     if (!move_uploaded_file($file['tmp_name'], $fullPath)) {

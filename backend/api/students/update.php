@@ -12,7 +12,7 @@ require_once __DIR__ . '/../../config/security.php';
 require_once __DIR__ . '/status_effective_sql.php';
 
 try {
-    $auth = requireAuth();
+    $auth = requireAuth('admin');
     requireProductionWrite($auth);
     $input = json_decode(file_get_contents('php://input'), true);
     

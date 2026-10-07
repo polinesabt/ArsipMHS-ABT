@@ -70,6 +70,11 @@ try {
             echo json_encode(['success' => false, 'error' => 'Akses ditolak.']);
             exit;
         }
+    } elseif (!auth_has_capability($auth, 'read:admin')) {
+        http_response_code(403);
+        header('Content-Type: application/json');
+        echo json_encode(['success' => false, 'error' => 'Akses ditolak.']);
+        exit;
     }
 
     $basePath = __DIR__ . '/../../../storage/';

@@ -45,6 +45,8 @@ try {
     //     throw new Exception('Format nomor HP tidak valid');
     // }
 
+    requireStudentWriteAccess($pdo, $auth, (string)$student_id);
+
     $statusEffectiveExpr = student_status_effective_expr('s');
     $studentStmt = $pdo->prepare('SELECT s.id, s.status, s.status_mode, (' . $statusEffectiveExpr . ') AS status_effective FROM students s WHERE s.id = ? AND s.deleted_at IS NULL LIMIT 1');
     $studentStmt->execute([$student_id]);

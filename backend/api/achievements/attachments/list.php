@@ -45,6 +45,10 @@ try {
             echo json_encode(['success' => false, 'error' => 'Akses ditolak.']);
             exit;
         }
+    } elseif (!auth_has_capability($auth, 'read:admin')) {
+        http_response_code(403);
+        echo json_encode(['success' => false, 'error' => 'Akses ditolak.']);
+        exit;
     }
 
     $fk = $config['attachment_fk'];

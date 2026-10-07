@@ -448,6 +448,27 @@ function requireCapability(string $capability): array {
     return $payload;
 }
 
+/**
+ * Guard writes to one student's data (profile, tracer, prestasi).
+ * Admin/developer may write any student; a student only their own record.
+ * Every other role (dosen, tendik, ...) is rejected with 403.
+ */
+function requireStudentWriteAccess(PDO $pdo, array $payload, string $studentId): void {
+    if (auth_has_capability($payload, 'write:admin')) {
+        return;
+    }
+
+    if (($payload['role'] ?? '') === 'student' && $studentId !== '') {
+        $stmt = $pdo->prepare('SELECT id FROM students WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1');
+        $stmt->execute([$studentId, (string)($payload['sub'] ?? '')]);
+        if ($stmt->fetchColumn() !== false) {
+            return;
+        }
+    }
+
+    auth_abort_from_reason('role_forbidden');
+}
+
 function requireAuth(?string $requiredRole = null): array {
     $tokens = auth_get_bearer_tokens();
     $authDebug = auth_env('AUTH_DEBUG', '') === '1';
