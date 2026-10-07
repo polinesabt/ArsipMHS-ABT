@@ -6,6 +6,7 @@ require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
 
 try {
+    $scopeStudentId = requireStudentListScope($pdo);
     $student_id = $_GET['student_id'] ?? null;
     $id = $_GET['id'] ?? null;
     
@@ -17,6 +18,10 @@ try {
     $conditions = [];
     $params = [];
     
+    if ($scopeStudentId !== null) {
+        $conditions[] = 't.student_id = ?';
+        $params[] = $scopeStudentId;
+    }
     if ($student_id) {
         $conditions[] = 't.student_id = ?';
         $params[] = $student_id;
