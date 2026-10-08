@@ -6,6 +6,8 @@ SQL yang sudah diimpor memuat 34 baris alumni dan 260 penilaian dari 26 pengisi,
 
 Tampilan menggunakan dua tab: Kepuasan Pengguna dan Kesesuaian Jurusan dengan Pekerjaan. Di bawah grafik kepuasan terdapat daftar mahasiswa dengan NIM, tahun lulus, sumber/periode evaluasi, dan jumlah indikator yang dinilai. Daftar hanya memuat respons dengan penilaian valid yang masuk ke grafik, dapat dicari, dan ditampilkan 10 baris per halaman. Mahasiswa dapat tercatat pada beberapa sumber/periode; satu baris mewakili satu respons. Identitas diambil dari database melalui API yang memerlukan autentikasi admin.
 
+Daftar mahasiswa hanya ditampilkan pada modul Kepuasan Pengguna. Ringkasan semua modul/overview menampilkan grafik tanpa daftar mahasiswa. Kolom Sumber Data menyediakan tombol Unduh PDF yang mengambil bukti formulir dari folder privat melalui endpoint admin `evaluations/download_satisfaction_evidence.php`. PDF asli diunduh langsung; bukti JPEG/PNG dikonversi menjadi satu halaman PDF di browser. Jika berkas belum tersedia di hosting, tombol nonaktif dengan keterangan. Dokumen tidak dibuat dari jawaban atau formulir kosong sebagai pengganti bukti.
+
 ## Production
 
 1. Pastikan SQL sudah diimpor ke database yang dipakai oleh `DB_NAME` pada hosting.

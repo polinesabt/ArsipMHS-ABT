@@ -57,7 +57,8 @@ try {
     $pdo->exec("ALTER TABLE import_kepuasan_pengguna
         ADD nama_mahasiswa VARCHAR(255) NOT NULL DEFAULT 'Synthetic student',
         ADD nim VARCHAR(32) NOT NULL DEFAULT '00123',
-        ADD tahun_lulus SMALLINT NOT NULL DEFAULT 2021");
+        ADD tahun_lulus SMALLINT NOT NULL DEFAULT 2021,
+        ADD bukti_local_path VARCHAR(255) NULL");
     $withRespondents = loadImportedSatisfaction($pdo, true);
     satisfactionCheck(count($withRespondents['respondent_rows']) === 2, 'List only students contributing valid imported ratings.');
     satisfactionCheck(array_sum(array_column($withRespondents['respondent_rows'], 'rating_count')) === 5, 'Listed ratings must match the imported chart.');

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/satisfaction_evidence.php';
 /** Aggregate the historical workbook without creating survey invitations. */
 function loadImportedSatisfaction(PDO $pdo, bool $includeRespondents = false): array {
     $result = ['available' => false, 'respondents' => 0, 'rating_count' => 0, 'aspects' => [], 'respondent_rows' => []];
@@ -73,12 +74,12 @@ function loadImportedSatisfaction(PDO $pdo, bool $includeRespondents = false): a
     $statement->execute($params);
     $result['respondents'] = (int)$statement->fetchColumn();
     if ($includeRespondents) {
-        $statement = $pdo->prepare("SELECT r.id, r.nama_mahasiswa, r.nim, r.tahun_lulus, COUNT(*) AS rating_count
-            $where GROUP BY r.id, r.nama_mahasiswa, r.nim, r.tahun_lulus
+        $statement = $pdo->prepare("SELECT r.id, r.nama_mahasiswa, r.nim, r.tahun_lulus, r.bukti_local_path, COUNT(*) AS rating_count
+            $where GROUP BY r.id, r.nama_mahasiswa, r.nim, r.tahun_lulus, r.bukti_local_path
             ORDER BY r.nama_mahasiswa, r.id");
         $statement->execute($params);
         while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
-            $result['respondent_rows'][] = [
+            $result['respondent_rows'][] = array_merge([
                 'id' => 'import-' . $row['id'],
                 'nama' => $row['nama_mahasiswa'],
                 'nim' => $row['nim'],
@@ -86,7 +87,7 @@ function loadImportedSatisfaction(PDO $pdo, bool $includeRespondents = false): a
                 'source' => 'import',
                 'evaluation_title' => null,
                 'rating_count' => (int)$row['rating_count'],
-            ];
+            ], satisfactionEvidenceMetadata($row['bukti_local_path']));
         }
     }
     return $result;

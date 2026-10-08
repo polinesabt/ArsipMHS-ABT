@@ -28,7 +28,7 @@ const CHART_META_JOB_MATCH: ChartMeta = {
   calculation: 'Persentase responden dengan pekerjaan yang sesuai vs tidak sesuai dengan jurusan.',
 };
 
-export function UserSatisfaction() {
+export function UserSatisfaction({ showRespondents = true }: { showRespondents?: boolean }) {
   const { refreshTrigger } = useInsightDashboard();
   const loadedRef = useRef(false);
   const [aspectData, setAspectData] = useState<DistribusiPenilaianRow[]>([]);
@@ -158,7 +158,7 @@ export function UserSatisfaction() {
           </div>
         )}
       </DashboardCard>
-      {!loading && !error && <SatisfactionRespondents rows={respondents} />}
+      {showRespondents && !loading && !error && <SatisfactionRespondents rows={respondents} />}
       </TabsContent>
       <TabsContent value="job-match" className="mt-5">
       <DashboardCard

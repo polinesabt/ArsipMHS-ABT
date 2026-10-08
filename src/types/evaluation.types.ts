@@ -202,6 +202,8 @@ export interface SatisfactionRespondent {
   source: 'import' | 'legacy' | 'custom';
   evaluation_title: string | null;
   rating_count: number;
+  evidence_available?: boolean;
+  evidence_format?: 'pdf' | 'image' | null;
 }
 
 export interface StudentNotification {

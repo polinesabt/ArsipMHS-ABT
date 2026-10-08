@@ -172,7 +172,7 @@ try {
         }
         $scores = extractAspectScoresFromCustomAnswers($answers, $definition, $activeAspectIds);
         if ($includeImported && count($scores) > 0) {
-            $satisfactionRespondents[] = [
+            $satisfactionRespondents[] = array_merge([
                 'id' => 'custom-' . $row['id'],
                 'nama' => $row['nama'],
                 'nim' => $row['nim'],
@@ -180,7 +180,7 @@ try {
                 'source' => 'custom',
                 'evaluation_title' => $row['evaluation_title'],
                 'rating_count' => count($scores),
-            ];
+            ], satisfactionEvidenceMetadata(customSatisfactionEvidencePath($answers)));
         }
         foreach ($scores as $aspectId => $score) {
             $key = (string)$aspectId;
@@ -279,9 +279,10 @@ try {
     if ($imported !== null) {
         $aspectDistribution = mergeImportedSatisfactionDistribution($aspectDistribution, $imported['aspects']);
         // Use the same active aspects and valid scores as the displayed chart.
+        $attachmentExpression = legacySatisfactionHasAttachmentColumn($pdo) ? 'MAX(r.attachment_path)' : 'NULL';
         $respondentStmt = $pdo->query('
             SELECT r.id, s.nim, s.nama, s.tahun_lulus, e.title AS evaluation_title,
-                COUNT(*) AS rating_count
+                COUNT(*) AS rating_count, ' . $attachmentExpression . ' AS attachment_path
             FROM evaluation_responses r
             JOIN evaluations e ON e.id = r.evaluation_id AND e.deleted_at IS NULL
             JOIN students s ON s.id = r.student_id AND s.deleted_at IS NULL
@@ -290,7 +291,7 @@ try {
             GROUP BY r.id, s.nim, s.nama, s.tahun_lulus, e.title
         ');
         while ($row = $respondentStmt->fetch(PDO::FETCH_ASSOC)) {
-            $satisfactionRespondents[] = [
+            $satisfactionRespondents[] = array_merge([
                 'id' => 'legacy-' . $row['id'],
                 'nama' => $row['nama'],
                 'nim' => $row['nim'],
@@ -298,7 +299,7 @@ try {
                 'source' => 'legacy',
                 'evaluation_title' => $row['evaluation_title'],
                 'rating_count' => (int)$row['rating_count'],
-            ];
+            ], satisfactionEvidenceMetadata($row['attachment_path']));
         }
         $satisfactionRespondents = array_merge($satisfactionRespondents, $imported['respondent_rows']);
         usort($satisfactionRespondents, static function (array $a, array $b): int {

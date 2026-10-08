@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Loader2, Search } from 'lucide-react';
+import { downloadSatisfactionEvidencePdf } from '@/lib/satisfaction-evidence';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -12,6 +13,20 @@ const PAGE_SIZE = 10;
 export function SatisfactionRespondents({ rows }: { rows: SatisfactionRespondent[] | null }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [downloading, setDownloading] = useState<Set<string>>(new Set());
+  const [downloadError, setDownloadError] = useState<{ id: string; message: string } | null>(null);
+
+  const downloadEvidence = async (row: SatisfactionRespondent) => {
+    setDownloadError(null);
+    setDownloading((previous) => new Set(previous).add(row.id));
+    try {
+      await downloadSatisfactionEvidencePdf(row);
+    } catch (error) {
+      setDownloadError({ id: row.id, message: error instanceof Error ? error.message : 'Bukti formulir gagal diunduh.' });
+    } finally {
+      setDownloading((previous) => { const next = new Set(previous); next.delete(row.id); return next; });
+    }
+  };
   const filtered = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('id-ID');
     return (rows ?? []).filter((row) => [
@@ -75,9 +90,24 @@ export function SatisfactionRespondents({ rows }: { rows: SatisfactionRespondent
                     <TableCell className="min-w-[180px] font-medium">{row.nama}</TableCell>
                     <TableCell className="whitespace-nowrap tabular-nums">{row.nim || '—'}</TableCell>
                     <TableCell className="tabular-nums">{row.tahun_lulus ?? '—'}</TableCell>
-                    <TableCell className="min-w-[150px]">
-                      <span className="text-xs font-medium">{row.source === 'import' ? 'Data historis' : 'Formulir evaluasi'}</span>
+                    <TableCell className="min-w-[180px]">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 text-xs"
+                        disabled={!row.evidence_available || downloading.has(row.id)}
+                        aria-label={`Unduh PDF bukti formulir ${row.nama}`}
+                        onClick={() => void downloadEvidence(row)}
+                      >
+                        {downloading.has(row.id) ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Download className="h-3.5 w-3.5" aria-hidden="true" />}
+                        {downloading.has(row.id) ? 'Menyiapkan…' : 'Unduh PDF'}
+                      </Button>
+                      <p className="mt-1 text-xs text-muted-foreground">{row.evidence_available
+                        ? (row.source === 'import' ? 'Data historis' : 'Formulir evaluasi')
+                        : 'Bukti formulir belum tersedia'}</p>
                       {row.evaluation_title && <p className="mt-1 text-xs text-muted-foreground">{row.evaluation_title}</p>}
+                      {downloadError?.id === row.id && <p className="mt-2 max-w-xs text-xs text-destructive" role="alert">{downloadError.message}</p>}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-right tabular-nums">{row.rating_count} indikator</TableCell>
                   </TableRow>

@@ -81,7 +81,7 @@ function AllSections() {
       </div>
       <div className="section-divider" />
       <div>
-        <UserSatisfaction />
+        <UserSatisfaction showRespondents={false} />
       </div>
       <div className="section-divider" />
       <div>
