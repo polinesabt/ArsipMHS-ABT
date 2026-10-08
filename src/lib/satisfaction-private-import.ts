@@ -27,6 +27,21 @@ function request(action: string, fields: Record<string, string>, chunk?: Blob): 
   return sendForm(form);
 }
 
+function importResult(data?: Record<string, unknown>): SatisfactionImportResult {
+  const { students, ratings, proofs } = data ?? {};
+  if (typeof students !== 'number' || typeof ratings !== 'number' || typeof proofs !== 'number') {
+    throw new Error('Respons impor tidak valid. Muat ulang untuk melihat data terbaru.');
+  }
+  return { students, ratings, proofs };
+}
+
+export async function importSatisfactionEncryptedBundle(key: string): Promise<SatisfactionImportResult> {
+  const normalized = key.trim();
+  if (!/^[a-f0-9]{64}$/i.test(normalized)) throw new Error('Masukkan 64 karakter kunci dari berkas lokal kunci-paket-kepuasan.txt.');
+  const response = await request('import_encrypted', { key: normalized });
+  return importResult(response.data);
+}
+
 export async function importSatisfactionPrivateBundle(
   file: File,
   onProgress: (percent: number) => void,
@@ -48,12 +63,8 @@ export async function importSatisfactionPrivateBundle(
       onProgress(5 + Math.round((index + 1) / chunks * 90));
     }
     const finished = await request('finish', { upload_id: uploadId });
-    const { students, ratings, proofs } = finished.data ?? {};
-    if (typeof students !== 'number' || typeof ratings !== 'number' || typeof proofs !== 'number') {
-      throw new Error('Respons impor tidak valid. Muat ulang untuk melihat data terbaru.');
-    }
     onProgress(100);
-    return { students, ratings, proofs };
+    return importResult(finished.data);
   } catch (error) {
     await request('cancel', { upload_id: uploadId }).catch(() => undefined);
     throw error;

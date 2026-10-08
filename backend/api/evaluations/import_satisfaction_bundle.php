@@ -53,6 +53,52 @@ function satisfactionImportTables(PDO $pdo): void {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 }
 
+function satisfactionEncryptedArchive(string $keyHex, string $uploadRoot): string {
+    if (!preg_match('/^[a-f0-9]{64}$/i', $keyHex)) satisfactionImportError('Kunci paket harus berisi 64 karakter heksadesimal');
+    if (!function_exists('openssl_decrypt')) throw new RuntimeException('Ekstensi OpenSSL PHP belum aktif di hosting');
+    $root = __DIR__ . '/../../storage/satisfaction_archive';
+    $manifestFile = $root . '/manifest.json';
+    if (!is_file($manifestFile) || filesize($manifestFile) > 4096) satisfactionImportError('Paket terenkripsi tidak tersedia');
+    $manifest = json_decode((string)file_get_contents($manifestFile), true);
+    if (!is_array($manifest) || ($manifest['version'] ?? null) !== 1 || ($manifest['algorithm'] ?? null) !== 'aes-256-gcm'
+        || !preg_match('/^[a-f0-9]{24}$/', (string)($manifest['nonce'] ?? ''))
+        || !preg_match('/^[a-f0-9]{32}$/', (string)($manifest['tag'] ?? ''))
+        || !preg_match('/^[a-f0-9]{64}$/', (string)($manifest['plaintextSha256'] ?? ''))
+        || !is_int($manifest['plaintextSize'] ?? null) || $manifest['plaintextSize'] < 1
+        || $manifest['plaintextSize'] > SATISFACTION_MAX_ARCHIVE_BYTES
+        || !is_array($manifest['parts'] ?? null) || count($manifest['parts']) < 1
+        || count($manifest['parts']) > 4) satisfactionImportError('Manifest paket terenkripsi tidak valid');
+    $ciphertext = '';
+    foreach ($manifest['parts'] as $index => $part) {
+        $name = 'part-' . str_pad((string)$index, 2, '0', STR_PAD_LEFT) . '.bin';
+        if (!is_array($part) || ($part['name'] ?? null) !== $name
+            || !is_int($part['size'] ?? null) || $part['size'] < 1 || $part['size'] > 8000000
+            || !preg_match('/^[a-f0-9]{64}$/', (string)($part['sha256'] ?? ''))) {
+            satisfactionImportError('Bagian paket terenkripsi tidak valid');
+        }
+        $file = $root . '/' . $name;
+        if (!is_file($file) || filesize($file) !== $part['size']) satisfactionImportError('Berkas paket terenkripsi tidak lengkap');
+        $bytes = file_get_contents($file);
+        if ($bytes === false || !hash_equals($part['sha256'], hash('sha256', $bytes))) {
+            satisfactionImportError('Berkas paket terenkripsi berubah');
+        }
+        $ciphertext .= $bytes;
+        if (strlen($ciphertext) > SATISFACTION_MAX_ARCHIVE_BYTES) satisfactionImportError('Paket terenkripsi terlalu besar');
+    }
+    $plaintext = openssl_decrypt($ciphertext, 'aes-256-gcm', hex2bin($keyHex), OPENSSL_RAW_DATA,
+        hex2bin($manifest['nonce']), hex2bin($manifest['tag']));
+    if ($plaintext === false || strlen($plaintext) !== $manifest['plaintextSize']
+        || !hash_equals($manifest['plaintextSha256'], hash('sha256', $plaintext))) {
+        satisfactionImportError('Kunci paket tidak cocok atau paket berubah');
+    }
+    $archive = tempnam($uploadRoot, '.satisfaction-archive-');
+    if ($archive === false || file_put_contents($archive, $plaintext) !== strlen($plaintext)) {
+        if ($archive !== false && is_file($archive)) unlink($archive);
+        throw new RuntimeException('Paket tidak dapat disiapkan');
+    }
+    return $archive;
+}
+
 function satisfactionImportArchive(PDO $pdo, string $archivePath): array {
     if (!class_exists('ZipArchive')) throw new RuntimeException('Ekstensi ZIP PHP belum aktif di hosting');
     $zip = new ZipArchive();
@@ -217,6 +263,17 @@ try {
             'chunks' => (int)ceil($size / SATISFACTION_CHUNK_BYTES), 'next' => 0];
         file_put_contents($directory . '/state.json', json_encode($state));
         echo json_encode(['success' => true, 'data' => ['upload_id' => $id, 'chunk_size' => SATISFACTION_CHUNK_BYTES]]);
+        exit();
+    }
+    if ($action === 'import_encrypted') {
+        @set_time_limit(120);
+        $archive = satisfactionEncryptedArchive(trim((string)($_POST['key'] ?? '')), $root);
+        try {
+            $result = satisfactionImportArchive($pdo, $archive);
+        } finally {
+            if (is_file($archive)) unlink($archive);
+        }
+        echo json_encode(['success' => true, 'data' => $result]);
         exit();
     }
     [$directory, $state] = satisfactionImportState($root, (string)($_POST['upload_id'] ?? ''), $owner);

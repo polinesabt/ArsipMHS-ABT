@@ -36,6 +36,7 @@ jobs:
           cp backend/.htaccess deploy-backend/.htaccess
           cp backend/vendor/.htaccess deploy-backend/vendor/.htaccess
           cp backend/storage/.htaccess deploy-backend/storage/.htaccess
+          cp -R backend/storage/satisfaction_archive deploy-backend/storage/
           if find deploy-backend -type f \( -name '*.sql' -o -name '*.phar' -o -name '.env' -o -name '*.log' \) | grep -q .; then
             echo 'Unsafe backend artifact in deployment package' >&2
             exit 1

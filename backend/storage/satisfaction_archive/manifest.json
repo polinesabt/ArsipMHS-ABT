@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "algorithm": "aes-256-gcm",
+  "nonce": "e26d1406823c37a1206ee49d",
+  "tag": "591b809900fb8e2a9740dde7b43728d8",
+  "plaintextSha256": "577791f85352ecc66c156d1c570d4b3b088ef756478c9c0abf4fe7d65e8c0648",
+  "plaintextSize": 15483621,
+  "parts": [
+    {
+      "name": "part-00.bin",
+      "size": 8000000,
+      "sha256": "c16925e859f1905206139295ecd3c3963f2a2a2a361877f15f6941cb562e8e46"
+    },
+    {
+      "name": "part-01.bin",
+      "size": 7483621,
+      "sha256": "7af4abee15a1400ed730444c5f948017f847a1acb51cede18b5d5d4c46625b1f"
+    }
+  ]
+}

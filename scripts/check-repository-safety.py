@@ -11,6 +11,9 @@ import sys
 
 
 FORBIDDEN_PATHS = (
+    "kepuasan pengguna/**",
+    "backend/storage/satisfaction_import/**",
+    "backend/storage/satisfaction_import_uploads/**",
     ".chart-build-check/**",
     ".security-build-check/**",
     "backend/database productin ekspor/**",
