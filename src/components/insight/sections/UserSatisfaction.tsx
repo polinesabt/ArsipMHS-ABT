@@ -5,6 +5,7 @@ import { useInsightDashboard } from '@/contexts/InsightDashboardContext';
 import { InsightDataEmpty } from '@/components/insight/InsightDataEmpty';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SatisfactionRespondents } from './SatisfactionRespondents';
+import { SatisfactionPrivateImport } from './SatisfactionPrivateImport';
 import type { SatisfactionRespondent } from '@/types/evaluation.types';
 import {
   DistribusiPenilaianChart,
@@ -29,7 +30,7 @@ const CHART_META_JOB_MATCH: ChartMeta = {
 };
 
 export function UserSatisfaction({ showRespondents = true }: { showRespondents?: boolean }) {
-  const { refreshTrigger } = useInsightDashboard();
+  const { refreshTrigger, invalidateCache } = useInsightDashboard();
   const loadedRef = useRef(false);
   const [aspectData, setAspectData] = useState<DistribusiPenilaianRow[]>([]);
   const [jobMatchData, setJobMatchData] = useState<KesesuaianJurusanEntry[]>([]);
@@ -100,6 +101,8 @@ export function UserSatisfaction({ showRespondents = true }: { showRespondents?:
 
   const hasAspectData = aspectData.length > 0;
   const hasJobMatchData = jobMatchData.length > 0 && jobMatchData.some((e) => e.value > 0);
+  const importedProofsReady = (respondents ?? []).filter((row) => row.source === 'import' && row.evidence_available).length;
+  const needsHistoricalImport = importedRespondents < 26 || importedProofsReady < 26;
 
   const chartHeight = Math.max(280, aspectData.length * 58);
 
@@ -158,6 +161,7 @@ export function UserSatisfaction({ showRespondents = true }: { showRespondents?:
           </div>
         )}
       </DashboardCard>
+      {showRespondents && !loading && !error && needsHistoricalImport && <SatisfactionPrivateImport onImported={invalidateCache} />}
       {showRespondents && !loading && !error && <SatisfactionRespondents rows={respondents} />}
       </TabsContent>
       <TabsContent value="job-match" className="mt-5">

@@ -8,6 +8,8 @@ Tampilan menggunakan dua tab: Kepuasan Pengguna dan Kesesuaian Jurusan dengan Pe
 
 Daftar mahasiswa hanya ditampilkan pada modul Kepuasan Pengguna. Ringkasan semua modul/overview menampilkan grafik tanpa daftar mahasiswa. Kolom Sumber Data menyediakan tombol Unduh PDF yang mengambil bukti formulir dari folder privat melalui endpoint admin `evaluations/download_satisfaction_evidence.php`. PDF asli diunduh langsung; bukti JPEG/PNG dikonversi menjadi satu halaman PDF di browser. Jika berkas belum tersedia di hosting, tombol nonaktif dengan keterangan. Dokumen tidak dibuat dari jawaban atau formulir kosong sebagai pengganti bukti.
 
+Jika data historis atau berkas buktinya belum ada di hosting, jalankan `python scripts/package-kepuasan-private.py` di workspace yang menyimpan file asli. Ini menghasilkan `kepuasan pengguna/hasil/paket_impor_kepuasan_privat.zip` berisi manifest 34 baris, 260 penilaian, serta 33 bukti asli yang dicocokkan berdasarkan ID baris spreadsheet. Masuk sebagai admin production, buka modul Kepuasan Pengguna, pilih ZIP tersebut pada kartu **Impor formulir historis**, lalu klik **Unggah dan hubungkan formulir**. Unggahan memakai potongan 512 KiB, memverifikasi hash setiap bukti, menulis dua tabel impor pada database aplikasi, dan menyimpan berkas di folder privat `backend/storage/satisfaction_import/`. Setelah selesai, grafik dan daftar akan memuat ulang: 26 mahasiswa historis mempunyai tombol unduh. Baris M Hafiidh Lutvi (2021) tidak memiliki penilaian maupun bukti sesuai instruksi pengguna. Paket berisi data mahasiswa sehingga tidak boleh di-commit ke repositori publik.
+
 ## Production
 
 1. Pastikan SQL sudah diimpor ke database yang dipakai oleh `DB_NAME` pada hosting.
