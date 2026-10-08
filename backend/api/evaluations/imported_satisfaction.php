@@ -1,7 +1,7 @@
 <?php
 /** Aggregate the historical workbook without creating survey invitations. */
-function loadImportedSatisfaction(PDO $pdo): array {
-    $result = ['available' => false, 'respondents' => 0, 'rating_count' => 0, 'aspects' => []];
+function loadImportedSatisfaction(PDO $pdo, bool $includeRespondents = false): array {
+    $result = ['available' => false, 'respondents' => 0, 'rating_count' => 0, 'aspects' => [], 'respondent_rows' => []];
     $tables = $pdo->query("SELECT TABLE_NAME FROM information_schema.TABLES
         WHERE TABLE_SCHEMA = DATABASE()
           AND TABLE_NAME IN ('import_kepuasan_pengguna', 'import_kepuasan_penilaian')")
@@ -72,6 +72,23 @@ function loadImportedSatisfaction(PDO $pdo): array {
     $statement = $pdo->prepare("SELECT COUNT(DISTINCT p.record_id) $where");
     $statement->execute($params);
     $result['respondents'] = (int)$statement->fetchColumn();
+    if ($includeRespondents) {
+        $statement = $pdo->prepare("SELECT r.id, r.nama_mahasiswa, r.nim, r.tahun_lulus, COUNT(*) AS rating_count
+            $where GROUP BY r.id, r.nama_mahasiswa, r.nim, r.tahun_lulus
+            ORDER BY r.nama_mahasiswa, r.id");
+        $statement->execute($params);
+        while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
+            $result['respondent_rows'][] = [
+                'id' => 'import-' . $row['id'],
+                'nama' => $row['nama_mahasiswa'],
+                'nim' => $row['nim'],
+                'tahun_lulus' => (int)$row['tahun_lulus'],
+                'source' => 'import',
+                'evaluation_title' => null,
+                'rating_count' => (int)$row['rating_count'],
+            ];
+        }
+    }
     return $result;
 }
 

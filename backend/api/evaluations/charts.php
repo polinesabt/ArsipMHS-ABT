@@ -76,6 +76,7 @@ try {
     $evaluationId = isset($_GET['evaluation_id']) ? trim((string)$_GET['evaluation_id']) : 'all';
     $isAll = ($evaluationId === '' || strtolower($evaluationId) === 'all');
     $includeImported = $isAll && ($_GET['include_imported'] ?? '') === '1';
+    $satisfactionRespondents = [];
 
     $evaluationInfo = null;
     if (!$isAll) {
@@ -143,11 +144,13 @@ try {
     $customJobMatchTidak = 0;
 
     $customSql = '
-        SELECT sfr.answers, sfr.template_id, t.definition
+        SELECT sfr.id, sfr.answers, sfr.template_id, t.definition,
+            s.nim, s.nama, s.tahun_lulus, e.title AS evaluation_title
         FROM satisfaction_form_responses sfr
         JOIN evaluation_invitations i ON i.id = sfr.invitation_id
         JOIN evaluations e ON e.id = i.evaluation_id AND e.deleted_at IS NULL
         JOIN satisfaction_form_templates t ON t.id = sfr.template_id AND t.deleted_at IS NULL
+        JOIN students s ON s.id = i.student_id AND s.deleted_at IS NULL
     ';
     $customParams = [];
     if (!$isAll) {
@@ -168,6 +171,17 @@ try {
             $definition = [];
         }
         $scores = extractAspectScoresFromCustomAnswers($answers, $definition, $activeAspectIds);
+        if ($includeImported && count($scores) > 0) {
+            $satisfactionRespondents[] = [
+                'id' => 'custom-' . $row['id'],
+                'nama' => $row['nama'],
+                'nim' => $row['nim'],
+                'tahun_lulus' => $row['tahun_lulus'] === null ? null : (int)$row['tahun_lulus'],
+                'source' => 'custom',
+                'evaluation_title' => $row['evaluation_title'],
+                'rating_count' => count($scores),
+            ];
+        }
         foreach ($scores as $aspectId => $score) {
             $key = (string)$aspectId;
             if (!isset($customAspectCounts[$key])) {
@@ -261,9 +275,35 @@ try {
         ];
     }
 
-    $imported = $includeImported ? loadImportedSatisfaction($pdo) : null;
+    $imported = $includeImported ? loadImportedSatisfaction($pdo, true) : null;
     if ($imported !== null) {
         $aspectDistribution = mergeImportedSatisfactionDistribution($aspectDistribution, $imported['aspects']);
+        // Use the same active aspects and valid scores as the displayed chart.
+        $respondentStmt = $pdo->query('
+            SELECT r.id, s.nim, s.nama, s.tahun_lulus, e.title AS evaluation_title,
+                COUNT(*) AS rating_count
+            FROM evaluation_responses r
+            JOIN evaluations e ON e.id = r.evaluation_id AND e.deleted_at IS NULL
+            JOIN students s ON s.id = r.student_id AND s.deleted_at IS NULL
+            JOIN evaluation_response_ratings rr ON rr.response_id = r.id AND rr.score BETWEEN 1 AND 5
+            JOIN evaluation_aspects a ON a.id = rr.aspect_id AND a.is_active = 1
+            GROUP BY r.id, s.nim, s.nama, s.tahun_lulus, e.title
+        ');
+        while ($row = $respondentStmt->fetch(PDO::FETCH_ASSOC)) {
+            $satisfactionRespondents[] = [
+                'id' => 'legacy-' . $row['id'],
+                'nama' => $row['nama'],
+                'nim' => $row['nim'],
+                'tahun_lulus' => $row['tahun_lulus'] === null ? null : (int)$row['tahun_lulus'],
+                'source' => 'legacy',
+                'evaluation_title' => $row['evaluation_title'],
+                'rating_count' => (int)$row['rating_count'],
+            ];
+        }
+        $satisfactionRespondents = array_merge($satisfactionRespondents, $imported['respondent_rows']);
+        usort($satisfactionRespondents, static function (array $a, array $b): int {
+            return strcasecmp($a['nama'], $b['nama']) ?: strcmp($a['id'], $b['id']);
+        });
     }
 
     echo json_encode([
@@ -282,6 +322,7 @@ try {
                 ['label' => 'Tidak', 'key' => 'tidak', 'value' => $jobMatch['tidak']],
             ],
             'aspect_distribution' => $aspectDistribution,
+            'satisfaction_respondents' => $includeImported ? $satisfactionRespondents : null,
             'imported_satisfaction' => $imported === null ? null : [
                 'available' => $imported['available'],
                 'respondents' => $imported['respondents'],

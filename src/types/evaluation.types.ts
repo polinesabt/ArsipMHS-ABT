@@ -160,6 +160,7 @@ export interface EvaluationChartProgress {
 
 export interface EvaluationChartData {
   scope: 'all' | 'single';
+  satisfaction_respondents?: SatisfactionRespondent[] | null;
   imported_satisfaction?: {
     available: boolean;
     respondents: number;
@@ -190,6 +191,17 @@ export interface EvaluationChartData {
     tidak_baik: number;
     total: number;
   }>;
+}
+
+/** Students whose valid ratings contribute to the satisfaction chart. */
+export interface SatisfactionRespondent {
+  id: string;
+  nama: string;
+  nim: string;
+  tahun_lulus: number | null;
+  source: 'import' | 'legacy' | 'custom';
+  evaluation_title: string | null;
+  rating_count: number;
 }
 
 export interface StudentNotification {

@@ -3,6 +3,9 @@ import { ChartSkeleton } from '@/components/ui/loading';
 import { DashboardCard } from '@/components/insight/dashboard/DashboardCard';
 import { useInsightDashboard } from '@/contexts/InsightDashboardContext';
 import { InsightDataEmpty } from '@/components/insight/InsightDataEmpty';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SatisfactionRespondents } from './SatisfactionRespondents';
+import type { SatisfactionRespondent } from '@/types/evaluation.types';
 import {
   DistribusiPenilaianChart,
   KesesuaianJurusanChart,
@@ -33,6 +36,7 @@ export function UserSatisfaction() {
   const [totalRespondents, setTotalRespondents] = useState(0);
   const [importedRespondents, setImportedRespondents] = useState(0);
   const [importAvailable, setImportAvailable] = useState<boolean | null>(null);
+  const [respondents, setRespondents] = useState<SatisfactionRespondent[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,13 +63,16 @@ export function UserSatisfaction() {
           const importedCount = res.data.imported_satisfaction?.respondents ?? 0;
           setImportAvailable(res.data.imported_satisfaction?.available ?? null);
           setImportedRespondents(importedCount);
-          setTotalRespondents((res.data.progress?.total_submitted ?? 0) + importedCount);
+          const respondentRows = res.data.satisfaction_respondents ?? null;
+          setRespondents(respondentRows);
+          setTotalRespondents(respondentRows?.length ?? ((res.data.progress?.total_submitted ?? 0) + importedCount));
         } else {
           setAspectData([]);
           setJobMatchData([]);
           setTotalRespondents(0);
           setImportedRespondents(0);
           setImportAvailable(null);
+          setRespondents(null);
           setError(res.error ?? 'Gagal memuat data');
         }
       })
@@ -77,6 +84,7 @@ export function UserSatisfaction() {
           setTotalRespondents(0);
           setImportedRespondents(0);
           setImportAvailable(null);
+          setRespondents(null);
         }
       })
       .finally(() => {
@@ -115,7 +123,12 @@ export function UserSatisfaction() {
   const interpretationLikert = `Jumlah pengisi: ${totalRespondents} orang, termasuk ${importedRespondents} dari data historis. Rata-rata skor positif (Sangat Baik + Baik): ${positivePct}%.${topIndicator ? ` Indikator tertinggi: ${topIndicator}.` : ''}`;
 
   return (
-    <div className="grid grid-cols-1 gap-6">
+    <Tabs defaultValue="satisfaction" className="w-full min-w-0">
+      <TabsList aria-label="Grafik kepuasan pengguna" className="grid h-auto w-full grid-cols-2 gap-1">
+        <TabsTrigger value="satisfaction" className="h-auto whitespace-normal px-3 py-2.5 text-center leading-snug">Kepuasan Pengguna</TabsTrigger>
+        <TabsTrigger value="job-match" className="h-auto whitespace-normal px-3 py-2.5 text-center leading-snug">Kesesuaian Jurusan dengan Pekerjaan</TabsTrigger>
+      </TabsList>
+      <TabsContent value="satisfaction" className="mt-5 space-y-6">
       <DashboardCard
         title="Kepuasan Pengguna Lulusan (Distribusi Penilaian)"
         description="Skala Likert per indikator (Sangat Baik s.d. Tidak Baik) dari formulir evaluasi dan data historis impor"
@@ -145,7 +158,9 @@ export function UserSatisfaction() {
           </div>
         )}
       </DashboardCard>
-
+      {!loading && !error && <SatisfactionRespondents rows={respondents} />}
+      </TabsContent>
+      <TabsContent value="job-match" className="mt-5">
       <DashboardCard
         title="Kesesuaian Jurusan dengan Pekerjaan"
         description="Persentase kesesuaian pekerjaan dengan jurusan dari formulir Evaluasi Lulusan"
@@ -169,6 +184,7 @@ export function UserSatisfaction() {
           <KesesuaianJurusanChart data={jobMatchData} height={360} innerRadius={56} />
         )}
       </DashboardCard>
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 }

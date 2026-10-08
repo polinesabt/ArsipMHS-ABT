@@ -54,6 +54,16 @@ try {
     satisfactionCheck($byCode['integritas_pergaulan']['kurang_baik'] === 1, 'Map original workbook spelling.');
     satisfactionCheck($byCode['manajemen_waktu']['tidak_baik'] === 1, 'Map score 1 correctly.');
 
+    $pdo->exec("ALTER TABLE import_kepuasan_pengguna
+        ADD nama_mahasiswa VARCHAR(255) NOT NULL DEFAULT 'Synthetic student',
+        ADD nim VARCHAR(32) NOT NULL DEFAULT '00123',
+        ADD tahun_lulus SMALLINT NOT NULL DEFAULT 2021");
+    $withRespondents = loadImportedSatisfaction($pdo, true);
+    satisfactionCheck(count($withRespondents['respondent_rows']) === 2, 'List only students contributing valid imported ratings.');
+    satisfactionCheck(array_sum(array_column($withRespondents['respondent_rows'], 'rating_count')) === 5, 'Listed ratings must match the imported chart.');
+    satisfactionCheck($withRespondents['respondent_rows'][0]['nim'] === '00123', 'Preserve NIM as a string including leading zeros.');
+    satisfactionCheck($imported['respondent_rows'] === [], 'Do not load student identities unless requested.');
+
     $native = [[
         'aspect_id' => 'native-ethics', 'aspect_code' => 'etika', 'aspect_name' => 'Native ethics', 'sort_order' => 1,
         'sangat_baik' => 1, 'baik' => 0, 'cukup_baik' => 0, 'kurang_baik' => 0, 'tidak_baik' => 1, 'total' => 2,
