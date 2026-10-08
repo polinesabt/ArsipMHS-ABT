@@ -160,6 +160,11 @@ export interface EvaluationChartProgress {
 
 export interface EvaluationChartData {
   scope: 'all' | 'single';
+  imported_satisfaction?: {
+    available: boolean;
+    respondents: number;
+    rating_count: number;
+  } | null;
   evaluation?: {
     id: string;
     title: string;

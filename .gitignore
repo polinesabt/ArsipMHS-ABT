@@ -24,6 +24,7 @@ backend.zip
 .agents/
 *.tsbuildinfo
 backend/storage/insight_stats_cache/
+backend/storage/satisfaction_import/
 backend/database productin ekspor/*.sql
 backend/database productin ekspor/
 backend/database/production_*.sql
@@ -41,6 +42,7 @@ backend/scripts/replace-admin-account.php
 backend/scripts/seed-demo-20-full.php
 .chart-build-check/
 .security-build-check/
+kepuasan pengguna/
 bug fix/*.sql
 scripts/normalize-api-errors.py
 scripts/scrub-public-secrets.py

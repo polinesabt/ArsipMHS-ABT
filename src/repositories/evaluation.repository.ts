@@ -137,11 +137,13 @@ export async function sendEvaluationNotifications(
 }
 
 export async function getEvaluationCharts(
-  evaluationId: string | 'all' = 'all'
+  evaluationId: string | 'all' = 'all',
+  includeImported = false
 ): Promise<ApiResponse<EvaluationChartData>> {
   return apiClient.get<EvaluationChartData>('evaluations/charts.php', {
     params: {
       evaluation_id: evaluationId,
+      ...(includeImported ? { include_imported: '1' } : {}),
     },
   });
 }

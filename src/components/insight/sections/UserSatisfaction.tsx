@@ -12,11 +12,11 @@ import {
 import { getEvaluationCharts } from '@/repositories/evaluation.repository';
 import type { ChartMeta } from '@/repositories/insight.repository';
 
-/** Meta tetap: data dari Evaluasi Lulusan (chart sama dengan menu Evaluasi Lulusan). */
+/** Survey responses plus historical ratings from the imported workbook. */
 const CHART_META_LIKERT: ChartMeta = {
-  source: 'Evaluasi Lulusan (form kepuasan)',
+  source: 'Evaluasi Lulusan dan data historis impor',
   last_synced_at: null,
-  calculation: 'Agregat respons form kepuasan dari semua evaluasi. Skala 1–5 (Sangat Baik s.d. Tidak Baik) per indikator.',
+  calculation: 'Agregat respons evaluasi dan penilaian historis. Skala 1–5 (Sangat Baik s.d. Tidak Baik) per indikator.',
 };
 
 const CHART_META_JOB_MATCH: ChartMeta = {
@@ -31,6 +31,8 @@ export function UserSatisfaction() {
   const [aspectData, setAspectData] = useState<DistribusiPenilaianRow[]>([]);
   const [jobMatchData, setJobMatchData] = useState<KesesuaianJurusanEntry[]>([]);
   const [totalRespondents, setTotalRespondents] = useState(0);
+  const [importedRespondents, setImportedRespondents] = useState(0);
+  const [importAvailable, setImportAvailable] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,7 +40,7 @@ export function UserSatisfaction() {
     let cancelled = false;
     if (!loadedRef.current) setLoading(true);
     setError(null);
-    getEvaluationCharts('all')
+    getEvaluationCharts('all', true)
       .then((res) => {
         if (cancelled) return;
         if (res.success && res.data) {
@@ -54,11 +56,16 @@ export function UserSatisfaction() {
           });
           setAspectData(withTotal.filter((r) => r.total! > 0));
           setJobMatchData(res.data.job_match ?? []);
-          setTotalRespondents(res.data.progress?.total_submitted ?? 0);
+          const importedCount = res.data.imported_satisfaction?.respondents ?? 0;
+          setImportAvailable(res.data.imported_satisfaction?.available ?? null);
+          setImportedRespondents(importedCount);
+          setTotalRespondents((res.data.progress?.total_submitted ?? 0) + importedCount);
         } else {
           setAspectData([]);
           setJobMatchData([]);
           setTotalRespondents(0);
+          setImportedRespondents(0);
+          setImportAvailable(null);
           setError(res.error ?? 'Gagal memuat data');
         }
       })
@@ -68,6 +75,8 @@ export function UserSatisfaction() {
           setAspectData([]);
           setJobMatchData([]);
           setTotalRespondents(0);
+          setImportedRespondents(0);
+          setImportAvailable(null);
         }
       })
       .finally(() => {
@@ -103,13 +112,13 @@ export function UserSatisfaction() {
     ).aspect_name;
   }, [aspectData]);
 
-  const interpretationLikert = `Jumlah pengisi: ${totalRespondents} orang. Rata-rata skor positif (Sangat Baik + Baik): ${positivePct}%. Indikator tertinggi: ${topIndicator}. Data dari Evaluasi Lulusan (agregat semua periode).`;
+  const interpretationLikert = `Jumlah pengisi: ${totalRespondents} orang, termasuk ${importedRespondents} dari data historis. Rata-rata skor positif (Sangat Baik + Baik): ${positivePct}%.${topIndicator ? ` Indikator tertinggi: ${topIndicator}.` : ''}`;
 
   return (
     <div className="grid grid-cols-1 gap-6">
       <DashboardCard
         title="Kepuasan Pengguna Lulusan (Distribusi Penilaian)"
-        description="Skala Likert per indikator (Sangat Baik s.d. Tidak Baik) — data sama dengan chart di menu Evaluasi Lulusan"
+        description="Skala Likert per indikator (Sangat Baik s.d. Tidak Baik) dari formulir evaluasi dan data historis impor"
         interpretation={interpretationLikert}
         chartMeta={CHART_META_LIKERT}
       >
@@ -121,7 +130,10 @@ export function UserSatisfaction() {
           </div>
         ) : !hasAspectData ? (
           <div className="flex min-h-[280px] items-center justify-center">
-            <InsightDataEmpty />
+            <InsightDataEmpty description={importAvailable === false
+              ? 'Data historis belum tersedia di database aplikasi. Pastikan SQL sudah diimpor ke database yang digunakan website.'
+              : undefined}
+            />
           </div>
         ) : (
           <div className="space-y-3">
@@ -136,7 +148,7 @@ export function UserSatisfaction() {
 
       <DashboardCard
         title="Kesesuaian Jurusan dengan Pekerjaan"
-        description="Persentase kesesuaian pekerjaan dengan jurusan (Sesuai vs Tidak) — data sama dengan chart di menu Evaluasi Lulusan"
+        description="Persentase kesesuaian pekerjaan dengan jurusan dari formulir Evaluasi Lulusan"
         chartMeta={CHART_META_JOB_MATCH}
       >
         {loading ? (
@@ -147,7 +159,11 @@ export function UserSatisfaction() {
           </div>
         ) : !hasJobMatchData ? (
           <div className="flex min-h-[280px] items-center justify-center">
-            <InsightDataEmpty />
+            <InsightDataEmpty
+              description={importedRespondents > 0
+                ? 'Spreadsheet historis tidak memuat jawaban kesesuaian jurusan. Grafik ini terisi setelah ada respons dari formulir Evaluasi Lulusan.'
+                : undefined}
+            />
           </div>
         ) : (
           <KesesuaianJurusanChart data={jobMatchData} height={360} innerRadius={56} />

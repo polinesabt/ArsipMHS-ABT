@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../config/cors.php';
 require_once __DIR__ . '/../../config/database.php';
 require_once __DIR__ . '/../../config/auth.php';
+require_once __DIR__ . '/imported_satisfaction.php';
 
 /**
  * Extract aspect scores from custom form answers using template definition.
@@ -74,6 +75,7 @@ try {
 
     $evaluationId = isset($_GET['evaluation_id']) ? trim((string)$_GET['evaluation_id']) : 'all';
     $isAll = ($evaluationId === '' || strtolower($evaluationId) === 'all');
+    $includeImported = $isAll && ($_GET['include_imported'] ?? '') === '1';
 
     $evaluationInfo = null;
     if (!$isAll) {
@@ -259,6 +261,11 @@ try {
         ];
     }
 
+    $imported = $includeImported ? loadImportedSatisfaction($pdo) : null;
+    if ($imported !== null) {
+        $aspectDistribution = mergeImportedSatisfactionDistribution($aspectDistribution, $imported['aspects']);
+    }
+
     echo json_encode([
         'success' => true,
         'data' => [
@@ -275,6 +282,11 @@ try {
                 ['label' => 'Tidak', 'key' => 'tidak', 'value' => $jobMatch['tidak']],
             ],
             'aspect_distribution' => $aspectDistribution,
+            'imported_satisfaction' => $imported === null ? null : [
+                'available' => $imported['available'],
+                'respondents' => $imported['respondents'],
+                'rating_count' => $imported['rating_count'],
+            ],
         ],
     ]);
 } catch (Exception $e) {
