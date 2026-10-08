@@ -1,6 +1,6 @@
 import type { PublicationsTab } from '@/types/insight-tabs';
 
-export type PublicationTableTab = PublicationsTab;
+export type PublicationTableTab = Exclude<PublicationsTab, 'sinta'>;
 
 export type PublicationColumnKey =
   | 'judul'

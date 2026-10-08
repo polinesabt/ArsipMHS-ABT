@@ -153,6 +153,7 @@ function SingleSection({ section }: { section: DashboardSectionId }) {
 
   useEffect(() => {
     if (!resolvedActiveTab || !setDemoDummyTargetVariant) return;
+    if (section === 'publications' && resolvedActiveTab === 'sinta') return;
     const targetId = DUMMY_TARGET_BY_SECTION[section];
     if (targetId) setDemoDummyTargetVariant(targetId, resolvedActiveTab as DemoDummyVariant);
   }, [resolvedActiveTab, section, setDemoDummyTargetVariant]);
@@ -202,7 +203,7 @@ function SingleSection({ section }: { section: DashboardSectionId }) {
   return (
     <>
       {sectionContent}
-      {showTable && (
+      {showTable && !(section === 'publications' && resolvedActiveTab === 'sinta') && (
         <ChartRecordsTableEmbedded
           section={section}
           activeTab={resolvedActiveTab}

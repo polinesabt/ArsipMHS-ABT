@@ -20,6 +20,8 @@ import {
 import { getInsightErrorMessage } from '@/lib/insight-errors';
 import { isPublicationsTab, type PublicationsTab } from '@/types/insight-tabs';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { getSintaPublications } from '@/lib/sinta-publications';
+import { SintaPublications } from './SintaPublications';
 
 interface PublicationsProps {
   activeTab?: PublicationsTab;
@@ -442,24 +444,28 @@ const TAB_LABELS: Record<PublicationsTab, string> = {
   jurnal: 'Jurnal',
   seminar: 'Publikasi di Seminar',
   pagelaran: 'Pagelaran / Presentasi',
+  sinta: 'Kategori Publikasi',
 };
 
 const MOBILE_TAB_LABELS: Record<PublicationsTab, string> = {
   jurnal: 'Jurnal',
   seminar: 'Seminar',
   pagelaran: 'Pagelaran',
+  sinta: 'Kategori Publikasi',
 };
 
 const TAB_DESCRIPTIONS: Record<PublicationsTab, string> = {
   jurnal: 'Diseminasi jurnal per tahun (hover untuk melihat rincian level publikasi)',
   seminar: 'Publikasi di seminar per tahun (hover untuk melihat rincian level)',
   pagelaran: 'Diseminasi pagelaran/pameran/presentasi ilmiah per tahun (hover untuk melihat rincian level)',
+  sinta: 'Perbandingan publikasi mahasiswa berdasarkan peringkat SINTA 1–5',
 };
 
 const TAB_INTERPRETATION_LABELS: Record<PublicationsTab, string> = {
   jurnal: 'diseminasi jurnal',
   seminar: 'publikasi di seminar',
   pagelaran: 'diseminasi pagelaran/presentasi',
+  sinta: 'publikasi SINTA',
 };
 
 function resolvePublicationPercentage(value: number, total: number) {
@@ -598,6 +604,7 @@ const TAB_LEVELS: Record<PublicationsTab, LevelConfig[]> = {
       kolaborasiKey: 'kolaborasiInternational',
     },
   ],
+  sinta: [],
 };
 
 const MOBILE_LEVEL_LABELS: Record<PublicationsTab, Record<string, string>> = {
@@ -617,10 +624,12 @@ const MOBILE_LEVEL_LABELS: Record<PublicationsTab, Record<string, string>> = {
     national: 'Nasional',
     international: 'Intl.',
   },
+  sinta: {},
 };
 
 function resolveRowsByTab(data: PublicationsData | null, tab: PublicationsTab): PublicationsRow[] {
   if (!data) return [];
+  if (tab === 'sinta') return [];
   if (tab === 'jurnal') {
     return (data.jurnal?.by_year ?? data.journals?.by_year ?? []) as PublicationsJurnalByYearRow[];
   }
@@ -632,6 +641,7 @@ function resolveRowsByTab(data: PublicationsData | null, tab: PublicationsTab): 
 
 function resolveTotalByTab(data: PublicationsData | null, tab: PublicationsTab): number {
   if (!data) return 0;
+  if (tab === 'sinta') return 0;
   if (tab === 'jurnal') return data.jurnal?.total ?? data.journals?.total ?? 0;
   if (tab === 'seminar') return data.seminar?.total ?? data.seminars?.total ?? 0;
   return data.pagelaran?.total ?? data.performances?.total ?? 0;
@@ -641,7 +651,7 @@ export function Publications({ activeTab, onActiveTabChange }: PublicationsProps
   const { selectedYear, refreshTrigger } = useInsightDashboard();
   const isMobile = useIsMobile();
   const reducedMotion = Boolean(useReducedMotion());
-  const [internalTab, setInternalTab] = useState<PublicationsTab>('jurnal');
+  const [internalTab, setInternalTab] = useState<PublicationsTab>('sinta');
   const tab = activeTab ?? internalTab;
   const [data, setData] = useState<PublicationsData | null>(null);
   const [meta, setMeta] = useState<InsightStatsResponse['meta']>(null);
@@ -665,6 +675,7 @@ export function Publications({ activeTab, onActiveTabChange }: PublicationsProps
   }, [activeTab, onActiveTabChange]);
 
   useLayoutEffect(() => {
+    if (tab === 'sinta') return;
     let cancelled = false;
     if (queryKeyRef.current !== queryKey) setLoading(true);
     queryKeyRef.current = queryKey;
@@ -691,10 +702,11 @@ export function Publications({ activeTab, onActiveTabChange }: PublicationsProps
     return () => {
       cancelled = true;
     };
-  }, [yearParam, refreshTrigger, queryKey]);
+  }, [yearParam, refreshTrigger, queryKey, tab]);
 
   const byYearRows = useMemo(() => resolveRowsByTab(data, tab), [data, tab]);
-  const totalRecords = resolveTotalByTab(data, tab);
+  const sintaRows = tab === 'sinta' ? getSintaPublications(yearParam) : [];
+  const totalRecords = tab === 'sinta' ? sintaRows.length : resolveTotalByTab(data, tab);
   const usePercentageChart = tab === 'jurnal';
 
   const chartData = useMemo(() => {
@@ -746,9 +758,13 @@ export function Publications({ activeTab, onActiveTabChange }: PublicationsProps
 
   const yearText = yearParam ? ` tahun ${yearParam}` : '';
   const interpretationLabel = TAB_INTERPRETATION_LABELS[tab];
-  const interpretation = totalRecords > 0
-    ? `Total ${interpretationLabel}${yearText}: ${totalRecords}. Mandiri: ${totalMandiri}. Kolaborasi dengan dosen: ${totalKolaborasi}.`
-    : `Belum ada data ${interpretationLabel}${yearText}.`;
+  const interpretation = tab === 'sinta'
+    ? totalRecords > 0
+      ? `Total publikasi SINTA${yearText}: ${totalRecords}. ${[1, 2, 3, 4, 5].map((level) => ({ level, count: sintaRows.filter((item) => item.level === level).length })).filter((item) => item.count > 0).map((item) => `SINTA ${item.level}: ${item.count}`).join(', ')}.`
+      : `Belum ada data publikasi SINTA${yearText}.`
+    : totalRecords > 0
+      ? `Total ${interpretationLabel}${yearText}: ${totalRecords}. Mandiri: ${totalMandiri}. Kolaborasi dengan dosen: ${totalKolaborasi}.`
+      : `Belum ada data ${interpretationLabel}${yearText}.`;
 
   const handleChartMouseMove = useCallback((state: unknown) => {
     if (!state || typeof state !== 'object') {
@@ -788,13 +804,8 @@ export function Publications({ activeTab, onActiveTabChange }: PublicationsProps
       title="Diseminasi Ilmiah Mahasiswa"
       description={TAB_DESCRIPTIONS[tab]}
       interpretation={interpretation}
-      chartMeta={meta ?? undefined}
+      chartMeta={tab === 'sinta' ? undefined : meta ?? undefined}
     >
-      {error ? (
-        <div className="flex min-h-[280px] flex-col items-center justify-center px-4 py-16 text-center text-muted-foreground">
-          <p className="font-medium text-destructive">{error}</p>
-        </div>
-      ) : (
         <Tabs
           value={tab}
           onValueChange={(value) => {
@@ -804,7 +815,10 @@ export function Publications({ activeTab, onActiveTabChange }: PublicationsProps
           }}
           className="w-full"
         >
-          <TabsList className="grid h-auto w-full grid-cols-1 gap-1 bg-muted/60 p-1 sm:grid-cols-3">
+          <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-muted/60 p-1 sm:grid-cols-4">
+            <TabsTrigger value="sinta" className="h-auto whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm">
+              {isMobile ? MOBILE_TAB_LABELS.sinta : TAB_LABELS.sinta}
+            </TabsTrigger>
             <TabsTrigger value="jurnal" className="h-auto whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:text-sm">
               {isMobile ? MOBILE_TAB_LABELS.jurnal : TAB_LABELS.jurnal}
             </TabsTrigger>
@@ -817,7 +831,13 @@ export function Publications({ activeTab, onActiveTabChange }: PublicationsProps
           </TabsList>
 
           <div className="mt-4 min-h-[280px] sm:min-h-[320px]">
-            {loading ? (
+            {tab === 'sinta' ? (
+              <SintaPublications year={yearParam} />
+            ) : error ? (
+              <div className="flex min-h-[280px] flex-col items-center justify-center px-4 py-16 text-center text-muted-foreground">
+                <p className="font-medium text-destructive">{error}</p>
+              </div>
+            ) : loading ? (
               <ChartSkeleton kind="bar" className="h-[240px] sm:h-[280px]" />
             ) : chartData.length === 0 ? (
               <div className="flex min-h-[240px] items-center justify-center sm:min-h-[280px]">
@@ -944,7 +964,6 @@ export function Publications({ activeTab, onActiveTabChange }: PublicationsProps
             )}
           </div>
         </Tabs>
-      )}
     </DashboardCard>
   );
 }

@@ -5,7 +5,7 @@ export type TabbedDashboardSectionId =
   | 'research-outputs';
 
 export type StudentAchievementsTab = 'all' | 'academic' | 'nonAcademic';
-export type PublicationsTab = 'jurnal' | 'seminar' | 'pagelaran';
+export type PublicationsTab = 'sinta' | 'jurnal' | 'seminar' | 'pagelaran';
 export type ResearchOutputsTab = 'haki' | 'technology' | 'other';
 export type WorkCoverageTab = 'working' | 'entrepreneur';
 
@@ -18,14 +18,14 @@ export type DashboardSectionTab =
 export const TABBED_SECTION_DEFAULT_TAB = {
   'student-achievements': 'all',
   'work-coverage': 'working',
-  publications: 'jurnal',
+  publications: 'sinta',
   'research-outputs': 'haki',
 } as const;
 
 export const TABBED_SECTION_ALLOWED_TABS = {
   'student-achievements': ['all', 'academic', 'nonAcademic'],
   'work-coverage': ['working', 'entrepreneur'],
-  publications: ['jurnal', 'seminar', 'pagelaran'],
+  publications: ['sinta', 'jurnal', 'seminar', 'pagelaran'],
   'research-outputs': ['haki', 'technology', 'other'],
 } as const;
 
